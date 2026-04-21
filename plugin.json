@@ -1,0 +1,15 @@
+{
+  "name": "nextjs-migration-plugin",
+  "version": "0.0.1",
+  "description": "Multi-page Next.js migration via phased, stateful agents.",
+  "author": "Blazity",
+  "dependencies": [
+    "superpowers"
+  ],
+  "hooks": {
+    "SessionStart": "hooks/session-start.js"
+  },
+  "commands": "commands/",
+  "skills": "skills/",
+  "agents": "agents/"
+}
