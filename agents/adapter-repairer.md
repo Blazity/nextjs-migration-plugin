@@ -12,6 +12,23 @@ You are fixing a JSON adapter file that failed Zod validation. You will be given
 3. **`path`** — filesystem path where the corrected JSON should be written
 4. **Schema source** — the Zod schema definition file, for your reference
 
+## Input contract
+
+The dispatcher (see `lib/load-adapter-with-repair.ts`) passes the diagnostic as a JSON block in the prompt. Expect exactly this shape:
+
+```json
+{
+  "issues": [
+    { "code": "invalid_type", "path": ["version"], "message": "Required", "expected": "string" }
+  ],
+  "rawJson": { "name": "broken", "type": "framework" },
+  "path": "/abs/path/to/adapter.json",
+  "schemaSource": "path/to/schemas/adapter.ts"
+}
+```
+
+Operate on the fields above — do not ask the caller for clarification. If `rawJson` is `null`, the file was unparseable JSON (not a schema violation); see **What you MUST NOT do** below.
+
 ## Your task
 
 Rewrite the adapter JSON at `path` so it satisfies the schema.
