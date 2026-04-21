@@ -6,7 +6,7 @@ Point it at a URL, answer a few wizard questions, get a production-ready Next.js
 
 ## Status
 
-**Pre-release.** Foundation only — commands `migrate:new`, `migrate:status`, `migrate:config` work. Phases are not yet implemented (see `docs/superpowers/plans/` in the companion repo).
+**Pre-release.** Foundation only — commands `migrate:new`, `migrate:status`, `migrate:config` work. Phases are not yet implemented (see `docs/superpowers/plans/` for the implementation roadmap).
 
 ## Prerequisites
 
@@ -55,7 +55,7 @@ pnpm typecheck
 
 ## Architecture
 
-See the design spec in the companion repo: `nextjs-migration-agent/docs/superpowers/specs/2026-04-21-migration-plugin-design.md`.
+See the design spec at `docs/superpowers/specs/2026-04-21-migration-plugin-design.md`.
 
 ## License
 
