@@ -4,10 +4,14 @@ import matter from "gray-matter";
 import { SiteFrontmatterSchema } from "../schemas/site.ts";
 import { stringifyFrontmatter } from "./frontmatter.ts";
 
-const NUMERIC_KEYS = new Set(["maxParallelPages", "maxParallelSections"]);
-const ALLOWED_KEYS = new Set([
-  "mode", "goal", "inputMode", "sourceRepo", "maxParallelPages", "maxParallelSections",
-]);
+// Keys users cannot change via /migrate:config — they'd mutate the migration's
+// identity or output path. Everything else in SiteFrontmatterSchema is mutable.
+const LOCKED_KEYS = new Set(["sourceUrl", "target"]);
+
+export const NUMERIC_KEYS = new Set(["maxParallelPages", "maxParallelSections"]);
+export const ALLOWED_KEYS = new Set(
+  Object.keys(SiteFrontmatterSchema.shape).filter(k => !LOCKED_KEYS.has(k)),
+);
 
 export async function setConfig(targetDir: string, key: string, value: string): Promise<void> {
   if (!ALLOWED_KEYS.has(key)) {
