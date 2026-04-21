@@ -3,6 +3,8 @@
   "version": "0.0.1",
   "description": "Multi-page Next.js migration via phased, stateful agents.",
   "author": "Blazity",
+  "license": "MIT",
+  "keywords": ["nextjs", "migration", "claude-code", "pixel-perfect"],
   "dependencies": [
     "superpowers"
   ],
