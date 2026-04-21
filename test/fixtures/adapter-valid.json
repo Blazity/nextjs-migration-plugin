@@ -1,0 +1,22 @@
+{
+  "name": "webflow",
+  "type": "framework",
+  "version": "1.0.0",
+  "detection": {
+    "metaGenerator": ["Webflow"],
+    "jsMarkers": ["Webflow.ready"],
+    "classNamePrefixes": ["w-"]
+  },
+  "sectionDiscovery": {
+    "selector": "section, div[class*='section']",
+    "unwrap": false,
+    "minSectionCount": 3,
+    "maxSectionCount": 30,
+    "spaContainerHints": []
+  },
+  "animations": {
+    "engine": "ix2",
+    "jsGlobal": "Webflow.ix2",
+    "defaultDurationMs": 400
+  }
+}
