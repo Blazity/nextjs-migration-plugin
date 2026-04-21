@@ -1,0 +1,143 @@
+{
+  "platform": "static-html",
+  "type": "framework",
+  "version": "1.0",
+  "detection": {
+    "jsMarkers": [],
+    "domMarkers": [
+      "meta[name='generator'][content^='Hugo']",
+      "meta[name='generator'][content^='Jekyll']",
+      "meta[name='generator'][content^='Eleventy']",
+      "meta[name='generator'][content^='Hexo']",
+      "meta[name='generator'][content^='Pelican']"
+    ],
+    "urlPatterns": []
+  },
+  "sectionDiscovery": {
+    "primarySelector": "body > *",
+    "spaContainerHints": [
+      "main > *",
+      "#content > *",
+      "#wrapper > *",
+      ".wrapper > *",
+      "#container > *",
+      ".container > *"
+    ],
+    "skipSelectors": [
+      "script",
+      "noscript",
+      "style",
+      "link",
+      "dialog"
+    ],
+    "sectionLabelPatterns": [
+      "section_*",
+      "section-*",
+      "*navbar*",
+      "*nav*",
+      "*footer*",
+      "*hero*",
+      "*header*",
+      "*banner*",
+      "*content*",
+      "*main*"
+    ],
+    "minExpectedSections": 3,
+    "disableUnwrap": false
+  },
+  "styles": {
+    "wrapperMappings": [
+      {
+        "classPattern": "container",
+        "tailwindClasses": "max-w-[1320px] mx-auto px-4"
+      },
+      {
+        "classPattern": "container-fluid",
+        "tailwindClasses": "w-full px-4"
+      }
+    ],
+    "scopedStylePrefix": null,
+    "globalSelectors": {
+      "containerMax": ".container",
+      "paddingGlobal": null
+    }
+  },
+  "images": {
+    "cdnPatterns": [],
+    "assetIdPattern": null,
+    "lazyLoadStrategy": "none",
+    "responsiveFormat": null
+  },
+  "animations": {
+    "engine": "none",
+    "dataSource": null,
+    "transitionProperty": null
+  },
+  "quirks": [
+    {
+      "id": "bootstrap-grid-wrapper-soup",
+      "description": "Bootstrap sites use .container > .row > .col-* nesting. The .container adds max-width + centering. The .row uses flexbox with negative margins.",
+      "workaround": "Map .container to Tailwind max-w-[1320px] mx-auto px-4. Extract computed styles for grid columns."
+    },
+    {
+      "id": "foundation-grid-system",
+      "description": "Foundation 6+ uses .grid-container > .grid-x > .cell. Older Foundation uses .row > .columns. Class names differ from Bootstrap.",
+      "workaround": "Extract computed styles for all grid elements. Do not attempt class-name-to-Tailwind mapping for Foundation."
+    },
+    {
+      "id": "flat-body-structure",
+      "description": "Hand-coded HTML may have 15+ direct body children (h1, p, ul) with no section wrappers. Section discovery sees each as a separate section.",
+      "workaround": "Existing mega-section unwrap and min-height filters handle most cases. For very flat structures, sections are just smaller."
+    },
+    {
+      "id": "relative-asset-paths",
+      "description": "Static sites use relative paths (./images/logo.png, css/style.css). No CDN domain patterns to match.",
+      "workaround": "Resolve all image and asset URLs against the page base URL."
+    },
+    {
+      "id": "inline-styles-prevalence",
+      "description": "Hand-coded sites frequently use inline style attributes and <style> blocks instead of external stylesheets.",
+      "workaround": "Computed style extraction handles this correctly. No special processing needed."
+    },
+    {
+      "id": "generator-tag-optional",
+      "description": "Hugo auto-injects meta generator by default (can be disabled). Jekyll requires jekyll-seo-tag plugin. Many static sites have no generator tag at all.",
+      "workaround": "domMarkers detect known generators when present. The adapter activates as fallback when nothing else matches."
+    }
+  ],
+  "validation": {
+    "sites": [
+      "https://letsencrypt.org/",
+      "https://kubernetes.io/",
+      "https://notepad-plus-plus.org/",
+      "https://kde.org/",
+      "https://www.selenium.dev/",
+      "https://jekyllrb.com/",
+      "https://sylhare.github.io/",
+      "https://www.11ty.dev/",
+      "https://www.aleksandrhovhannisyan.com/",
+      "https://hexo.io/"
+    ],
+    "lastValidated": "2026-03-31",
+    "results": {
+      "passed": 10,
+      "failed": 0,
+      "sections": [
+        5,
+        3,
+        5,
+        3,
+        15,
+        6,
+        3,
+        5,
+        4,
+        3
+      ]
+    }
+  },
+  "localSite": {
+    "sectionSelector": "body > header, body > nav, main > *, body > footer",
+    "devToolsHideScript": "document.querySelectorAll('nextjs-portal, [data-nextjs-toast], button[data-nextjs-dev-tools-button]').forEach(el => el.style.display = 'none')"
+  }
+}

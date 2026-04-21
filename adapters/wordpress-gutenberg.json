@@ -1,0 +1,172 @@
+{
+  "platform": "wordpress-gutenberg",
+  "type": "framework",
+  "version": "1.0",
+  "detection": {
+    "jsMarkers": [
+      "!!document.querySelector('.wp-site-blocks')",
+      "!!document.querySelector('style#global-styles-inline-css')"
+    ],
+    "domMarkers": [
+      ".wp-site-blocks",
+      ".wp-block-template-part",
+      "style#global-styles-inline-css"
+    ],
+    "urlPatterns": [
+      "/wp-content/"
+    ]
+  },
+  "sectionDiscovery": {
+    "primarySelector": ".wp-site-blocks > *",
+    "spaContainerHints": [
+      ".wp-site-blocks > *",
+      ".wp-block-post-content > *"
+    ],
+    "skipSelectors": [
+      "script",
+      "noscript",
+      "style",
+      "link",
+      "svg",
+      ".screen-reader-text",
+      ".skip-link",
+      ".wp-block-spacer",
+      ".wp-block-separator"
+    ],
+    "sectionLabelPatterns": [
+      "wp-block-template-part",
+      "wp-block-navigation",
+      "wp-block-cover",
+      "wp-block-group",
+      "wp-block-columns",
+      "wp-block-media-text",
+      "wp-block-query",
+      "wp-block-post-content",
+      "*hero*",
+      "*banner*",
+      "*footer*"
+    ],
+    "minExpectedSections": 3,
+    "disableUnwrap": false
+  },
+  "styles": {
+    "wrapperMappings": [
+      {
+        "classPattern": "has-global-padding",
+        "tailwindClasses": "px-[var(--wp--style--root--padding-right)]"
+      },
+      {
+        "classPattern": "is-layout-constrained",
+        "tailwindClasses": "max-w-[var(--wp--style--global--content-size)] mx-auto"
+      },
+      {
+        "classPattern": "is-layout-flex",
+        "tailwindClasses": "flex flex-wrap"
+      },
+      {
+        "classPattern": "is-layout-grid",
+        "tailwindClasses": "grid"
+      },
+      {
+        "classPattern": "alignfull",
+        "tailwindClasses": "w-full"
+      },
+      {
+        "classPattern": "alignwide",
+        "tailwindClasses": "w-full max-w-screen-xl mx-auto"
+      }
+    ],
+    "scopedStylePrefix": null
+  },
+  "images": {
+    "cdnPatterns": [
+      "/wp-content/uploads/\\d{4}/\\d{2}/",
+      "i[0-2]\\.wp\\.com"
+    ],
+    "assetIdPattern": "wp-image-(\\d+)",
+    "lazyLoadStrategy": "native",
+    "responsiveFormat": null
+  },
+  "animations": {
+    "engine": "css-transitions",
+    "dataSource": null,
+    "transitionProperty": null
+  },
+  "quirks": [
+    {
+      "id": "single-wrapper-spa-false-positive",
+      "description": "wp-site-blocks is the only direct body child, triggering SPA heuristic. FSE sites are fully server-rendered.",
+      "workaround": "Use .wp-site-blocks > * as primarySelector. The site is not an SPA."
+    },
+    {
+      "id": "per-block-css-loading",
+      "description": "CSS stylesheets are loaded per-block per-page. Different pages have different stylesheets in <head>.",
+      "workaround": "Extract styles per-page. Do not assume block CSS from one page exists on another."
+    },
+    {
+      "id": "duotone-svg-filters",
+      "description": "Inline SVG filters injected after <body> for duotone image effects appear as spurious DOM elements.",
+      "workaround": "Skip svg elements in section discovery."
+    },
+    {
+      "id": "dynamic-container-ids",
+      "description": "wp-container-{random-id} classes change every page load. Cannot be used for CSS targeting.",
+      "workaround": "Ignore wp-container-* classes. Use semantic is-layout-* and wp-block-* classes."
+    },
+    {
+      "id": "inner-container-wrappers",
+      "description": "Group/Cover blocks wrap children in *__inner-container divs, adding extra nesting.",
+      "workaround": "Collapse __inner-container wrappers into parent during style extraction."
+    },
+    {
+      "id": "navigation-interactivity-api",
+      "description": "Navigation block uses data-wp-interactive directives, not React. Hamburger menu is a modal overlay.",
+      "workaround": "Extract static nav HTML. Rebuild responsive menu behavior in Next.js."
+    },
+    {
+      "id": "root-padding-doubling",
+      "description": "Nested has-global-padding elements can double horizontal padding.",
+      "workaround": "Check parent chain for has-global-padding before applying padding values."
+    },
+    {
+      "id": "image-filename-responsive-variants",
+      "description": "Responsive images use filename suffixes (-1024x768.jpg) not URL params.",
+      "workaround": "Strip -\\d+x\\d+ suffix to find original. Parse srcset for largest version."
+    }
+  ],
+  "localSite": {
+    "sectionSelector": "body > header, body > nav, main > *, body > footer",
+    "devToolsHideScript": "document.querySelectorAll('nextjs-portal, [data-nextjs-toast], button[data-nextjs-dev-tools-button]').forEach(el => el.style.display = 'none')"
+  },
+  "validation": {
+    "sites": [
+      "https://gutenbergtimes.com",
+      "https://ubuntubudgie.org",
+      "https://fullsiteediting.com",
+      "https://woolentor.com",
+      "https://questetra.com",
+      "https://www.worldofwp.com",
+      "https://ourlocality.org",
+      "https://wpmayor.com",
+      "https://www.fractracker.org",
+      "https://www.ffa.org"
+    ],
+    "lastValidated": "2026-03-31",
+    "results": {
+      "passed": 9,
+      "failed": 1,
+      "sections": [
+        7,
+        3,
+        5,
+        14,
+        9,
+        3,
+        2,
+        9,
+        11,
+        3
+      ]
+    }
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "platform": "directus",
+  "type": "cms",
+  "version": "1.0",
+  "detection": {
+    "jsMarkers": [],
+    "domMarkers": [],
+    "urlPatterns": [
+      "\\.directus\\.app/assets/",
+      "/assets/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"
+    ]
+  },
+  "images": {
+    "cdnPatterns": [
+      "[\\w-]+\\.directus\\.app/assets/[a-f0-9-]+",
+      "/assets/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"
+    ],
+    "assetIdPattern": "/assets/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})",
+    "lazyLoadStrategy": "native",
+    "responsiveFormat": "?width={w}&height={h}&fit=cover&format=webp&quality=80"
+  },
+  "quirks": [
+    {
+      "id": "uuid-asset-filenames",
+      "description": "Directus stores files by UUID on disk. Multiple files can share the same original name but have different UUIDs.",
+      "workaround": "Use the UUID from the URL as filename base, not alt text or original filename."
+    },
+    {
+      "id": "asset-url-format",
+      "description": "Directus asset URLs: /assets/<uuid> or /assets/<uuid>/<seo-filename.ext>. Transform params: width, height, fit (cover/contain/inside/outside), format (auto/jpg/png/webp/avif), quality (1-100). Preset mode: ?key=<preset-name>.",
+      "workaround": "Strip query params for download. Use responsiveFormat for optimized sizes. If ?key= fails, site may be in presets-only mode."
+    },
+    {
+      "id": "seo-filename-suffix",
+      "description": "Optional SEO filename after UUID: /assets/<uuid>/<filename.ext>. The UUID is NOT always the last path segment.",
+      "workaround": "Extract UUID from the path segment after /assets/, ignoring any following filename segment."
+    },
+    {
+      "id": "headless-detection-limitation",
+      "description": "Directus is headless. X-Powered-By: Directus only appears on the API server, never the frontend. Detection relies on UUID-patterned /assets/ paths in rendered HTML. If frontend proxies assets, Directus is invisible.",
+      "workaround": "Fundamental limitation. If no /assets/<uuid> patterns found, Directus cannot be auto-detected."
+    },
+    {
+      "id": "transform-restriction-modes",
+      "description": "ASSETS_TRANSFORM config has 3 modes: 'all' (default, any params), 'presets' (only ?key= works), 'none' (no transforms). responsiveFormat may fail on presets-only sites.",
+      "workaround": "If width/height params return errors, try ?key= with common preset names. Document preset names in research file."
+    }
+  ],
+  "validation": {
+    "sites": [
+      "https://www.skriptfabrik.com/en/",
+      "https://www.twinpromotion.fr/",
+      "https://www.ripleys.com/",
+      "https://directus.io/",
+      "https://www.polinations.com/",
+      "https://athletica.fr/en-US/decouvrir-cdfas",
+      "https://abaxx.exchange/",
+      "https://www.saleshandy.com/agencies/",
+      "https://welance.com/about-us",
+      "https://rockstar.heinrichsundheinrichs.de/"
+    ],
+    "lastValidated": "2026-03-31",
+    "results": {
+      "passed": 10,
+      "failed": 0
+    }
+  }
+}

@@ -1,0 +1,145 @@
+{
+  "platform": "wix",
+  "type": "framework",
+  "version": "1.0",
+  "detection": {
+    "jsMarkers": [
+      "!!window.fedops",
+      "!!window.thunderboltTag",
+      "!!window.viewerModel"
+    ],
+    "domMarkers": [
+      "#SITE_CONTAINER",
+      "#masterPage.mesh-layout",
+      "meta[name='generator'][content*='Wix.com']",
+      "[data-mesh-id]"
+    ],
+    "urlPatterns": [
+      "static\\.wixstatic\\.com/media/",
+      "static\\.parastorage\\.com/"
+    ],
+    "httpHeaders": {
+      "server": "Pepyaka",
+      "x-wix-request-id": ".*"
+    }
+  },
+  "sectionDiscovery": {
+    "primarySelector": "#SITE_HEADER, #PAGES_CONTAINER .wixui-section, #SITE_FOOTER",
+    "spaContainerHints": [
+      "#masterPage > *",
+      "#site-root > *"
+    ],
+    "skipSelectors": [
+      "script",
+      "noscript",
+      "style",
+      "link",
+      "#SCROLL_TO_TOP",
+      "#SCROLL_TO_BOTTOM",
+      "#SKIP_TO_CONTENT_BTN",
+      "#BACKGROUND_GROUP",
+      "#soapAfterPagesContainer",
+      "#soapBeforePagesContainer",
+      "#pinnedBottomCenter",
+      "#pinnedBottomRight"
+    ],
+    "sectionLabelPatterns": [
+      "wixui-section",
+      "wixui-column-strip",
+      "wixui-header",
+      "wixui-footer",
+      "comp-*"
+    ],
+    "minExpectedSections": 3,
+    "disableUnwrap": true
+  },
+  "styles": {
+    "wrapperMappings": [],
+    "scopedStylePrefix": null
+  },
+  "images": {
+    "cdnPatterns": [
+      "static\\.wixstatic\\.com/media/[a-f0-9]+_[a-f0-9]+"
+    ],
+    "lazyLoadStrategy": "native",
+    "responsiveFormat": "/v1/fill/w_{w},h_{h},al_c,q_{q},enc_avif,quality_auto/"
+  },
+  "animations": {
+    "engine": "css-transitions",
+    "dataSource": null,
+    "transitionProperty": null,
+    "notes": "Wix uses Thunderbolt's internal animation system. Entrance, scroll, hover, and loop animations available. Uses react-transition-group internally."
+  },
+  "quirks": [
+    {
+      "id": "networkidle-never-resolves",
+      "description": "Wix sites maintain persistent connections (analytics, fedops, warmup data) preventing Playwright networkidle from resolving. 2 of 3 tested sites timed out.",
+      "workaround": "Use waitUntil: 'domcontentloaded' plus waitForTimeout(5000) for Wix sites."
+    },
+    {
+      "id": "deep-section-nesting",
+      "description": "Sections are buried 12 DOM levels deep: body > #SITE_CONTAINER > #main_MF > #site-root > #masterPage > #PAGES_CONTAINER > #SITE_PAGES > transition group > page > container > mesh > section.wixui-section.",
+      "workaround": "Use '#PAGES_CONTAINER .wixui-section' selector. Set MAX_DEPTH=20."
+    },
+    {
+      "id": "mesh-layout-pointer-events",
+      "description": "All [data-mesh-id$=inlineContent] containers have pointer-events: none with children having pointer-events: auto. This is Wix's mesh layout system.",
+      "workaround": "Ignore pointer-events in style extraction; it's a layout mechanism, not visual styling."
+    },
+    {
+      "id": "obfuscated-class-names",
+      "description": "Wix generates short hash-based class names (MazNVa, xU8fqS) that change across deployments. Only wixui-* classes and comp-* IDs are stable.",
+      "workaround": "Use wixui-* classes and comp-* IDs for identification. Ignore hash-based classes for labeling."
+    },
+    {
+      "id": "background-layers-separate-tree",
+      "description": "Background images are in a parallel #BACKGROUND_GROUP tree and per-section [id^='bgLayers_'] elements, not on sections themselves.",
+      "workaround": "Extract backgrounds from [id^='bgLayers_comp-'] elements, matching to sections by comp ID suffix."
+    },
+    {
+      "id": "custom-web-components",
+      "description": "Wix uses custom elements: <wix-dropdown-menu> for navigation, <wow-image> for images. These wrap standard HTML inside.",
+      "workaround": "Extract inner <img> from <wow-image>, extract <li> items from <wix-dropdown-menu>."
+    },
+    {
+      "id": "css-variable-theme-colors",
+      "description": "Wix defines theme as CSS custom properties (--color_0, --font_0) with RGB triplet values (255,255,255) not standard CSS colors.",
+      "workaround": "Extract CSS variables and convert RGB triplets to proper CSS color values."
+    }
+  ],
+  "validation": {
+    "sites": [
+      "https://www.blacksheepbikes.com/",
+      "https://www.theterraliving.com/",
+      "https://www.cottons-restaurant.co.uk/",
+      "https://www.zionadventurephotog.com/",
+      "https://www.puffinpackaging.co.uk/",
+      "https://www.copperandbrass.net/",
+      "https://www.ellesbailey.com/",
+      "https://www.haircomesthebride.com/",
+      "https://www.bellaandbloom.com/",
+      "https://www.clarityincrazy.com/"
+    ],
+    "lastValidated": "2026-03-31",
+    "results": {
+      "passed": 9,
+      "failed": 1,
+      "sections": [
+        7,
+        10,
+        13,
+        13,
+        12,
+        3,
+        5,
+        7,
+        2,
+        3
+      ]
+    }
+  },
+  "localSite": {
+    "sectionSelector": "body > header, body > nav, main > *, body > footer",
+    "devToolsHideScript": "document.querySelectorAll('nextjs-portal, [data-nextjs-toast], button[data-nextjs-dev-tools-button]').forEach(el => el.style.display = 'none')"
+  }
+}

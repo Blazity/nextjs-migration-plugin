@@ -1,0 +1,120 @@
+{
+  "platform": "react",
+  "type": "framework",
+  "version": "1.0",
+  "detection": {
+    "jsMarkers": [
+      "(function(){ for(var i=0;i<Math.min(document.body.children.length,20);i++){var k=Object.keys(document.body.children[i]);for(var j=0;j<k.length;j++){if(k[j].startsWith('__reactFiber$')||k[j].startsWith('__reactContainer$'))return true;}} var r=document.getElementById('root')||document.getElementById('app'); if(r){var rk=Object.keys(r);for(var j=0;j<rk.length;j++){if(rk[j].startsWith('__reactContainer$'))return true;}} return false; })() && !window.__NEXT_DATA__ && !window.___gatsby && !window.__remixContext && !window.__reactRouterContext && !document.documentElement.outerHTML.includes('/_next/')",
+      "!!document.querySelector('[data-reactroot]') && !window.__NEXT_DATA__ && !window.___gatsby && !window.__remixContext && !window.__reactRouterContext"
+    ],
+    "domMarkers": [
+      "[data-reactroot]"
+    ],
+    "urlPatterns": []
+  },
+  "sectionDiscovery": {
+    "primarySelector": "#root > *",
+    "spaContainerHints": [
+      "#root > div > *",
+      "#root > *",
+      "#app > *",
+      "#app > div > *",
+      "body > div:not([class]) > *"
+    ],
+    "skipSelectors": [
+      "script",
+      "noscript",
+      "style",
+      "link"
+    ],
+    "sectionLabelPatterns": [
+      "section_*",
+      "section-*",
+      "*navbar*",
+      "*footer*",
+      "*hero*"
+    ]
+  },
+  "styles": {
+    "wrapperMappings": [],
+    "scopedStylePrefix": null
+  },
+  "images": {
+    "cdnPatterns": [],
+    "lazyLoadStrategy": "none",
+    "responsiveFormat": null
+  },
+  "animations": {
+    "engine": "css-transitions",
+    "dataSource": null,
+    "transitionProperty": null,
+    "notes": "React has no built-in animation engine. framer-motion, react-spring, and GSAP are common. Detect per-site."
+  },
+  "quirks": [
+    {
+      "id": "full-spa",
+      "description": "Plain React apps are full SPAs with no server-side rendering. Content is only available after JavaScript executes.",
+      "workaround": "Wait for network idle + DOM stable before extracting. Content renders client-side only."
+    },
+    {
+      "id": "loading-state-on-navigation",
+      "description": "Direct URL navigation may show a loading spinner or skeleton instead of actual content.",
+      "workaround": "Wait for content render after navigation. Check for known loading indicators disappearing before extraction."
+    },
+    {
+      "id": "arbitrary-root-id",
+      "description": "React apps use arbitrary container IDs (#root, #app, #todoist_app, etc.), not just #root. Detection must not depend on a specific container ID.",
+      "workaround": "Use fiber-based detection (__reactFiber$*, __reactContainer$*) which works regardless of container ID."
+    },
+    {
+      "id": "exclude-meta-frameworks",
+      "description": "Detection must exclude Next.js (both routers), Gatsby, Remix, and React Router v7 framework mode which are all React-based but have their own adapters.",
+      "workaround": "Check !window.__NEXT_DATA__, !window.___gatsby, !window.__remixContext, !window.__reactRouterContext, and no /_next/ in HTML."
+    },
+    {
+      "id": "react18-createroot",
+      "description": "React 18+ createRoot() does NOT set _reactRootContainer on the container element. It uses __reactContainer$* instead.",
+      "workaround": "Use __reactContainer$* prefix matching for modern React, _reactRootContainer for legacy."
+    },
+    {
+      "id": "fiber-key-randomness",
+      "description": "The $randomSuffix on __reactFiber$* and __reactContainer$* changes on every page load. Detection must use prefix matching (startsWith).",
+      "workaround": "Never match exact property names. Always use Object.keys().some(k => k.startsWith('__reactFiber$'))."
+    }
+  ],
+  "validation": {
+    "sites": [
+      "https://excalidraw.com",
+      "https://www.dropbox.com",
+      "https://www.paypal.com",
+      "https://www.twitch.tv",
+      "https://www.duolingo.com",
+      "https://www.netflix.com",
+      "https://www.codecademy.com",
+      "https://discord.com/app",
+      "https://www.canva.com",
+      "https://open.spotify.com"
+    ],
+    "lastValidated": "2026-03-31",
+    "results": {
+      "passed": 8,
+      "failed": 2,
+      "sections": [
+        7,
+        15,
+        9,
+        9,
+        3,
+        3,
+        null,
+        5,
+        null,
+        9
+      ]
+    }
+  },
+  "localSite": {
+    "sectionSelector": "body > header, body > nav, main > *, body > footer",
+    "devToolsHideScript": "document.querySelectorAll('nextjs-portal, [data-nextjs-toast], button[data-nextjs-dev-tools-button]').forEach(el => el.style.display = 'none')"
+  }
+}

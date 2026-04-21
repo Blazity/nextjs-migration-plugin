@@ -1,0 +1,152 @@
+{
+  "platform": "wordpress",
+  "type": "framework",
+  "version": "1.0",
+  "detection": {
+    "jsMarkers": [
+      "!!window.wp",
+      "!!window._wpemojiSettings"
+    ],
+    "domMarkers": [
+      "meta[name=\"generator\"][content^=\"WordPress\"]",
+      "link[rel=\"https://api.w.org/\"]",
+      "body.wp-embed-responsive",
+      "a#wp-skip-link",
+      "div#page.site"
+    ],
+    "urlPatterns": [
+      "/wp-content/",
+      "wp-content/themes/"
+    ]
+  },
+  "sectionDiscovery": {
+    "primarySelector": ".wp-site-blocks > *, div#page > *",
+    "spaContainerHints": [
+      ".wp-site-blocks > *",
+      "div#page > *",
+      "div.site > *",
+      "#content > #primary > main > *"
+    ],
+    "skipSelectors": [
+      "script",
+      "noscript",
+      "style",
+      "link",
+      ".widget-area",
+      ".sidebar",
+      "a.skip-link",
+      "img#wpstats",
+      ".jetpack-instant-search",
+      "hr.wp-block-separator"
+    ],
+    "sectionLabelPatterns": [
+      "section_*",
+      "section-*",
+      "*navbar*",
+      "*footer*",
+      "*hero*",
+      "*banner*",
+      "wp-block-template-part--*"
+    ]
+  },
+  "styles": {
+    "wrapperMappings": [
+      {
+        "classPattern": "alignfull",
+        "tailwindClasses": "w-full"
+      },
+      {
+        "classPattern": "alignwide",
+        "tailwindClasses": "max-w-screen-xl mx-auto w-full"
+      },
+      {
+        "classPattern": "has-global-padding",
+        "tailwindClasses": "px-[var(--wp--style--root--padding-right)]"
+      }
+    ],
+    "scopedStylePrefix": null,
+    "globalSelectors": {
+      "containerMax": ".wp-site-blocks",
+      "paddingGlobal": ".has-global-padding"
+    }
+  },
+  "images": {
+    "cdnPatterns": [
+      "/wp-content/uploads/\\d{4}/\\d{2}/"
+    ],
+    "lazyLoadStrategy": "native",
+    "responsiveFormat": null
+  },
+  "animations": {
+    "engine": "css-transitions",
+    "dataSource": null,
+    "transitionProperty": null
+  },
+  "quirks": [
+    {
+      "id": "false-spa-detection",
+      "description": "WordPress wraps all content in div.wp-site-blocks (block themes) or div#page (classic themes), causing probe to see only 1-3 body children and falsely flag as SPA.",
+      "workaround": "The adapter's spaContainerHints automatically unwrap the single container. The isSPA flag can be ignored for WordPress sites."
+    },
+    {
+      "id": "security-hardened-sites",
+      "description": "Security-conscious WP sites strip meta[name=generator], link[rel=api.w.org], _wpemojiSettings, X-Pingback header. Only window.wp + /wp-content/ survive.",
+      "workaround": "Never rely on a single detection signal. The combination of window.wp + /wp-content/ URL pattern is the minimum reliable detection set."
+    },
+    {
+      "id": "block-vs-classic-theme-structure",
+      "description": "Block themes (WP 5.9+) use div.wp-site-blocks > header + main#wp--skip-link--target + footer. Classic themes use div#page.site > header#masthead + div#content > main.site-main + footer#colophon.",
+      "workaround": "Use '.wp-site-blocks > *, div#page > *' as primarySelector to cover both theme architectures."
+    },
+    {
+      "id": "lazy-load-variations",
+      "description": "WordPress lazy-load plugins use varying attributes: data-src, data-lazy-src, data-original, native loading=\"lazy\".",
+      "workaround": "Check data-src, data-lazy-src, and src attributes. Scroll to trigger intersection-observer-based lazy loaders."
+    },
+    {
+      "id": "jetpack-cdn",
+      "description": "Jetpack rewrites image URLs to i0.wp.com, i1.wp.com, i2.wp.com CDN with resize params.",
+      "workaround": "Match i[0-2]\\.wp\\.com in image URLs. Strip ?w=&h= params to get original image."
+    },
+    {
+      "id": "rest-api",
+      "description": "WordPress REST API is available at /wp-json/wp/v2/ and may expose page/post data.",
+      "workaround": "Can fetch structured content from /wp-json/wp/v2/pages and /wp-json/wp/v2/posts if needed."
+    }
+  ],
+  "localSite": {
+    "sectionSelector": ".wp-site-blocks > header, .wp-site-blocks > main > *, .wp-site-blocks > footer, div#page > header, div#page > div#content > main > *, div#page > footer",
+    "devToolsHideScript": "document.querySelectorAll('nextjs-portal, [data-nextjs-toast], button[data-nextjs-dev-tools-button]').forEach(el => el.style.display = 'none')"
+  },
+  "validation": {
+    "sites": [
+      "https://techcrunch.com",
+      "https://thewaltdisneycompany.com",
+      "https://variety.com",
+      "https://news.harvard.edu/gazette/",
+      "https://www.angrybirds.com",
+      "https://blogs.microsoft.com",
+      "https://www.rollingstone.com",
+      "https://blog.ted.com",
+      "https://fortune.com",
+      "https://www.nasa.gov"
+    ],
+    "lastValidated": "2026-03-31",
+    "results": {
+      "passed": 10,
+      "failed": 0,
+      "sections": [
+        4,
+        7,
+        23,
+        4,
+        3,
+        5,
+        10,
+        3,
+        5,
+        9
+      ]
+    }
+  }
+}

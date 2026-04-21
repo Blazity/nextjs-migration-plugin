@@ -1,0 +1,151 @@
+{
+  "platform": "shopify",
+  "type": "framework",
+  "version": "1.0",
+  "detection": {
+    "jsMarkers": [
+      "!!window.Shopify?.theme",
+      "!!window.ShopifyAnalytics"
+    ],
+    "domMarkers": [
+      ".shopify-section",
+      "meta[name='shopify-digital-wallet']",
+      "meta[name='shopify-checkout-api-token']"
+    ],
+    "urlPatterns": [
+      "cdn\\.shopify\\.com/s/files/",
+      "\\.myshopify\\.com",
+      "/cdn/shop/files/",
+      "/cdn/shopifycloud/"
+    ],
+    "httpHeaders": {
+      "powered-by": "Shopify"
+    }
+  },
+  "sectionDiscovery": {
+    "primarySelector": ".shopify-section",
+    "spaContainerHints": [],
+    "skipSelectors": [
+      "script",
+      "noscript",
+      "style",
+      "link",
+      "#web-pixels-manager-sandbox-container",
+      ".shopify-section[id*='cart_drawer']",
+      ".shopify-section[id*='post_atc_modal']",
+      ".shopify-section[id*='geofencing']",
+      ".predictive-search--overlay",
+      ".shopify-app-block",
+      "shop-cart-sync"
+    ],
+    "sectionLabelPatterns": [
+      "*hero*",
+      "*banner*",
+      "*footer*",
+      "*header*",
+      "*collection*",
+      "*product*",
+      "*featured*",
+      "shopify-section-group-header-group",
+      "shopify-section-group-footer-group"
+    ],
+    "minExpectedSections": 5,
+    "disableUnwrap": false
+  },
+  "styles": {
+    "wrapperMappings": [],
+    "scopedStylePrefix": null
+  },
+  "images": {
+    "cdnPatterns": [
+      "cdn\\.shopify\\.com/s/files/[0-9]+/[0-9]+/",
+      "/cdn/shop/files/",
+      "/cdn/shop/t/[0-9]+/assets/"
+    ],
+    "lazyLoadStrategy": "native",
+    "responsiveFormat": "?v={v}&width={w}"
+  },
+  "animations": {
+    "engine": "css-transitions",
+    "dataSource": null,
+    "transitionProperty": null,
+    "notes": "Shopify themes commonly use scroll-reveal with opacity-0 class or stepped--hide (Dawn). Some themes load GSAP ScrollTrigger as a theme asset."
+  },
+  "quirks": [
+    {
+      "id": "networkidle-never-completes",
+      "description": "Shopify stores rarely reach Playwright's networkidle state due to persistent tracking scripts (trekkie, ShopifyAnalytics, web-pixels-manager, third-party apps).",
+      "workaround": "Use domcontentloaded + explicit waitForTimeout(5000) instead of networkidle."
+    },
+    {
+      "id": "section-tag-polymorphism",
+      "description": ".shopify-section wrappers can be <div>, <section>, <header>, <footer>, or <aside> depending on the section's tag schema attribute.",
+      "workaround": "Always select by .shopify-section class, never by tag name."
+    },
+    {
+      "id": "invisible-shopify-sections",
+      "description": "Cart drawers, modals, and geofencing overlays get .shopify-section class but are invisible. They appear as legitimate sections in DOM.",
+      "workaround": "Filter out sections matching [id*='cart_drawer'], [id*='modal'], [id*='geofencing']. Check computed visibility/height."
+    },
+    {
+      "id": "squarespace-false-positive",
+      "description": "Shopify's [data-section-id] attribute matches Squarespace detection, causing misidentification.",
+      "workaround": "Check window.Shopify first to disambiguate. Shopify adapter should have higher priority than Squarespace."
+    },
+    {
+      "id": "dawn-nested-content-container",
+      "description": "Dawn-based themes wrap template sections inside main#MainContent > .content-container rather than making them direct main children.",
+      "workaround": "Use .shopify-section as primary selector which bypasses nesting. Do not rely on main > * alone."
+    },
+    {
+      "id": "scroll-reveal-opacity-zero",
+      "description": "Many Shopify themes initialize sections with opacity: 0 and reveal on scroll via IntersectionObserver or ScrollTrigger.",
+      "workaround": "Before extracting, inject script to force all opacity-0 / stepped--hide elements to full opacity."
+    },
+    {
+      "id": "hydrogen-headless-no-sections",
+      "description": "Shopify Hydrogen/Oxygen stores have window.Shopify but zero .shopify-section elements. DOM is entirely custom React. CDN uses oxygen-v2/ path.",
+      "workaround": "Detect Hydrogen by presence of window.Shopify + absence of .shopify-section. May need separate adapter."
+    },
+    {
+      "id": "dual-cdn-formats",
+      "description": "Two CDN URL formats coexist: cdn.shopify.com/s/files/{store_id}/ (older) and {domain}/cdn/shop/files/ (newer proxy). Both serve the same images.",
+      "workaround": "Match both patterns in cdnPatterns. Both support ?width= parameter for responsive sizing."
+    }
+  ],
+  "validation": {
+    "sites": [
+      "https://www.allbirds.com",
+      "https://www.stevemadden.com",
+      "https://kyliecosmetics.com",
+      "https://fentybeauty.com",
+      "https://www.rebeccaminkoff.com",
+      "https://www.netflix.shop",
+      "https://www.brooklinen.com",
+      "https://www.deathwishcoffee.com",
+      "https://www.taylorstitch.com",
+      "https://www.tentree.com"
+    ],
+    "lastValidated": "2026-03-31",
+    "results": {
+      "passed": 10,
+      "failed": 0,
+      "sections": [
+        9,
+        6,
+        13,
+        9,
+        9,
+        16,
+        13,
+        13,
+        9,
+        9
+      ]
+    }
+  },
+  "localSite": {
+    "sectionSelector": "body > header, body > nav, main > *, body > footer",
+    "devToolsHideScript": "document.querySelectorAll('nextjs-portal, [data-nextjs-toast], button[data-nextjs-dev-tools-button]').forEach(el => el.style.display = 'none')"
+  }
+}

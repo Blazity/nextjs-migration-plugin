@@ -1,0 +1,79 @@
+{
+  "platform": "wordpress-cms",
+  "type": "cms",
+  "version": "1.0",
+  "detection": {
+    "jsMarkers": [],
+    "domMarkers": [
+      "img[src*=\"wp-content/uploads\"]",
+      "img[data-lazy-src*=\"wp-content/uploads\"]",
+      "picture source[srcset*=\"wp-content/uploads\"]"
+    ],
+    "urlPatterns": [
+      "/wp-content/uploads/",
+      "i[0-3]\\.wp\\.com"
+    ]
+  },
+  "images": {
+    "cdnPatterns": [
+      "/wp-content/uploads/\\d{4}/\\d{2}/",
+      "i[0-3]\\.wp\\.com",
+      "\\.go-vip\\.net/wp-content/uploads/"
+    ],
+    "assetIdPattern": null,
+    "lazyLoadStrategy": "native",
+    "responsiveFormat": null,
+    "notes": "WordPress uses filename suffixes for responsive: -300x200.jpg, -1024x683.jpg, -scaled.jpg. Photon CDN uses ?w=&h= query params. Photon transparently converts to WebP (extension unchanged, Content-Type differs)."
+  },
+  "quirks": [
+    {
+      "id": "filename-responsive-images",
+      "description": "WordPress generates responsive variants as filename suffixes: -WxH (e.g., image-1024x768.jpg) and -scaled (for uploads >2560px). Core sizes: 150x150, 300, 768, 1024, 1536, 2048.",
+      "workaround": "Strip suffix with regex /-(\\d+x\\d+|scaled)(?=\\.(jpe?g|png|gif|webp|avif)$)/i to find original."
+    },
+    {
+      "id": "jetpack-photon-rewrites",
+      "description": "Sites with Jetpack rewrite image URLs to i0-i3.wp.com CDN with ?w=, ?h=, ?quality=, ?zoom= params. Photon silently converts to WebP (URL extension stays .jpg but Content-Type is image/webp).",
+      "workaround": "Match i[0-3].wp.com pattern. Strip Photon domain and params to recover original path. Check Content-Type header for actual format."
+    },
+    {
+      "id": "lazy-load-plugins",
+      "description": "Various lazy-load plugins move src to data-src, data-lazy-src, data-lazy-srcset, data-lazy-sizes. Some use lazyload CSS class (lazysizes.js) or data-bg for background images.",
+      "workaround": "Check data-src, data-lazy-src, data-lazy-srcset, data-original, and data-bg attributes. Also check noscript siblings for original img tags."
+    },
+    {
+      "id": "big-image-scaled-suffix",
+      "description": "WordPress 5.3+ generates -scaled.{ext} when uploads exceed 2560px. The original is preserved but not served. The -scaled suffix must be handled alongside -WxH suffixes.",
+      "workaround": "Include -scaled in the suffix-stripping regex alongside -WxH pattern."
+    },
+    {
+      "id": "fetchpriority-lcp-image",
+      "description": "WordPress 6.3+ adds fetchpriority='high' to the LCP image and omits loading='lazy'. These attributes are mutually exclusive.",
+      "workaround": "Preserve fetchpriority='high' on the first content image in the migration. Do not add loading='lazy' to it."
+    },
+    {
+      "id": "modern-format-picture-element",
+      "description": "The Modern Image Formats plugin wraps <img> in <picture> with <source srcset='*.webp'> and <source srcset='*.avif'>.",
+      "workaround": "Handle <picture> elements and extract highest-quality source (typically the original JPEG/PNG from the <img> fallback)."
+    }
+  ],
+  "validation": {
+    "sites": [
+      "https://techcrunch.com",
+      "https://wpengine.com",
+      "https://css-tricks.com",
+      "https://www.healthline.com",
+      "https://news.microsoft.com",
+      "https://www.nasa.gov",
+      "https://www.harvard.edu",
+      "https://www.whitehouse.gov",
+      "https://variety.com",
+      "https://www.rollingstone.com"
+    ],
+    "lastValidated": "2026-03-31",
+    "results": {
+      "passed": 10,
+      "failed": 0
+    }
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "platform": "prismic",
+  "type": "cms",
+  "version": "1.0",
+  "detection": {
+    "jsMarkers": [
+      "!!window.prismic || !!window.Prismic"
+    ],
+    "domMarkers": [
+      "script[src*='.prismic.io/']"
+    ],
+    "urlPatterns": [
+      "images\\.prismic\\.io",
+      "\\.cdn\\.prismic\\.io",
+      "prismic-io\\.s3\\.amazonaws\\.com"
+    ]
+  },
+  "images": {
+    "cdnPatterns": [
+      "images\\.prismic\\.io/[a-zA-Z0-9-]+/",
+      "[a-zA-Z0-9-]+\\.cdn\\.prismic\\.io/",
+      "prismic-io\\.s3\\.amazonaws\\.com/[a-zA-Z0-9-]+/"
+    ],
+    "assetIdPattern": "([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|[a-zA-Z0-9_-]{10,24})",
+    "lazyLoadStrategy": "native",
+    "responsiveFormat": "?auto=compress,format&w={w}&h={h}&fit=max"
+  },
+  "quirks": [
+    {
+      "id": "imgix-backend",
+      "description": "Prismic's image CDN is powered by Imgix. Full Imgix rendering API available on images.prismic.io URLs (NOT on SVGs from cdn.prismic.io).",
+      "workaround": "Use Imgix params directly for advanced transforms (blur, saturation, contrast). Reference Imgix docs for complete param list."
+    },
+    {
+      "id": "auto-compress-format",
+      "description": "Default ?auto=compress,format serves AVIF/WebP based on browser support.",
+      "workaround": "Always include ?auto=compress,format for production. Omit for download to get original format."
+    },
+    {
+      "id": "rect-cropping",
+      "description": "Prismic uses ?rect=x,y,w,h for pixel-level crop coordinates set via the editor's crop tool.",
+      "workaround": "Preserve ?rect= params — they represent editorial crop decisions."
+    },
+    {
+      "id": "repo-name-in-url",
+      "description": "Repository name appears in URL: images.prismic.io/<repo>/<assetId>_<filename>.",
+      "workaround": "Extract repo name from first path segment after domain."
+    },
+    {
+      "id": "svg-separate-domain",
+      "description": "SVGs are NOT served from images.prismic.io. They come from <repo>.cdn.prismic.io due to security (SVGs can contain injected JS). Imgix params have no effect on SVGs.",
+      "workaround": "Check domain before applying imgix transforms. If cdn.prismic.io, skip imgix params and download raw."
+    },
+    {
+      "id": "legacy-s3-images",
+      "description": "Older assets (RichText-embedded images) may still be served from prismic-io.s3.amazonaws.com. These lack imgix optimization.",
+      "workaround": "Download as raw files without imgix params."
+    },
+    {
+      "id": "dual-asset-id-format",
+      "description": "Two coexisting asset ID formats: legacy UUID (dcea6535-...-bf281aaf1cb2_file.png) and new short-ID (aMFZEGGNHVfTO_De_file.png).",
+      "workaround": "Updated assetIdPattern matches both UUID and short base64 IDs."
+    }
+  ],
+  "validation": {
+    "sites": [
+      "https://unmind.com/",
+      "https://pallyy.com/",
+      "https://www.edinburghgin.com/",
+      "https://www.pitchy.fr/",
+      "https://greenly.earth/en-us",
+      "https://powdermountain.com/",
+      "https://7mesh.com/",
+      "https://www.nhrl.io/",
+      "https://www.bounceinsurance.co.nz/",
+      "https://www.onatera.com/"
+    ],
+    "lastValidated": "2026-03-31",
+    "results": {
+      "passed": 10,
+      "failed": 0
+    }
+  }
+}

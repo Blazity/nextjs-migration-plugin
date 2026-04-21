@@ -1,0 +1,130 @@
+{
+  "platform": "nuxt",
+  "type": "framework",
+  "version": "1.0",
+  "detection": {
+    "jsMarkers": [
+      "!!window.__NUXT__",
+      "!!window.__NUXT_DATA__",
+      "!!document.querySelector('[data-nuxt-data]')"
+    ],
+    "domMarkers": [
+      "#__nuxt",
+      "script#__NUXT_DATA__",
+      "[data-nuxt-data]",
+      "[data-server-rendered='true']"
+    ],
+    "urlPatterns": [
+      "/_nuxt/"
+    ],
+    "httpHeaders": {
+      "x-powered-by": "Nuxt"
+    }
+  },
+  "sectionDiscovery": {
+    "primarySelector": "#__nuxt > *",
+    "spaContainerHints": [
+      "#__nuxt > div > *",
+      "#app > *"
+    ],
+    "skipSelectors": [
+      "script",
+      "noscript",
+      "style",
+      "link"
+    ],
+    "sectionLabelPatterns": [
+      "section_*",
+      "section-*",
+      "*navbar*",
+      "*footer*",
+      "*hero*"
+    ]
+  },
+  "styles": {
+    "wrapperMappings": [],
+    "scopedStylePrefix": "data-v-"
+  },
+  "images": {
+    "cdnPatterns": [
+      "/_ipx/",
+      "ipx\\.nuxt\\.com/"
+    ],
+    "lazyLoadStrategy": "native",
+    "responsiveFormat": null,
+    "notes": "Nuxt Image with IPX provider: /_ipx/f_{format}&s_{w}x{h}/path. Images have data-nuxt-img attribute."
+  },
+  "animations": {
+    "engine": "vue-transition",
+    "dataSource": null,
+    "transitionProperty": null,
+    "notes": "Nuxt uses Vue transition classes: page-enter-active, page-leave-active. Same in Nuxt 2/3/4."
+  },
+  "quirks": [
+    {
+      "id": "scoped-style-hashes",
+      "description": "Vue scoped styles add data-v-* attributes to elements. These are not meaningful for migration.",
+      "workaround": "Strip attributes matching /data-v-[a-f0-9]+/ from section labels."
+    },
+    {
+      "id": "ssr-hydration",
+      "description": "Nuxt SSR pages have content in initial HTML. data-server-rendered is Nuxt 2 only; Nuxt 3/4 uses data-ssr attribute on __NUXT_DATA__ script.",
+      "workaround": "Extract from SSR HTML for content. Wait for hydration before extracting interactive component styles."
+    },
+    {
+      "id": "client-only-components",
+      "description": "<ClientOnly> components are missing from initial server-rendered HTML. Nuxt 4 may use comment placeholders instead of empty divs.",
+      "workaround": "Wait for page load event + idle before extracting. Check for empty placeholders that fill in after hydration."
+    },
+    {
+      "id": "nuxt4-payload-removal",
+      "description": "window.__NUXT__ is deleted after hydration in Nuxt 4 (and late Nuxt 3). The jsMarker !!window.__NUXT__ may return false if evaluated after hydration.",
+      "workaround": "Use document.querySelector('[data-nuxt-data]') or script#__NUXT_DATA__ for reliable detection. The DOM element persists."
+    },
+    {
+      "id": "ipx-image-urls",
+      "description": "Sites using @nuxt/image with IPX serve images from /_ipx/ (self-hosted) or ipx.nuxt.com (hosted). Format: /_ipx/f_{format}&s_{w}x{h}/path. Images have data-nuxt-img attribute.",
+      "workaround": "Match /_ipx/ and ipx.nuxt.com in cdnPatterns. Strip IPX transform prefix to get original image path."
+    },
+    {
+      "id": "payload-json-external",
+      "description": "SSR pages reference /_payload.json?{buildId} in data-src of __NUXT_DATA__ script. BuildId changes per deployment.",
+      "workaround": "Do not rely on buildId in URLs for stable references."
+    }
+  ],
+  "localSite": {
+    "sectionSelector": "body > header, body > nav, main > *, body > footer",
+    "devToolsHideScript": "document.querySelectorAll('nextjs-portal, [data-nextjs-toast], button[data-nextjs-dev-tools-button]').forEach(el => el.style.display = 'none')"
+  },
+  "validation": {
+    "sites": [
+      "https://nuxt.com",
+      "https://directus.io",
+      "https://n8n.io",
+      "https://icons8.com",
+      "https://cleanshot.com",
+      "https://www.france.fr",
+      "https://www.lecollectionist.com",
+      "https://buymeacoffee.com",
+      "https://www.rolandgarros.com",
+      "https://about.gitlab.com"
+    ],
+    "lastValidated": "2026-03-31",
+    "results": {
+      "passed": 10,
+      "failed": 0,
+      "sections": [
+        3,
+        3,
+        10,
+        3,
+        9,
+        4,
+        5,
+        15,
+        3,
+        3
+      ]
+    }
+  }
+}

@@ -1,0 +1,146 @@
+{
+  "platform": "bubble",
+  "type": "framework",
+  "version": "1.0",
+  "detection": {
+    "jsMarkers": [
+      "typeof window.bubble_version !== 'undefined'",
+      "typeof window._bubble_page_load_data !== 'undefined'",
+      "!!document.querySelector('.main-page.bubble-element.Page')"
+    ],
+    "domMarkers": [
+      ".main-page.bubble-element.Page",
+      ".bubble-element",
+      ".page-is-loaded",
+      "meta[name='fragment'][content='!']"
+    ],
+    "urlPatterns": [
+      "[a-f0-9]+\\.cdn\\.bubble\\.io",
+      "\\.bubbleapps\\.io",
+      "/package/(early_js|run_js|static_js|dynamic_js)/"
+    ],
+    "httpHeaders": {
+      "x-bubble-perf": ".*",
+      "x-bubble-capacity-used": ".*"
+    }
+  },
+  "sectionDiscovery": {
+    "primarySelector": ".main-page > .bubble-element, .main-page > .bubble-r-line, body > .floating-group",
+    "spaContainerHints": [
+      ".main-page > *"
+    ],
+    "skipSelectors": [
+      "script",
+      "noscript",
+      "style",
+      "link",
+      ".page-is-loaded",
+      ".slideable-menu",
+      ".GroupFocus",
+      ".Popup"
+    ],
+    "sectionLabelPatterns": [
+      "*Group*",
+      "*CustomElement*",
+      "*RepeatingGroup*"
+    ],
+    "minExpectedSections": 3,
+    "disableUnwrap": false
+  },
+  "styles": {
+    "wrapperMappings": [],
+    "scopedStylePrefix": null
+  },
+  "images": {
+    "cdnPatterns": [
+      "[a-f0-9]+\\.cdn\\.bubble\\.io/cdn-cgi/image/[^/]+/f[0-9]+x[0-9]+",
+      "[a-f0-9]+\\.cdn\\.bubble\\.io/f[0-9]+x[0-9]+"
+    ],
+    "assetIdPattern": "f([0-9]+x[0-9]+)",
+    "lazyLoadStrategy": "none",
+    "responsiveFormat": "cdn-cgi/image/w={w},h={h},f=auto,dpr={dpr},fit={fit}"
+  },
+  "animations": {
+    "engine": "none",
+    "dataSource": null,
+    "transitionProperty": null,
+    "notes": "Bubble has no built-in animation engine. Animations are plugin-based (AOS, GSAP via Toolbox). Check per-site."
+  },
+  "quirks": [
+    {
+      "id": "dual-responsive-engines",
+      "description": "Bubble has two rendering engines: legacy (absolute positioning with bubble-r-line/bubble-r-box) and new (flexbox with bubble-r-container/flex/column/row). Both can coexist.",
+      "workaround": "Check for .bubble-r-container.flex (new) vs .bubble-r-line (legacy). Section selector handles both."
+    },
+    {
+      "id": "all-inline-styles",
+      "description": "Bubble applies virtually ALL styling as inline style attributes. Classes are structural (bubble-element, Group, Text) not visual.",
+      "workaround": "Extract computed styles. Inline styles ARE the source of truth. No class-to-Tailwind mapping possible."
+    },
+    {
+      "id": "element-id-hashes",
+      "description": "Each element has a short alphanumeric hash class (cmgwv, cmbaIaX) as unique identifier. Not semantic, changes across deployments.",
+      "workaround": "Use element type class (Group, Text, Image, Button, Shape) for labeling, not hash ID."
+    },
+    {
+      "id": "page-wrapper-not-body",
+      "description": "Content is inside div.main-page.bubble-element.Page, not direct body children. Body also has floating groups, popups, GroupFocus overlays, slideable menus.",
+      "workaround": "Use .main-page > * as primary selector. Include body > .floating-group for fixed nav."
+    },
+    {
+      "id": "floating-group-outside-main",
+      "description": "Navigation bars are div.floating-group siblings of .main-page, not children. Bubble's equivalent of fixed/sticky headers.",
+      "workaround": "Section discovery includes body > .floating-group to capture nav sections."
+    },
+    {
+      "id": "css-custom-properties-on-html",
+      "description": "Bubble sets theme colors/fonts as CSS custom properties on <html>: --font_default, --color_primary_default, --color_text_default, etc. (each with _rgb variant).",
+      "workaround": "Extract CSS custom properties and map to Tailwind theme configuration."
+    },
+    {
+      "id": "shape-elements-decorative",
+      "description": "div.bubble-element.Shape elements are decorative (backgrounds, dividers, colored boxes). Empty divs with background-color/border-radius in inline styles.",
+      "workaround": "Map Shape elements to decorative <div> with Tailwind classes from computed styles."
+    },
+    {
+      "id": "cloudflare-image-resizing",
+      "description": "Images served via Cloudflare Image Resizing at cdn-cgi/image/w={w},h={h},f=auto,dpr={dpr},fit={fit}/. Asset ID format: f{timestamp}x{id}.",
+      "workaround": "Strip cdn-cgi/image/ path to get raw image URL. Use Cloudflare params for responsive sizes."
+    }
+  ],
+  "validation": {
+    "sites": [
+      "https://notrealtwitter.com/",
+      "https://yep.so/",
+      "https://nicheless.blog/",
+      "https://www.readsomethinggreat.com/",
+      "https://incomee.co/",
+      "https://moonehq.com/",
+      "https://martechbase.com/",
+      "https://writier.io/",
+      "https://userloop.io/",
+      "https://www.oceanairtravels.com/"
+    ],
+    "lastValidated": "2026-03-31",
+    "results": {
+      "passed": 9,
+      "failed": 1,
+      "sections": [
+        2,
+        25,
+        9,
+        12,
+        12,
+        10,
+        15,
+        9,
+        15,
+        4
+      ]
+    }
+  },
+  "localSite": {
+    "sectionSelector": "body > header, body > nav, main > *, body > footer",
+    "devToolsHideScript": "document.querySelectorAll('nextjs-portal, [data-nextjs-toast], button[data-nextjs-dev-tools-button]').forEach(el => el.style.display = 'none')"
+  }
+}
