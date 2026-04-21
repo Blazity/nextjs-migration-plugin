@@ -1,0 +1,123 @@
+{
+  "platform": "svelte",
+  "type": "framework",
+  "version": "1.0",
+  "detection": {
+    "jsMarkers": [
+      "Object.keys(window).some(k => k.startsWith('__sveltekit'))",
+      "!!document.querySelector('[data-sveltekit-preload-data]')",
+      "!!document.querySelector('[class*=\"svelte-\"]')",
+      "typeof window.__svelte !== 'undefined'"
+    ],
+    "domMarkers": [
+      "[data-sveltekit-preload-data]",
+      "[class*='svelte-']",
+      "#svelte"
+    ],
+    "urlPatterns": [
+      "_app/immutable/"
+    ]
+  },
+  "sectionDiscovery": {
+    "primarySelector": "body > *",
+    "spaContainerHints": [
+      "#app > *",
+      "#svelte > *",
+      "body > div:first-of-type > *"
+    ],
+    "skipSelectors": [
+      "script",
+      "noscript",
+      "style",
+      "link",
+      "dialog"
+    ],
+    "sectionLabelPatterns": [
+      "section_*",
+      "section-*",
+      "*navbar*",
+      "*footer*"
+    ]
+  },
+  "styles": {
+    "wrapperMappings": [],
+    "scopedStylePrefix": "svelte-"
+  },
+  "images": {
+    "cdnPatterns": [],
+    "lazyLoadStrategy": "intersection-observer",
+    "responsiveFormat": null
+  },
+  "animations": {
+    "engine": "svelte-transition",
+    "dataSource": null,
+    "transitionProperty": null
+  },
+  "quirks": [
+    {
+      "id": "scoped-class-hashes",
+      "description": "Svelte appends scoped hashes like 'svelte-7ma46z' to class names. These are not meaningful for migration.",
+      "workaround": "Strip classes matching /svelte-[a-z0-9]+/ from section labels. Keep in structure.md for reference."
+    },
+    {
+      "id": "spa-fallback",
+      "description": "Svelte SPAs render fallback content when session state is missing. Stateful pages show a default view instead of expected page.",
+      "workaround": "Use probe-page.ts to detect fallback. Use extract-spa-flow.ts with a flow definition for stateful pages."
+    },
+    {
+      "id": "client-side-routing",
+      "description": "SvelteKit uses client-side routing with data-sveltekit-preload-data and data-sveltekit-preload-code for prefetching.",
+      "workaround": "For multi-step flows, navigate through the real user journey using extract-spa-flow.ts instead of hitting URLs directly."
+    },
+    {
+      "id": "tailwind-no-scoped-classes",
+      "description": "Sites using Tailwind CSS produce zero svelte- scoped class elements, causing detection failure if relying solely on class-based detection. This is the dominant modern SvelteKit pattern.",
+      "workaround": "Use __sveltekit_* global and data-sveltekit-preload-data attribute as primary detection signals instead of svelte- classes."
+    },
+    {
+      "id": "display-contents-wrapper",
+      "description": "SvelteKit's default app.html wraps content in <div style='display: contents'>. Some sites customize to <div id='svelte'>.",
+      "workaround": "Use both '#svelte > *' and 'body > div:first-of-type > *' in spaContainerHints."
+    },
+    {
+      "id": "networkidle-timeout",
+      "description": "SvelteKit sites with real-time features (analytics, SSE, websockets) never reach Playwright's networkidle state.",
+      "workaround": "Use domcontentloaded + waitForTimeout instead of networkidle for SvelteKit sites."
+    }
+  ],
+  "localSite": {
+    "sectionSelector": "body > header, body > nav, main > *, body > footer",
+    "devToolsHideScript": "document.querySelectorAll('nextjs-portal, [data-nextjs-toast], button[data-nextjs-dev-tools-button]').forEach(el => el.style.display = 'none')"
+  },
+  "validation": {
+    "sites": [
+      "https://svelte.dev",
+      "https://pudding.cool",
+      "https://mermaid.live",
+      "https://evidence.dev",
+      "https://jschallenger.com",
+      "https://layercake.graphics",
+      "https://top100.yelp.com",
+      "https://search.brave.com",
+      "https://scottspence.com",
+      "https://concertmash.com"
+    ],
+    "lastValidated": "2026-03-31",
+    "results": {
+      "passed": 9,
+      "failed": 1,
+      "sections": [
+        3,
+        4,
+        3,
+        7,
+        13,
+        3,
+        null,
+        8,
+        4,
+        3
+      ]
+    }
+  }
+}

@@ -1,0 +1,132 @@
+{
+  "platform": "framer",
+  "type": "framework",
+  "version": "1.0",
+  "detection": {
+    "jsMarkers": [
+      "!!document.querySelector('[data-framer-hydrate-v2]')",
+      "typeof window.__framer_importFromPackage === 'function'"
+    ],
+    "domMarkers": [
+      "[data-framer-hydrate-v2]",
+      "[data-framer-page-optimized]",
+      "meta[name='generator'][content^='Framer']",
+      "[data-framer-name]"
+    ],
+    "urlPatterns": [
+      "framerusercontent\\.com",
+      "events\\.framer\\.com"
+    ],
+    "metaGenerator": "Framer"
+  },
+  "sectionDiscovery": {
+    "primarySelector": "#main > *",
+    "minExpectedSections": 5,
+    "spaContainerHints": [],
+    "disableUnwrap": true,
+    "skipSelectors": [
+      "script",
+      "noscript",
+      "style",
+      "link",
+      "[id*='__framer-badge']",
+      "#__framer-editorbar",
+      "#svg-templates"
+    ],
+    "sectionLabelPatterns": [
+      "framer-*"
+    ],
+    "notes": "Framer wraps all content in <div id='main'>. spaContainerHints empty — [data-framer-name] matches 100+ elements per page, causing over-segmentation. Section discovery relies on detectSpaContainer() + recursive mega-section expansion instead."
+  },
+  "styles": {
+    "scopedStylePrefix": "framer-",
+    "wrapperMappings": []
+  },
+  "images": {
+    "cdnPatterns": [
+      "framerusercontent\\.com/images/[\\w-]+",
+      "framerusercontent\\.com/assets/[\\w-]+"
+    ],
+    "lazyLoadStrategy": "native",
+    "responsiveFormat": "?scale-down-to={w}&width={W}&height={H}",
+    "notes": "srcset uses 512w, 1024w, 2048w, 4096w breakpoints. CDN does content negotiation (AVIF > WebP) via Accept header — no format param needed."
+  },
+  "animations": {
+    "engine": "framer-motion",
+    "dataSource": "document.getElementById('__framer__appearAnimationsContent')?.textContent",
+    "transitionProperty": null,
+    "notes": "Appear animations stored in <script type='framer/appear' id='__framer__appearAnimationsContent'> as JSON. Keys are element hashes matching data-framer-appear-id. Values are per-breakpoint initial/animate states in Framer Motion format. Breakpoints defined in <script id='__framer__breakpoints'>."
+  },
+  "quirks": [
+    {
+      "id": "hashed-classes",
+      "description": "All class names use framer-[hash] format that changes on recompile. Never use specific hashed classes in selectors.",
+      "workaround": "Use attribute selectors like [class*='framer-'] for structural patterns."
+    },
+    {
+      "id": "absolute-layer-composition",
+      "description": "Framer composes visual layers using position:absolute children within a shared parent. Splitting these children into separate sections breaks visual relationships.",
+      "workaround": "disableUnwrap is set to true. minExpectedSections triggers deeper container detection."
+    },
+    {
+      "id": "deep-nesting",
+      "description": "Framer sites have 6+ levels of div.framer-* nesting. cal.com has elements at depth 14.",
+      "workaround": "Use MAX_DEPTH=20. Filter by style significance rather than limiting depth."
+    },
+    {
+      "id": "single-main-container",
+      "description": "Every Framer site wraps all content in <div id='main' data-framer-hydrate-v2='...'>. bodyDirectChildSections is always 1.",
+      "workaround": "Use #main as primary container. The generic detectSpaContainer() walk finds the correct section parent."
+    },
+    {
+      "id": "data-framer-name-sections",
+      "description": "Framer editor layer names survive to production DOM as data-framer-name attributes (e.g., 'Hero Section', 'Footer Wrapper'). Provides semantic section identification.",
+      "workaround": "Use data-framer-name for section labeling during extraction."
+    },
+    {
+      "id": "appear-animation-data",
+      "description": "Entrance animations stored in <script type='framer/appear'> as JSON keyed by element hash. Values have per-breakpoint initial/animate states with Framer Motion format (opacity, rotate, scale, x, y, transition).",
+      "workaround": "Parse the JSON from __framer__appearAnimationsContent. Match elements via data-framer-appear-id."
+    },
+    {
+      "id": "variable-breakpoints",
+      "description": "Framer sites use different breakpoint counts (3-5). Breakpoints defined in <script id='__framer__breakpoints'> with hash-to-media-query mapping. NOT standardized across sites.",
+      "workaround": "Parse __framer__breakpoints for site-specific breakpoint definitions."
+    }
+  ],
+  "localSite": {
+    "sectionSelector": "body > header, body > nav, main > *, body > footer",
+    "devToolsHideScript": "document.querySelectorAll('nextjs-portal, [data-nextjs-toast], button[data-nextjs-dev-tools-button]').forEach(el => el.style.display = 'none')"
+  },
+  "validation": {
+    "sites": [
+      "https://whereby.com",
+      "https://tellet.ai",
+      "https://temper.studio",
+      "https://bohdan.design",
+      "https://akiflow.com",
+      "https://hera.travel",
+      "https://flora.ai",
+      "https://slixel.com",
+      "https://www.solidroad.com",
+      "https://layolab.com"
+    ],
+    "lastValidated": "2026-03-31",
+    "results": {
+      "passed": 10,
+      "failed": 0,
+      "sections": [
+        13,
+        12,
+        7,
+        8,
+        21,
+        10,
+        14,
+        12,
+        9,
+        8
+      ]
+    }
+  }
+}

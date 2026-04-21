@@ -1,0 +1,161 @@
+{
+  "platform": "squarespace",
+  "type": "framework",
+  "version": "1.0",
+  "detection": {
+    "jsMarkers": [
+      "!!window.Squarespace",
+      "!!window.Static"
+    ],
+    "domMarkers": [
+      "[data-section-id]",
+      "[data-sqsp-section]",
+      ".site-wrapper"
+    ],
+    "urlPatterns": [
+      "images\\.squarespace-cdn\\.com",
+      "static1\\.squarespace\\.com",
+      "assets\\.squarespace\\.com",
+      "definitions\\.sqspcdn\\.com"
+    ],
+    "httpHeaders": {
+      "Server": "Squarespace|Golfe2"
+    }
+  },
+  "sectionDiscovery": {
+    "primarySelector": "[data-section-id]",
+    "spaContainerHints": [
+      "#siteWrapper",
+      "main#page"
+    ],
+    "skipSelectors": [
+      "script",
+      "noscript",
+      "style",
+      "link",
+      ".sqs-announcement-bar",
+      ".cookie-banner-mount-point",
+      ".floating-cart",
+      ".cookie-banner-manager",
+      "#overlay-nav"
+    ],
+    "sectionLabelPatterns": [
+      "section_*",
+      "section-*",
+      "*navbar*",
+      "*footer*",
+      "*hero*",
+      "*banner*",
+      "*gallery*",
+      "*overlay*"
+    ]
+  },
+  "styles": {
+    "wrapperMappings": [
+      {
+        "classPattern": "content-wrapper",
+        "tailwindClasses": "relative"
+      },
+      {
+        "classPattern": "section-border",
+        "tailwindClasses": "absolute inset-0"
+      },
+      {
+        "classPattern": "section-background",
+        "tailwindClasses": "absolute inset-0"
+      }
+    ],
+    "scopedStylePrefix": null
+  },
+  "images": {
+    "cdnPatterns": [
+      "images\\.squarespace-cdn\\.com",
+      "static1\\.squarespace\\.com"
+    ],
+    "lazyLoadStrategy": "intersection-observer",
+    "responsiveFormat": "?format={w}w"
+  },
+  "animations": {
+    "engine": "squarespace-animation-runtime",
+    "dataSource": "window.__sqsAnimationRuntime",
+    "transitionProperty": null,
+    "notes": "Animations configured via data-animation attribute on sections/elements. Types: none, fade, scale, slide, clip, flex, fade-up, scale-up. Speed: slow/medium/fast. Body has data-animation-state='booted'."
+  },
+  "quirks": [
+    {
+      "id": "responsive-image-format",
+      "description": "Squarespace uses ?format=NNNw URL param for responsive images. Available sizes: 100w, 300w, 500w, 750w, 1000w, 1500w, 2500w.",
+      "workaround": "Request images with ?format=2500w to get the highest available resolution."
+    },
+    {
+      "id": "yui-block-ids",
+      "description": "YUI block IDs (block-yui_3_17_2_*) change between requests, making selectors fragile.",
+      "workaround": "Use data-section-id and data-sqsp-section attributes for stable identification instead of YUI-generated IDs."
+    },
+    {
+      "id": "fluid-engine-grid",
+      "description": "Fluid Engine uses CSS Grid with ~20-24 column tracks and 11px gap. Blocks positioned via grid-column/grid-row. Grid values are viewport-specific.",
+      "workaround": "Extract grid styles at each viewport independently. Do not copy grid-template values from one breakpoint to another."
+    },
+    {
+      "id": "section-border-absolute-overlay",
+      "description": "Every section has .section-border > .section-background (both position: absolute) as a full-section backdrop. Content sits in .content-wrapper (position: relative) on top.",
+      "workaround": "Do not treat section-border/section-background as visible content. Extract background styles from them but render content from .content-wrapper."
+    },
+    {
+      "id": "siteWrapper-spa-shell",
+      "description": "Squarespace 7.1 wraps all content in #siteWrapper > main#page. Probe sees bodyDirectChildSections: 1, triggering isSPA: true. Squarespace is NOT an SPA.",
+      "workaround": "spaContainerHints drill into #siteWrapper and main#page to find actual sections."
+    },
+    {
+      "id": "gallery-section-type",
+      "description": "Gallery sections (data-sqsp-section='gallery') do NOT use Fluid Engine grid. They use gallery-strips layout with gallery-strips-item children.",
+      "workaround": "Detect section type via data-sqsp-section attribute and use different extraction logic for gallery vs fluid-engine sections."
+    },
+    {
+      "id": "data-animation-on-children",
+      "description": "data-animation attribute appears on both sections and child elements. Gallery items may have fade-up while parent section has none.",
+      "workaround": "Check both section-level and element-level data-animation attributes during animation extraction."
+    },
+    {
+      "id": "html-comment-detection",
+      "description": "Squarespace embeds '<!-- This is Squarespace. -->' in raw HTML source. Reliable detection without JavaScript.",
+      "workaround": "Can use as Layer 1 pre-render detection signal by checking raw HTML source."
+    }
+  ],
+  "localSite": {
+    "sectionSelector": "#siteWrapper > header, main#page section[data-section-id], #footer-sections > section",
+    "devToolsHideScript": "document.querySelectorAll('nextjs-portal, [data-nextjs-toast], button[data-nextjs-dev-tools-button]').forEach(el => el.style.display = 'none')"
+  },
+  "validation": {
+    "sites": [
+      "https://www.jonesbbqkc.com",
+      "https://www.lisamaltby.com",
+      "https://benjaminhardman.com",
+      "https://www.fatchoynyc.com",
+      "https://www.lukeadamhawker.com",
+      "https://knapsackcreative.com",
+      "https://www.abathhouse.com",
+      "https://www.supernaturalkitchen.com",
+      "https://www.soilboy.sg",
+      "https://www.darrenbooth.com"
+    ],
+    "lastValidated": "2026-03-31",
+    "results": {
+      "passed": 10,
+      "failed": 0,
+      "sections": [
+        11,
+        5,
+        6,
+        7,
+        5,
+        25,
+        17,
+        10,
+        12,
+        26
+      ]
+    }
+  }
+}

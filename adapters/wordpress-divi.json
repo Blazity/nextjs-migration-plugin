@@ -1,0 +1,167 @@
+{
+  "platform": "wordpress-divi",
+  "type": "framework",
+  "version": "1.0",
+  "detection": {
+    "jsMarkers": [
+      "!!document.querySelector('.et_pb_section')",
+      "!!document.querySelector('body.et_divi_theme')"
+    ],
+    "domMarkers": [
+      ".et_pb_section",
+      "body.et_divi_theme",
+      "#et-boc",
+      "body.et-db"
+    ],
+    "urlPatterns": [
+      "/wp-content/themes/Divi/",
+      "/wp-content/et-cache/"
+    ]
+  },
+  "sectionDiscovery": {
+    "primarySelector": ".et-l--post .et_pb_section, .et-l--body .et_pb_section, .et_builder_inner_content > .et_pb_section",
+    "spaContainerHints": [
+      "#et-boc .et-l--post .et_builder_inner_content > *",
+      "#et-boc .et-l--body .et_builder_inner_content > *",
+      ".et_builder_inner_content > *"
+    ],
+    "skipSelectors": [
+      "script",
+      "noscript",
+      "style",
+      "link",
+      ".et_pb_section_video_bg",
+      ".et_parallax_bg",
+      ".et_pb_bottom_inside_divider",
+      ".et_pb_top_inside_divider"
+    ],
+    "sectionLabelPatterns": [
+      "et_pb_section_*",
+      "*hero*",
+      "*footer*",
+      "*banner*",
+      "*cta*",
+      "*contact*"
+    ],
+    "minExpectedSections": 3,
+    "disableUnwrap": false
+  },
+  "styles": {
+    "wrapperMappings": [
+      {
+        "classPattern": "et_pb_row",
+        "tailwindClasses": "max-w-[1080px] mx-auto w-[80%]"
+      },
+      {
+        "classPattern": "et_pb_column_4_4",
+        "tailwindClasses": "w-full"
+      },
+      {
+        "classPattern": "et_pb_column_1_2",
+        "tailwindClasses": "w-1/2"
+      },
+      {
+        "classPattern": "et_pb_column_1_3",
+        "tailwindClasses": "w-1/3"
+      },
+      {
+        "classPattern": "et_pb_column_2_3",
+        "tailwindClasses": "w-2/3"
+      },
+      {
+        "classPattern": "et_pb_column_1_4",
+        "tailwindClasses": "w-1/4"
+      },
+      {
+        "classPattern": "et_pb_column_3_4",
+        "tailwindClasses": "w-3/4"
+      }
+    ],
+    "scopedStylePrefix": null
+  },
+  "images": {
+    "cdnPatterns": [
+      "/wp-content/uploads/\\d{4}/\\d{2}/"
+    ],
+    "lazyLoadStrategy": "native",
+    "responsiveFormat": null
+  },
+  "animations": {
+    "engine": "waypoints-css",
+    "dataSource": "document.querySelectorAll('[data-animation-style]')",
+    "transitionProperty": "1000ms",
+    "notes": "7 animation types (Fade, Slide, Bounce, Zoom, Flip, Fold, Roll). Elements start with et-waypoint class (opacity: 0), Waypoints JS triggers CSS @keyframes on viewport entry, then et_had_animation class is added."
+  },
+  "quirks": [
+    {
+      "id": "wrapper-soup",
+      "description": "Divi wraps content in 6+ levels: #page-container > #et-boc > .et-l--post > .et_builder_inner_content > .et_pb_section > .et_pb_row > .et_pb_column > .et_pb_module.",
+      "workaround": "Use wrapperMappings to collapse rows/columns. Set MAX_DEPTH=20."
+    },
+    {
+      "id": "inline-styles-everywhere",
+      "description": "Divi outputs extensive inline styles for padding, backgrounds, custom sizing directly on section/row/module elements.",
+      "workaround": "Extract computed styles rather than relying on class-based selectors."
+    },
+    {
+      "id": "spa-false-positive",
+      "description": "#page-container is the only body child, causing probe to detect as SPA. Divi is server-rendered.",
+      "workaround": "spaContainerHints drill into #et-boc to find actual et_pb_section elements."
+    },
+    {
+      "id": "theme-builder-vs-classic-divergence",
+      "description": "Sites using Theme Builder (body.et-tb-has-template) have header.et-l.et-l--header and footer.et-l.et-l--footer. Classic Divi uses #main-header and #main-footer.",
+      "workaround": "Check body classes to determine structure. Theme Builder: look for .et-l--header/.et-l--footer. Classic: look for #main-header/#main-footer."
+    },
+    {
+      "id": "dynamic-numbered-classes",
+      "description": "Classes like et_pb_section_0, et_pb_row_3 are numbered by DOM order and change if order changes.",
+      "workaround": "Use these only for labeling during extraction, never as stable selectors."
+    },
+    {
+      "id": "parallax-ghost-elements",
+      "description": "Parallax sections inject <span class='et_parallax_bg'> with position: absolute and background-attachment: fixed.",
+      "workaround": "Add .et_parallax_bg to skipSelectors. Do not treat as visible content."
+    },
+    {
+      "id": "gutter-width-classes",
+      "description": "et_pb_gutters3 class appears on body AND .et_builder_inner_content, controlling column spacing (gutter 3 = 5.5% margin).",
+      "workaround": "Account for gutter class when calculating column widths and spacing."
+    }
+  ],
+  "localSite": {
+    "sectionSelector": "body > header, body > nav, main > *, body > footer",
+    "devToolsHideScript": "document.querySelectorAll('nextjs-portal, [data-nextjs-toast], button[data-nextjs-dev-tools-button]').forEach(el => el.style.display = 'none')"
+  },
+  "validation": {
+    "sites": [
+      "https://nomadcapitalist.com/",
+      "https://www.fehrandpeers.com/",
+      "https://floorplanonline.com/",
+      "https://samuigardenvilla.com/",
+      "https://www.wordstream.com/",
+      "https://pydata.org/",
+      "https://www.franzosini.ch/",
+      "https://cityhillchurch.co.za/",
+      "https://www.storytrack.com/",
+      "https://naturalchefmallorca.com/"
+    ],
+    "lastValidated": "2026-03-31",
+    "results": {
+      "passed": 10,
+      "failed": 0,
+      "sections": [
+        11,
+        7,
+        10,
+        14,
+        7,
+        7,
+        7,
+        6,
+        12,
+        13
+      ]
+    }
+  }
+}

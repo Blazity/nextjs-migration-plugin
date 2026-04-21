@@ -1,0 +1,133 @@
+{
+  "platform": "nextjs",
+  "type": "framework",
+  "version": "1.0",
+  "detection": {
+    "jsMarkers": [
+      "!!window.next",
+      "!!window.__NEXT_DATA__",
+      "typeof self.__next_f !== 'undefined'"
+    ],
+    "domMarkers": [
+      "#__next",
+      "next-route-announcer",
+      "img[data-nimg]",
+      "[data-nscript]"
+    ],
+    "urlPatterns": [
+      "/_next/"
+    ],
+    "httpHeaders": {
+      "x-powered-by": "Next\\.js"
+    }
+  },
+  "sectionDiscovery": {
+    "primarySelector": "body > header, body > nav, main > *, body > footer",
+    "spaContainerHints": [
+      "#__next > *",
+      "#__next > div > *",
+      "main > *"
+    ],
+    "skipSelectors": [
+      "script",
+      "noscript",
+      "style",
+      "link",
+      "dialog",
+      "nextjs-portal",
+      "next-route-announcer"
+    ],
+    "sectionLabelPatterns": [
+      "section_*",
+      "section-*",
+      "*navbar*",
+      "*footer*",
+      "*hero*"
+    ]
+  },
+  "styles": {
+    "wrapperMappings": [],
+    "scopedStylePrefix": null
+  },
+  "images": {
+    "cdnPatterns": [
+      "/_next/image\\?url=",
+      "/_next/static/media/"
+    ],
+    "lazyLoadStrategy": "native",
+    "responsiveFormat": "/_next/image?url={url}&w={w}&q={q}"
+  },
+  "animations": {
+    "engine": "css-transitions",
+    "dataSource": null,
+    "transitionProperty": null,
+    "notes": "Next.js has no built-in animation engine. framer-motion is common but not universal. Sites may use any animation library."
+  },
+  "quirks": [
+    {
+      "id": "app-router-no-next-div",
+      "description": "App Router sites have NO #__next wrapper div. Content renders as direct body children. Pages Router sites wrap everything in #__next.",
+      "workaround": "Check window.next.appDir to distinguish. Use body > header/main/footer for App Router, #__next > * for Pages Router."
+    },
+    {
+      "id": "rsc-flight-data-script-flood",
+      "description": "App Router injects dozens to hundreds of inline <script> tags into body for RSC flight data (self.__next_f.push(...)). vercel.com had 104 such scripts.",
+      "workaround": "skipSelectors already excludes script tags. Be aware that bodyDirectChildSections count is very low (3-5 visible elements) which can trigger false SPA detection."
+    },
+    {
+      "id": "next-route-announcer",
+      "description": "Both routers inject a <next-route-announcer> custom element with Shadow DOM into the body. It's an accessibility feature for screen readers.",
+      "workaround": "Add next-route-announcer to skipSelectors. Do not treat as a content section."
+    },
+    {
+      "id": "image-optimization-url-rewrite",
+      "description": "next/image rewrites src to /_next/image?url=<encoded>&w=<width>&q=<quality>. data-nimg='1' for fixed, data-nimg='fill' for responsive. Static imports go to /_next/static/media/ without optimization API.",
+      "workaround": "Decode the url query parameter to get the original image URL. For static imports, use the /_next/static/media/ path directly."
+    },
+    {
+      "id": "static-export-no-image-api",
+      "description": "Sites using output: 'export' cannot use /_next/image optimization API. Images serve directly from original paths or use custom loaders.",
+      "workaround": "Detection must not rely on /_next/image alone. Check /_next/static/ paths which are always present."
+    },
+    {
+      "id": "pages-vs-app-router-detection",
+      "description": "window.__NEXT_DATA__ only exists on Pages Router. self.__next_f only exists on App Router. window.next exists on both. window.next.appDir === true indicates App Router.",
+      "workaround": "Use window.next as primary detection. Use window.next.appDir to determine router type for downstream extraction decisions."
+    }
+  ],
+  "validation": {
+    "sites": [
+      "https://vercel.com",
+      "https://nextjs.org",
+      "https://hashnode.com",
+      "https://hulu.com",
+      "https://supabase.com",
+      "https://nike.com",
+      "https://notion.so",
+      "https://sonos.com",
+      "https://cursor.com",
+      "https://auth0.com"
+    ],
+    "lastValidated": "2026-03-31",
+    "results": {
+      "passed": 10,
+      "failed": 0,
+      "sections": [
+        6,
+        4,
+        6,
+        6,
+        12,
+        5,
+        6,
+        3,
+        11,
+        7
+      ]
+    }
+  },
+  "localSite": {
+    "sectionSelector": "body > header, body > nav, main > *, body > footer",
+    "devToolsHideScript": "document.querySelectorAll('nextjs-portal, [data-nextjs-toast], button[data-nextjs-dev-tools-button]').forEach(el => el.style.display = 'none')"
+  }
+}

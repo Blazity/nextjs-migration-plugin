@@ -1,0 +1,171 @@
+{
+  "platform": "webflow",
+  "type": "framework",
+  "version": "1.0",
+  "detection": {
+    "jsMarkers": [
+      "typeof window.Webflow !== 'undefined'",
+      "!!document.querySelector('html[data-wf-site]')"
+    ],
+    "domMarkers": [
+      "html[data-wf-site]",
+      ".w-nav",
+      "script[src*='d3e54v103j8qbb.cloudfront.net']"
+    ],
+    "urlPatterns": [
+      "cdn\\.prod\\.website-files\\.com",
+      "assets\\.website-files\\.com",
+      "assets-global\\.website-files\\.com",
+      "d3e54v103j8qbb\\.cloudfront\\.net"
+    ],
+    "httpHeaders": {
+      "x-wf-region": ".*"
+    }
+  },
+  "sectionDiscovery": {
+    "primarySelector": "main.main-wrapper > *, main > *, body > .page-wrapper > *:not(script):not(style):not(.global-styles), body > *",
+    "spaContainerHints": [
+      ".page-wrapper > .main-wrapper",
+      "main#main",
+      "main"
+    ],
+    "skipSelectors": [
+      "script",
+      "noscript",
+      "style",
+      "link",
+      ".w-webflow-badge",
+      ".global-styles",
+      ".code",
+      "iframe",
+      "div[data-nosnippet]"
+    ],
+    "sectionLabelPatterns": [
+      "section_*",
+      "section-*",
+      "*navbar*",
+      "*footer*",
+      "*banner*",
+      "*hero*",
+      "*cta*",
+      "*testimonial*"
+    ]
+  },
+  "styles": {
+    "wrapperMappings": [
+      {
+        "classPattern": "padding-global",
+        "tailwindClasses": "px-[5%]"
+      },
+      {
+        "classPattern": "container-large",
+        "tailwindClasses": "max-w-[1280px] mx-auto w-full"
+      },
+      {
+        "classPattern": "container-small",
+        "tailwindClasses": "max-w-[768px] mx-auto w-full"
+      },
+      {
+        "classPattern": "padding-section-large",
+        "tailwindClasses": "py-[112px]"
+      },
+      {
+        "classPattern": "padding-section-medium",
+        "tailwindClasses": "py-[80px]"
+      },
+      {
+        "classPattern": "padding-section-small",
+        "tailwindClasses": "py-[56px]"
+      }
+    ],
+    "scopedStylePrefix": null,
+    "globalSelectors": {
+      "containerMax": ".container-large",
+      "paddingGlobal": ".padding-global",
+      "sectionPaddingLarge": ".padding-section-large",
+      "sectionPaddingMedium": ".padding-section-medium"
+    }
+  },
+  "images": {
+    "cdnPatterns": [
+      "cdn\\.prod\\.website-files\\.com/[a-f0-9]+/[a-f0-9]+",
+      "assets\\.website-files\\.com/[a-f0-9]+/[a-f0-9]+",
+      "assets-global\\.website-files\\.com/[a-f0-9]+"
+    ],
+    "lazyLoadStrategy": "native",
+    "responsiveFormat": null
+  },
+  "animations": {
+    "engine": "ix2",
+    "dataSource": "window.Webflow && Webflow.require && Webflow.require('ix2')",
+    "transitionProperty": "275ms",
+    "notes": "Modern Webflow sites may use IX3/GSAP (html.w-mod-ix3) instead of IX2 (html.w-mod-ix). Check html class to determine which system is active. GSAP served from cdn.prod.website-files.com/gsap/."
+  },
+  "quirks": [
+    {
+      "id": "three-body-structures",
+      "description": "Webflow sites have three common body structures: flat (body > section*N), Client-First wrapped (body > .page-wrapper > main.main-wrapper > section*N), and semantic main (body > main > section*N). The structure depends on the template/framework used.",
+      "workaround": "Use spaContainerHints to try .page-wrapper > .main-wrapper, main#main, and main before falling back to body > *."
+    },
+    {
+      "id": "dual-animation-systems",
+      "description": "Webflow has two animation systems: legacy IX2 (html.w-mod-ix, data-w-id triggers) and modern IX3/GSAP (html.w-mod-ix3, GSAP + ScrollTrigger/SplitText). Some sites use both.",
+      "workaround": "Check html class for w-mod-ix vs w-mod-ix3 to determine which system is active. For IX3 sites, look for GSAP timeline data instead of IX2 interaction data."
+    },
+    {
+      "id": "client-first-optional",
+      "description": "Client-First utility classes (padding-global, container-large, spacer-*) are used by many professional Webflow sites but are NOT universal. Some sites use w-container or bare class names.",
+      "workaround": "Only apply Client-First wrapper mappings when those classes are detected on the page. Fall back to extracting computed styles for non-Client-First sites."
+    },
+    {
+      "id": "cdn-403-bg-images",
+      "description": "Some background-image URLs from cdn.prod.website-files.com return HTTP 403.",
+      "workaround": "Skip 403 URLs. Use Playwright screenshot fallback for those elements."
+    },
+    {
+      "id": "component-variant-uuids",
+      "description": "Modern Webflow component variants generate w-variant-{uuid} classes and data-wf--*--variant attributes. Class names are opaque UUIDs whose purpose cannot be inferred from the name.",
+      "workaround": "Extract computed styles for elements with w-variant-* classes rather than trying to map class names to purposes."
+    },
+    {
+      "id": "jquery-always-present",
+      "description": "Every Webflow site loads jQuery 3.5.1 from d3e54v103j8qbb.cloudfront.net. The ?site= query parameter contains the site ID.",
+      "workaround": "Use this as a reliable detection signal. Do not include jQuery in the migrated site."
+    }
+  ],
+  "validation": {
+    "sites": [
+      "https://www.lattice.com",
+      "https://www.jasper.ai",
+      "https://www.relume.io",
+      "https://www.contractbook.com",
+      "https://www.superglue.io",
+      "https://www.dropboxsign.com",
+      "https://www.awardco.com",
+      "https://www.outseta.com",
+      "https://www.topanga.io",
+      "https://www.checkout.com"
+    ],
+    "lastValidated": "2026-03-31",
+    "results": {
+      "passed": 10,
+      "failed": 0,
+      "sections": [
+        12,
+        10,
+        13,
+        8,
+        4,
+        12,
+        6,
+        12,
+        11,
+        17
+      ]
+    }
+  },
+  "localSite": {
+    "sectionSelector": "body > header, body > nav, main > *, body > footer",
+    "devToolsHideScript": "document.querySelectorAll('nextjs-portal, [data-nextjs-toast], button[data-nextjs-dev-tools-button]').forEach(el => el.style.display = 'none')"
+  }
+}

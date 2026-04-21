@@ -1,0 +1,78 @@
+{
+  "platform": "contentful",
+  "type": "cms",
+  "version": "1.0",
+  "validation": {
+    "sites": [
+      "https://www.intercom.com",
+      "https://www.idp.com",
+      "https://www.heap.io",
+      "https://www.ruggable.com",
+      "https://www.docusign.com",
+      "https://www.atlassian.com",
+      "https://www.breastcancer.org",
+      "https://www.lactalis.com",
+      "https://www.bankfirst.com.au",
+      "https://www.codeday.org"
+    ],
+    "lastValidated": "2026-03-31",
+    "results": {
+      "passed": 10,
+      "failed": 0
+    }
+  },
+  "detection": {
+    "jsMarkers": [],
+    "domMarkers": [],
+    "urlPatterns": [
+      "(?:images|assets|videos|downloads)(?:\\.(?:eu|secure))?\\.ctfassets\\.net",
+      "(?:images|assets)\\.contentful\\.com"
+    ]
+  },
+  "images": {
+    "cdnPatterns": [
+      "images(?:\\.eu)?\\.ctfassets\\.net/[a-z0-9]+/[a-zA-Z0-9._-]+",
+      "images\\.contentful\\.com/[a-z0-9]+/[a-zA-Z0-9._-]+"
+    ],
+    "assetIdPattern": "[a-zA-Z0-9._-]{1,64}",
+    "lazyLoadStrategy": "native",
+    "responsiveFormat": "?w={w}&h={h}&fm={fm}&q={q}&fit={fit}"
+  },
+  "quirks": [
+    {
+      "id": "space-asset-url-structure",
+      "description": "Contentful image URLs: images.ctfassets.net/<spaceId>/<assetId>/<hash>/filename.ext. Space IDs are 12 chars lowercase. Asset IDs are 1-64 chars. Hash is 32-char hex (MD5).",
+      "workaround": "Extract asset ID from second path segment after space ID."
+    },
+    {
+      "id": "format-conversion",
+      "description": "Images API supports on-the-fly format conversion: ?fm=webp, ?fm=avif. AVIF has 9 Megapixel source image limit. SVGs can be rasterized with ?fm=webp.",
+      "workaround": "Use ?fm=webp for optimized delivery. Fall back to WebP for images >9MP that can't use AVIF. Skip SVG format conversion to preserve vector quality."
+    },
+    {
+      "id": "fit-modes",
+      "description": "?fit= controls crop: pad (letterbox), fill (crop to exact), scale (stretch), crop (crop), thumb (thumbnail crop). Default is fit=pad which may add letterboxing.",
+      "workaround": "Use ?fit=fill for cropped images. Match fit mode to CSS object-fit on the img element."
+    },
+    {
+      "id": "eu-data-residency",
+      "description": "EU customers use images.eu.ctfassets.net instead of images.ctfassets.net. Same API params, different domain.",
+      "workaround": "URL patterns cover both variants."
+    },
+    {
+      "id": "legacy-domain-redirect",
+      "description": "Old images.contentful.com domain 301 redirects to images.ctfassets.net. Sites using old domain incur redirect penalty.",
+      "workaround": "Normalize URLs to ctfassets.net during extraction."
+    },
+    {
+      "id": "assets-vs-images-subdomain",
+      "description": "assets.ctfassets.net serves raw files without Image API support. images.ctfassets.net supports all transformation params.",
+      "workaround": "Use images subdomain for raster optimization. Download from assets subdomain as raw files."
+    },
+    {
+      "id": "max-dimension-4000px",
+      "description": "Width and height params capped at 4000px. Requesting ?w=5000 returns HTTP 400.",
+      "workaround": "Clamp requested dimensions to 4000px max."
+    }
+  ]
+}

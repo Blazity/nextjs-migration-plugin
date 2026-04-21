@@ -1,0 +1,131 @@
+{
+  "platform": "gatsby",
+  "type": "framework",
+  "version": "1.0",
+  "detection": {
+    "jsMarkers": [
+      "!!window.___gatsby",
+      "!!window.___loader"
+    ],
+    "domMarkers": [
+      "#___gatsby",
+      "#gatsby-focus-wrapper",
+      "[data-gatsby-image-wrapper]",
+      "meta[name='generator'][content^='Gatsby']"
+    ],
+    "urlPatterns": [
+      "/page-data/",
+      "component---"
+    ]
+  },
+  "sectionDiscovery": {
+    "primarySelector": "#___gatsby > #gatsby-focus-wrapper > main > *",
+    "spaContainerHints": [
+      "#___gatsby > #gatsby-focus-wrapper > *",
+      "#gatsby-focus-wrapper > *"
+    ],
+    "skipSelectors": [
+      "script",
+      "noscript",
+      "style",
+      "link",
+      "#gatsby-announcer"
+    ],
+    "sectionLabelPatterns": [
+      "section_*",
+      "section-*",
+      "*navbar*",
+      "*footer*",
+      "*hero*"
+    ]
+  },
+  "styles": {
+    "wrapperMappings": [],
+    "scopedStylePrefix": null
+  },
+  "images": {
+    "cdnPatterns": [
+      "/static/"
+    ],
+    "lazyLoadStrategy": "intersection-observer",
+    "responsiveFormat": null
+  },
+  "animations": {
+    "engine": "css-transitions",
+    "dataSource": null,
+    "transitionProperty": null,
+    "notes": "Gatsby has no built-in animation engine. framer-motion is common but not universal."
+  },
+  "quirks": [
+    {
+      "id": "double-wrapper",
+      "description": "Gatsby wraps all content in #___gatsby > #gatsby-focus-wrapper. Section discovery must account for this nesting.",
+      "workaround": "Use primarySelector '#___gatsby > #gatsby-focus-wrapper > main > *' to reach actual sections."
+    },
+    {
+      "id": "gatsby-plugin-image",
+      "description": "gatsby-plugin-image uses [data-gatsby-image-wrapper] container with [data-main-image] for actual image and [data-placeholder-image] for blur-up placeholder.",
+      "workaround": "Extract the data-main-image src for the actual image. Ignore the base64 placeholder."
+    },
+    {
+      "id": "prefetch-links",
+      "description": "Gatsby injects <link rel='prefetch'> tags for route preloading. These are not part of visible content.",
+      "workaround": "Skip all <link> elements in section discovery and style extraction."
+    },
+    {
+      "id": "page-data-json",
+      "description": "Gatsby stores serialized page props in /page-data/<path>/page-data.json. Contains componentChunkName, path, result, staticQueryHashes, and slicesMap (v5).",
+      "workaround": "Can fetch structured content from /page-data/<path>/page-data.json if DOM extraction is insufficient."
+    },
+    {
+      "id": "css-in-js",
+      "description": "Gatsby sites commonly use CSS-in-JS: Emotion (style[data-emotion-css]) or styled-components (style[data-styled]). Also gatsby-global-css style[data-identity].",
+      "workaround": "Extract computed styles rather than parsing CSS-in-JS class names."
+    },
+    {
+      "id": "spa-single-body-child",
+      "description": "Gatsby renders a single #___gatsby div as the only meaningful body child. bodyDirectChildSections will always be 1. Section discovery must unwrap through #gatsby-focus-wrapper.",
+      "workaround": "spaContainerHints handle unwrapping. Ignore SPA detection flag for Gatsby — it serves static HTML."
+    },
+    {
+      "id": "generator-meta-tag",
+      "description": "Gatsby auto-injects <meta name='generator' content='Gatsby X.Y.Z'> with exact version. Can be stripped by gatsby-plugin-remove-generator.",
+      "workaround": "Use for version detection (v4 vs v5 affects features). Do not rely on it as sole detection signal."
+    }
+  ],
+  "validation": {
+    "sites": [
+      "https://www.typescriptlang.org",
+      "https://www.carbondesignsystem.com",
+      "https://www.affirm.com",
+      "https://www.a1cloud.tech",
+      "https://www.pof.com",
+      "https://www.servicetitan.com",
+      "https://www.urbanarmorgear.com",
+      "https://www.ecobee.com/en-us/",
+      "https://nutrafol.com",
+      "https://put.io"
+    ],
+    "lastValidated": "2026-03-31",
+    "results": {
+      "passed": 10,
+      "failed": 0,
+      "sections": [
+        3,
+        24,
+        4,
+        3,
+        3,
+        12,
+        10,
+        5,
+        3,
+        8
+      ]
+    }
+  },
+  "localSite": {
+    "sectionSelector": "body > header, body > nav, main > *, body > footer",
+    "devToolsHideScript": "document.querySelectorAll('nextjs-portal, [data-nextjs-toast], button[data-nextjs-dev-tools-button]').forEach(el => el.style.display = 'none')"
+  }
+}

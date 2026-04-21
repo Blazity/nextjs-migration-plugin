@@ -1,0 +1,261 @@
+{
+  "version": 1,
+  "providers": [
+    {
+      "name": "onetrust",
+      "detect": "#onetrust-consent-sdk",
+      "scriptPattern": "cdn\\.cookielaw\\.org|optanon",
+      "jsGlobal": "OneTrust",
+      "dismiss": {
+        "jsApi": "OneTrust.AllowAll()",
+        "selector": "#onetrust-accept-btn-handler",
+        "fallbackText": "Accept all"
+      },
+      "skipSelectors": ["#onetrust-consent-sdk", "#onetrust-banner-sdk"]
+    },
+    {
+      "name": "cookieyes",
+      "detect": "[data-cky-tag], .cky-consent-container",
+      "scriptPattern": "cdn-cookieyes\\.com",
+      "jsGlobal": "CookieYes",
+      "dismiss": {
+        "jsApi": "document.querySelector('.cky-btn-accept')?.click()",
+        "selector": ".cky-btn-accept",
+        "fallbackText": "Accept all"
+      },
+      "skipSelectors": ["#cky-consent", ".cky-consent-container"]
+    },
+    {
+      "name": "osano",
+      "detect": ".osano-cm-window",
+      "scriptPattern": "cmp\\.osano\\.com",
+      "jsGlobal": "Osano",
+      "dismiss": {
+        "jsApi": "Osano.cm.acceptAll()",
+        "selector": ".osano-cm-accept-all",
+        "fallbackText": "Accept"
+      },
+      "skipSelectors": [".osano-cm-window", ".osano-cm-dialog"]
+    },
+    {
+      "name": "complianz",
+      "detect": "#cmplz-cookiebanner-container",
+      "scriptPattern": "complianz",
+      "jsGlobal": null,
+      "dismiss": {
+        "jsApi": null,
+        "selector": ".cmplz-btn.cmplz-accept",
+        "fallbackText": "Accept"
+      },
+      "skipSelectors": ["#cmplz-cookiebanner-container"]
+    },
+    {
+      "name": "cookiebot-cybot",
+      "detect": "#CybotCookiebotDialog",
+      "scriptPattern": "consent\\.cookiebot\\.com|consentcdn\\.cookiebot\\.com",
+      "jsGlobal": "Cookiebot",
+      "dismiss": {
+        "jsApi": "Cookiebot.submitCustomConsent(true, true, true)",
+        "selector": "#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll",
+        "fallbackText": "Allow all"
+      },
+      "skipSelectors": ["#CybotCookiebotDialog", ".CybotCookiebotDialogActive", "#CybotCookiebotDialogBodyUnderlay"]
+    },
+    {
+      "name": "iubenda",
+      "detect": "#iubenda-cs-banner",
+      "scriptPattern": "cdn\\.iubenda\\.com",
+      "jsGlobal": "_iub",
+      "dismiss": {
+        "jsApi": "document.querySelector('.iubenda-cs-accept-btn')?.click()",
+        "selector": ".iubenda-cs-accept-btn",
+        "fallbackText": "Accept"
+      },
+      "skipSelectors": ["#iubenda-cs-banner"]
+    },
+    {
+      "name": "didomi",
+      "detect": "#didomi-host",
+      "scriptPattern": "sdk\\.privacy-center\\.org",
+      "jsGlobal": "Didomi",
+      "dismiss": {
+        "jsApi": "Didomi.setUserAgreeToAll()",
+        "selector": "#didomi-notice-agree-button",
+        "fallbackText": "Agree"
+      },
+      "skipSelectors": ["#didomi-host", "#didomi-popup"]
+    },
+    {
+      "name": "trustarc",
+      "detect": "#truste-consent-content, #consent-banner",
+      "scriptPattern": "consent\\.trustarc\\.com",
+      "jsGlobal": "truste",
+      "dismiss": {
+        "jsApi": null,
+        "selector": "#truste-consent-button",
+        "fallbackText": "Accept"
+      },
+      "skipSelectors": ["#truste-consent-track", "#consent-banner", "#truste-consent-content"]
+    },
+    {
+      "name": "quantcast-choice",
+      "detect": ".qc-cmp2-container",
+      "scriptPattern": "quantcast\\.mgr\\.consensu\\.org|cmp2\\.quantcast",
+      "jsGlobal": "__tcfapi",
+      "dismiss": {
+        "jsApi": "__tcfapi('setConsent', 2, function(){}, 1)",
+        "selector": ".qc-cmp2-summary-buttons button[mode=\"primary\"]",
+        "fallbackText": "Agree"
+      },
+      "skipSelectors": [".qc-cmp2-container"]
+    },
+    {
+      "name": "termly",
+      "detect": "[data-tid=\"banner-container\"]",
+      "scriptPattern": "app\\.termly\\.io",
+      "jsGlobal": "Termly",
+      "dismiss": {
+        "jsApi": null,
+        "selector": "[data-tid=\"banner-accept\"]",
+        "fallbackText": "Accept"
+      },
+      "skipSelectors": ["#termly-code-snippet-support", "[data-tid=\"banner-container\"]"]
+    },
+    {
+      "name": "consent-manager",
+      "detect": "#cmpbox, #cmpbox2",
+      "scriptPattern": "cdn\\.consentmanager\\.net|delivery\\.consentmanager\\.net",
+      "jsGlobal": "__cmp",
+      "dismiss": {
+        "jsApi": "__cmp('setConsent', 1)",
+        "selector": ".cmpboxbtn.cmpboxbtnyes",
+        "fallbackText": "Accept"
+      },
+      "skipSelectors": ["#cmpbox", "#cmpbox2"]
+    },
+    {
+      "name": "sourcepoint",
+      "detect": "div[id^=\"sp_message_container\"]",
+      "scriptPattern": "sourcepoint|sp-prod\\.net",
+      "jsGlobal": "_sp_",
+      "dismiss": {
+        "jsApi": null,
+        "selector": "div[id^=\"sp_message_container\"] iframe",
+        "iframeSelector": ".sp_choice_type_11",
+        "fallbackText": "Accept"
+      },
+      "skipSelectors": ["div[id^=\"sp_message_container\"]"]
+    },
+    {
+      "name": "borlabs-cookie",
+      "detect": "#BorlabsCookieBox",
+      "scriptPattern": "borlabs-cookie",
+      "jsGlobal": "BorlabsCookie",
+      "dismiss": {
+        "jsApi": "BorlabsCookie.acceptAll()",
+        "selector": "#CookieBoxSaveButton",
+        "fallbackText": "Accept"
+      },
+      "skipSelectors": ["#BorlabsCookieBox"]
+    },
+    {
+      "name": "cookie-notice",
+      "detect": "#cookie-notice",
+      "scriptPattern": "cookie-notice",
+      "jsGlobal": "cnArgs",
+      "dismiss": {
+        "jsApi": null,
+        "selector": "#cn-accept-cookie",
+        "fallbackText": "Accept"
+      },
+      "skipSelectors": ["#cookie-notice"]
+    },
+    {
+      "name": "civic-cookie-control",
+      "detect": "#ccc-module, #ccc",
+      "scriptPattern": "cc\\.cdn\\.civiccomputing\\.com",
+      "jsGlobal": "CookieControl",
+      "dismiss": {
+        "jsApi": "CookieControl.acceptAll()",
+        "selector": "#ccc-recommended-settings",
+        "fallbackText": "Accept"
+      },
+      "skipSelectors": ["#ccc-module", "#ccc"]
+    },
+    {
+      "name": "cookiescript",
+      "detect": "#cookiescript_injected",
+      "scriptPattern": "cdn\\.cookie-script\\.com",
+      "jsGlobal": "CookieScript",
+      "dismiss": {
+        "jsApi": "CookieScript.instance.acceptAllAction()",
+        "selector": "#cookiescript_accept",
+        "fallbackText": "Accept"
+      },
+      "skipSelectors": ["#cookiescript_injected"]
+    },
+    {
+      "name": "cookiefirst",
+      "detect": "#cookiefirst-root",
+      "scriptPattern": "consent\\.cookiefirst\\.com",
+      "jsGlobal": "CookieFirst",
+      "dismiss": {
+        "jsApi": "CookieFirst.acceptAllCategories()",
+        "selector": "[data-cookiefirst-action=\"accept\"]",
+        "fallbackText": "Accept"
+      },
+      "skipSelectors": ["#cookiefirst-root"]
+    },
+    {
+      "name": "klaro",
+      "detect": ".klaro .cookie-notice, .klaro .cookie-modal",
+      "scriptPattern": "klaro",
+      "jsGlobal": "klaro",
+      "dismiss": {
+        "jsApi": "klaro.getManager().acceptAll()",
+        "selector": ".klaro .cm-btn-accept-all",
+        "fallbackText": "Accept"
+      },
+      "skipSelectors": [".klaro"]
+    },
+    {
+      "name": "gdpr-cookie-consent-wpeka",
+      "detect": "#cookie-law-info-bar",
+      "scriptPattern": "cookie-law-info",
+      "jsGlobal": "CLI",
+      "dismiss": {
+        "jsApi": null,
+        "selector": "#cookie_action_close_header",
+        "fallbackText": "Accept"
+      },
+      "skipSelectors": ["#cookie-law-info-bar"]
+    },
+    {
+      "name": "liveramp-faktor",
+      "detect": "#faktor-cookie-banner",
+      "scriptPattern": "faktor\\.io|launchpad",
+      "jsGlobal": "__launchpad",
+      "dismiss": {
+        "jsApi": "__launchpad('Accept', 2, function(){})",
+        "selector": null,
+        "fallbackText": "Accept"
+      },
+      "skipSelectors": ["#faktor-cookie-banner"]
+    }
+  ],
+  "genericFallback": {
+    "dismiss": {
+      "fallbackText": "Accept all|Allow all|Accept cookies|I agree|Got it|OK"
+    },
+    "skipSelectors": [
+      "[class*='cookie-banner']",
+      "[class*='cookie-consent']",
+      "[id*='cookie-banner']",
+      "[id*='cookie-consent']",
+      "[class*='consent-banner']",
+      "[id*='consent-banner']",
+      "[class*='gdpr']",
+      "[id*='gdpr']"
+    ]
+  }
+}

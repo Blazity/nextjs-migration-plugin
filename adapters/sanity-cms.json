@@ -1,0 +1,77 @@
+{
+  "platform": "sanity",
+  "type": "cms",
+  "version": "1.0",
+  "detection": {
+    "jsMarkers": [],
+    "domMarkers": [
+      "img[src*='cdn.sanity.io']",
+      "source[srcset*='cdn.sanity.io']"
+    ],
+    "urlPatterns": [
+      "cdn\\.sanity\\.io/images/",
+      "cdn\\.sanity\\.io/files/",
+      "apicdn?\\.sanity\\.io"
+    ]
+  },
+  "images": {
+    "cdnPatterns": [
+      "cdn\\.sanity\\.io/images/[a-z0-9]+/",
+      "cdn\\.sanity\\.io/files/[a-z0-9]+/"
+    ],
+    "assetIdPattern": "([a-zA-Z0-9_]{24,40}|[a-f0-9]{40})-\\d+x\\d+",
+    "lazyLoadStrategy": "native",
+    "responsiveFormat": "?w={w}&h={h}&fm={fm}&q={q}&auto=format"
+  },
+  "quirks": [
+    {
+      "id": "project-dataset-url-structure",
+      "description": "Sanity image URLs: cdn.sanity.io/images/<projectId>/<dataset>/<hash>-<W>x<H>.<ext>. Image ref in URL drops 'image-' prefix. Optional vanity filename appended as extra path segment.",
+      "workaround": "Parse project ID and dataset from URL path. Strip vanity filename path segment if present."
+    },
+    {
+      "id": "hotspot-cropping",
+      "description": "Sanity supports hotspot-aware cropping via ?fp-x= and ?fp-y= focal point params (0.0-1.0). Crop data is stored per-usage, not per-asset.",
+      "workaround": "When images appear cropped differently than expected, check for focal point data."
+    },
+    {
+      "id": "auto-format",
+      "description": "?auto=format serves best format: AVIF > WebP > original, via Accept header negotiation. First few AVIF requests may get WebP while async AVIF encoding completes.",
+      "workaround": "Always include ?auto=format for production. For download, omit to get original format."
+    },
+    {
+      "id": "svg-no-transforms",
+      "description": "SVG images pass through CDN untransformed. Width/height/format params have no effect. SVGs with <use> may have tags stripped.",
+      "workaround": "Download SVGs as-is without transform params. Check Content-Type to detect SVGs."
+    },
+    {
+      "id": "lqip-blurhash-metadata",
+      "description": "Sanity generates LQIP (20px-wide base64 PNG) and BlurHash strings in asset metadata. Accessed via GROQ: asset->metadata.lqip.",
+      "workaround": "Use LQIP as blurDataURL in Next.js Image for placeholder blur-up effect."
+    },
+    {
+      "id": "content-addressed-caching",
+      "description": "Assets cached indefinitely — URLs are content-addressed (SHA-1 hash). Content change produces new URL. Images >10MB bypass CDN cache.",
+      "workaround": "Extracted image URLs are stable. No cache-busting needed."
+    }
+  ],
+  "validation": {
+    "sites": [
+      "https://www.sanity.io",
+      "https://focusreactive.com",
+      "https://sanitypress.dev",
+      "https://www.represent.no",
+      "https://linear.app",
+      "https://www.skims.com",
+      "https://www.sonos.com",
+      "https://www.digitalspiders.io",
+      "https://www.mux.com",
+      "https://www.remarkable.com"
+    ],
+    "lastValidated": "2026-03-31",
+    "results": {
+      "passed": 10,
+      "failed": 0
+    }
+  }
+}

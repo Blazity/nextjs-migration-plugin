@@ -1,0 +1,185 @@
+{
+  "platform": "wordpress-elementor",
+  "type": "framework",
+  "version": "1.0",
+  "detection": {
+    "jsMarkers": [
+      "!!window.elementorFrontend",
+      "!!window.elementorFrontendConfig"
+    ],
+    "domMarkers": [
+      ".elementor-section",
+      ".e-con",
+      "meta[name='generator'][content*='Elementor']",
+      "body.elementor-page",
+      "[data-elementor-type]"
+    ],
+    "urlPatterns": [
+      "/wp-content/plugins/elementor/",
+      "/wp-content/uploads/elementor/css/"
+    ]
+  },
+  "sectionDiscovery": {
+    "primarySelector": ".elementor-top-section, .e-con.e-parent",
+    "spaContainerHints": [
+      "[data-elementor-type='wp-page'] > .elementor-top-section",
+      "[data-elementor-type='wp-page'] > .e-con.e-parent",
+      ".elementor > .elementor-inner > .elementor-section-wrap > *"
+    ],
+    "skipSelectors": [
+      "script",
+      "noscript",
+      "style",
+      "link",
+      ".elementor-shape",
+      ".elementor-background-video-container",
+      ".elementor-background-overlay",
+      ".elementor-widget-wrap:empty"
+    ],
+    "sectionLabelPatterns": [
+      "elementor-section_*",
+      "*hero*",
+      "*footer*",
+      "*banner*",
+      "*header*",
+      "*cta*",
+      "*testimonial*"
+    ],
+    "minExpectedSections": 3,
+    "disableUnwrap": false
+  },
+  "styles": {
+    "wrapperMappings": [
+      {
+        "classPattern": "elementor-section-boxed",
+        "tailwindClasses": "max-w-[1140px] mx-auto"
+      },
+      {
+        "classPattern": "elementor-section-full_width",
+        "tailwindClasses": "w-full"
+      },
+      {
+        "classPattern": "elementor-container",
+        "tailwindClasses": "flex flex-wrap"
+      },
+      {
+        "classPattern": "elementor-column-gap-default",
+        "tailwindClasses": "gap-5"
+      },
+      {
+        "classPattern": "elementor-col-100",
+        "tailwindClasses": "w-full"
+      },
+      {
+        "classPattern": "elementor-col-50",
+        "tailwindClasses": "w-1/2"
+      },
+      {
+        "classPattern": "elementor-col-33",
+        "tailwindClasses": "w-1/3"
+      },
+      {
+        "classPattern": "elementor-col-25",
+        "tailwindClasses": "w-1/4"
+      },
+      {
+        "classPattern": "elementor-widget-wrap",
+        "tailwindClasses": "flex flex-col w-full"
+      },
+      {
+        "classPattern": "e-con-boxed",
+        "tailwindClasses": "max-w-[1140px] mx-auto"
+      },
+      {
+        "classPattern": "e-con-full",
+        "tailwindClasses": "w-full"
+      }
+    ],
+    "scopedStylePrefix": null
+  },
+  "images": {
+    "cdnPatterns": [
+      "/wp-content/uploads/\\d{4}/\\d{2}/"
+    ],
+    "lazyLoadStrategy": "intersection-observer",
+    "responsiveFormat": null
+  },
+  "animations": {
+    "engine": "animate-css",
+    "dataSource": "document.querySelectorAll('[data-settings]')",
+    "transitionProperty": null,
+    "notes": "37 entrance animations via Animate.css. Widgets use _animation/_animation_delay in data-settings JSON. Sections use animation/animation_delay. Elements start with elementor-invisible class, IntersectionObserver adds animated + animation name class. Pro adds motion effects (scroll parallax, mouse tracking)."
+  },
+  "quirks": [
+    {
+      "id": "dual-layout-systems",
+      "description": "Sites can use legacy section/column layout (.elementor-section), modern flexbox containers (.e-con), or BOTH simultaneously. Section hierarchy has 6 nesting levels; container has 3-4.",
+      "workaround": "Use combined selector '.elementor-top-section, .e-con.e-parent' for section discovery. Handle both DOM structures."
+    },
+    {
+      "id": "theme-builder-spa-false-positive",
+      "description": "Theme Builder creates only 3 body children (header, page wrapper, footer), triggering false SPA detection.",
+      "workaround": "spaContainerHints unwrap [data-elementor-type='wp-page'] to find actual sections."
+    },
+    {
+      "id": "data-settings-json-overload",
+      "description": "data-settings attribute contains animation data, motion effects, layout settings, and widget config in one JSON object. Animation keys differ: widgets use _animation (underscore prefix), sections use animation (no prefix).",
+      "workaround": "Parse data-settings JSON per element. Check both _animation and animation keys."
+    },
+    {
+      "id": "multiple-lazy-loading-strategies",
+      "description": "Plugin-based (data-lazy-src with SVG placeholder), WordPress native (loading='lazy'), and Elementor's Optimized Image Loading can all coexist on the same page.",
+      "workaround": "Check data-lazy-src, data-src, and src attributes. Scroll to trigger IntersectionObserver-based lazy loaders."
+    },
+    {
+      "id": "per-page-css-splitting",
+      "description": "Elementor generates per-page CSS at /wp-content/uploads/elementor/css/post-{id}.css plus global CSS and per-widget CSS. Styles split across 10-15+ files.",
+      "workaround": "Extract computed styles rather than trying to parse individual CSS files."
+    },
+    {
+      "id": "shape-divider-svgs",
+      "description": "Shape dividers (.elementor-shape) contain inline SVG paths inside sections. Purely decorative but inflate DOM element count.",
+      "workaround": "Skip .elementor-shape in section discovery. Capture SVG content during style extraction for visual fidelity."
+    },
+    {
+      "id": "elementor-invisible-animation-start",
+      "description": "Elements with entrance animations start with elementor-invisible class (visibility: hidden). Screenshots before animation trigger will show blank areas.",
+      "workaround": "Before extracting, remove elementor-invisible class from all elements and add animated class to trigger final state."
+    }
+  ],
+  "validation": {
+    "sites": [
+      "https://girlvscancer.co.uk",
+      "https://distantjob.com",
+      "https://mitchelladam.co.uk",
+      "https://jesuits.org",
+      "https://snoopdogg.com",
+      "https://www.plesk.com",
+      "https://happyaddons.com",
+      "https://bdthemes.com",
+      "https://www.23rdstreetdistillery.com.au",
+      "https://skelementor.com"
+    ],
+    "lastValidated": "2026-03-31",
+    "results": {
+      "passed": 8,
+      "failed": 2,
+      "sections": [
+        12,
+        null,
+        9,
+        27,
+        14,
+        23,
+        38,
+        11,
+        19,
+        10
+      ]
+    }
+  },
+  "localSite": {
+    "sectionSelector": "body > header, body > nav, main > *, body > footer",
+    "devToolsHideScript": "document.querySelectorAll('nextjs-portal, [data-nextjs-toast], button[data-nextjs-dev-tools-button]').forEach(el => el.style.display = 'none')"
+  }
+}

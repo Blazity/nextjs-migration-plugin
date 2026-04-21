@@ -1,0 +1,76 @@
+{
+  "platform": "strapi",
+  "type": "cms",
+  "version": "1.0",
+  "detection": {
+    "jsMarkers": [],
+    "domMarkers": [],
+    "urlPatterns": [
+      "/uploads/[\\w]+_[0-9a-f]{10}\\.[a-z]+",
+      "res\\.cloudinary\\.com/.+_[0-9a-f]{10}\\.[a-z]+",
+      "\\.s3[.-][\\w-]+\\.amazonaws\\.com/.+_[0-9a-f]{10}\\.[a-z]+",
+      "\\w{2,}_[0-9a-f]{10}\\.(jpg|jpeg|png|svg|gif|webp|avif)"
+    ]
+  },
+  "validation": {
+    "sites": [
+      "https://4xstrategy.com/",
+      "https://pxstudio.pw/",
+      "https://blueflamingos.nl",
+      "https://adapttive.com",
+      "https://alldadstalk.com",
+      "https://www.index-tribu.fr/",
+      "https://posthog.com",
+      "https://www.usfabricsinc.com/",
+      "https://nightshiftent.com/",
+      "https://thefirstthelast.agency/"
+    ],
+    "lastValidated": "2026-03-31",
+    "results": {
+      "passed": 10,
+      "failed": 0
+    }
+  },
+  "images": {
+    "cdnPatterns": [
+      "/uploads/[\\w]+_[0-9a-f]{10}\\.[a-z]+",
+      "res\\.cloudinary\\.com/.+_[0-9a-f]{10}\\.[a-z]+",
+      "\\.s3[.-][\\w-]+\\.amazonaws\\.com/.+_[0-9a-f]{10}\\.[a-z]+"
+    ],
+    "assetIdPattern": "_([0-9a-f]{10})\\.[a-z]+$",
+    "lazyLoadStrategy": "native",
+    "responsiveFormat": null
+  },
+  "quirks": [
+    {
+      "id": "upload-provider-variance",
+      "description": "Strapi supports multiple upload providers (local, AWS S3, Cloudinary, DigitalOcean Spaces, MinIO). URL base changes per provider but the filename hash suffix (_[10-hex-chars]) is preserved across all.",
+      "workaround": "Match the _[0-9a-f]{10} suffix pattern regardless of domain/path. This is the definitive Strapi fingerprint from crypto.randomBytes(5).toString('hex')."
+    },
+    {
+      "id": "filename-prefix-responsive",
+      "description": "Strapi generates responsive formats as filename prefixes. v4: thumbnail_, small_, medium_, large_. v5 adds: xsmall_ (64px), xlarge_ (1920px).",
+      "workaround": "Strip prefix (thumbnail_|xsmall_|small_|medium_|large_|xlarge_) to find original filename."
+    },
+    {
+      "id": "cloudinary-path-transforms",
+      "description": "When using Cloudinary provider, transforms use path syntax (e.g., /c_fill,w_800,h_600/ and /q_auto,f_auto/).",
+      "workaround": "Detect Cloudinary URLs and strip transform segments from path to get original. Re-apply via Cloudinary URL builder."
+    },
+    {
+      "id": "headless-invisible-cms",
+      "description": "Strapi is headless with NO client-side JS markers. Detection relies entirely on image URL patterns. If frontend proxies images (e.g., Next.js Image /_next/image?url=...), Strapi becomes undetectable.",
+      "workaround": "This is a fundamental limitation. The 10-char hex suffix in filenames is the only reliable signal."
+    },
+    {
+      "id": "api-subdomain-pattern",
+      "description": "Many Strapi sites serve the API from a subdomain (e.g., api.example.com/uploads/). Images have a different origin than the page.",
+      "workaround": "urlPatterns match against full page HTML source, catching cross-origin image URLs."
+    },
+    {
+      "id": "v3-legacy-hash-filenames",
+      "description": "Strapi v3 uses pure 32-char MD5 hash filenames (113a96e0c7a0475ea85aa919c7097717.jpg) without the name_hash structure. These will NOT be detected by current patterns.",
+      "workaround": "Known limitation. v3 sites are increasingly rare. Manual adapter configuration may be needed."
+    }
+  ]
+}

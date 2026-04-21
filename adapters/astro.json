@@ -1,0 +1,139 @@
+{
+  "platform": "astro",
+  "type": "framework",
+  "version": "1.0",
+  "detection": {
+    "jsMarkers": [
+      "!!document.querySelector('astro-island')",
+      "!!document.querySelector('[data-astro-prefetch]')"
+    ],
+    "domMarkers": [
+      "meta[name=\"generator\"][content^=\"Astro\"]",
+      "astro-island",
+      "[data-astro-cid-]",
+      "[data-astro-prefetch]",
+      "[data-astro-transition-scope]"
+    ],
+    "urlPatterns": [
+      "/_astro/"
+    ],
+    "metaGenerator": "Astro"
+  },
+  "sectionDiscovery": {
+    "primarySelector": "body > *",
+    "spaContainerHints": [],
+    "skipSelectors": [
+      "script",
+      "noscript",
+      "style",
+      "link",
+      "astro-island",
+      "astro-dev-toolbar",
+      "astro-route-announcer"
+    ],
+    "sectionLabelPatterns": [
+      "section_*",
+      "section-*",
+      "*navbar*",
+      "*footer*",
+      "*hero*"
+    ]
+  },
+  "styles": {
+    "wrapperMappings": [],
+    "scopedStylePrefix": "data-astro-cid-",
+    "scopedStyleClassPrefix": "astro-",
+    "notes": "Astro supports two scoped style strategies: attribute-based (data-astro-cid-{hash}) and class-based (astro-{hash} with :where() selectors). Strategy depends on scopedStyleStrategy in astro.config."
+  },
+  "images": {
+    "cdnPatterns": [
+      "/_astro/"
+    ],
+    "lazyLoadStrategy": "native",
+    "responsiveFormat": null,
+    "notes": "/_astro/ images may be rewritten through hosting CDNs (e.g., /.netlify/images?url=_astro%2F...). Astro 6+ has stable responsive images via layout prop on Image/Picture components."
+  },
+  "animations": {
+    "engine": "css-transitions",
+    "dataSource": null,
+    "transitionProperty": null,
+    "notes": "Astro supports View Transitions API via ClientRouter component. DOM attributes: data-astro-transition-scope, data-astro-transition-persist, data-astro-transition-fallback, data-astro-rerun, data-astro-reload, data-astro-exec."
+  },
+  "quirks": [
+    {
+      "id": "clean-html",
+      "description": "Astro outputs the cleanest semantic HTML of any framework. Minimal wrapper divs.",
+      "workaround": "Use body > * as primary selector. Section discovery should work with minimal filtering."
+    },
+    {
+      "id": "island-hydration",
+      "description": "<astro-island> wraps interactive components with client:* directives. Most Astro pages ship zero islands — content is fully static HTML.",
+      "workaround": "Wait for page load + idle before extracting interactive island content. Islands are inside sections, not sections themselves."
+    },
+    {
+      "id": "mixed-framework-islands",
+      "description": "A single Astro page can contain islands from React, Vue, Svelte. Starlight (Astro docs theme) uses Svelte internally, triggering false Svelte detection.",
+      "workaround": "Extract computed styles from all islands regardless of underlying framework. Ignore framework-specific class hashes."
+    },
+    {
+      "id": "zero-js-pages",
+      "description": "Most Astro pages ship zero JavaScript. Content is fully static HTML with scoped CSS. Zero astro-island elements found across 4 production sites tested.",
+      "workaround": "No hydration wait needed for pages without astro-island elements. Extract directly from initial HTML."
+    },
+    {
+      "id": "view-transitions-renamed",
+      "description": "In Astro 5+, ViewTransitions was renamed to ClientRouter. DOM uses data-astro-transition-scope, data-astro-transition-persist, data-astro-exec attributes. <meta name='view-transition'> is NOT reliably present.",
+      "workaround": "Check for data-astro-transition-scope on elements. Check for data-astro-exec on scripts."
+    },
+    {
+      "id": "scoped-style-dual-strategy",
+      "description": "Astro supports two scoped style strategies: attribute-based (data-astro-cid-{hash}) and class-based (astro-{hash} with :where() selectors). docs.astro.build uses class-based; astro.build uses attribute-based.",
+      "workaround": "Detect both patterns. Strip classes matching /^astro-[a-z0-9]+$/ AND attributes matching /^data-astro-cid-/ from section labels."
+    },
+    {
+      "id": "server-islands",
+      "description": "Astro 5+ supports server:defer directive creating server islands that load asynchronously after initial render. Initial HTML has script placeholder and slot fallback.",
+      "workaround": "Wait for server island content to load before extracting. Check for empty slot[name='fallback'] elements."
+    },
+    {
+      "id": "cdn-image-rewriting",
+      "description": "/_astro/ images may be routed through hosting CDNs (Netlify: /.netlify/images?url=_astro%2F...). The pattern appears URL-encoded.",
+      "workaround": "Match both direct /_astro/ paths and URL-encoded variants in CDN query strings."
+    }
+  ],
+  "validation": {
+    "sites": [
+      "https://astro.build",
+      "https://starlight.astro.build",
+      "https://theguardian.engineering",
+      "https://proton.me",
+      "https://www.netlify.com",
+      "https://www.michelin.com",
+      "https://design.visa.com",
+      "https://www.jamieoliver.com",
+      "https://tech.trivago.com",
+      "https://www.ricola.com/en-ca/"
+    ],
+    "lastValidated": "2026-03-31",
+    "results": {
+      "passed": 8,
+      "failed": 2,
+      "sections": [
+        4,
+        2,
+        8,
+        16,
+        5,
+        null,
+        3,
+        5,
+        4,
+        9
+      ]
+    }
+  },
+  "localSite": {
+    "sectionSelector": "body > header, body > nav, main > *, body > footer",
+    "devToolsHideScript": "document.querySelectorAll('nextjs-portal, [data-nextjs-toast], button[data-nextjs-dev-tools-button]').forEach(el => el.style.display = 'none')"
+  }
+}
