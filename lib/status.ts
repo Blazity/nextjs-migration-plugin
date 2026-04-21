@@ -37,3 +37,15 @@ export async function getStatus(targetDir: string): Promise<Status> {
 
   return { initialized: true, site: siteResult.site, activeRun, completedPhases };
 }
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const target = process.argv.includes("--target")
+    ? process.argv[process.argv.indexOf("--target") + 1]
+    : process.cwd();
+  getStatus(target).then(status => {
+    console.log(JSON.stringify(status, null, 2));
+  }).catch(err => {
+    console.error(err.message);
+    process.exit(1);
+  });
+}
