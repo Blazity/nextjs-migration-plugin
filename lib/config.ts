@@ -29,3 +29,23 @@ export async function setConfig(targetDir: string, key: string, value: string): 
   );
   writeFileSync(sitePath, updated);
 }
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const get = (flag: string) => {
+    const i = process.argv.indexOf(flag);
+    return i >= 0 ? process.argv[i + 1] : undefined;
+  };
+  const target = get("--target") ?? process.cwd();
+  const key = get("--key");
+  const value = get("--value");
+  if (!key || value === undefined) {
+    console.error("Usage: config --target <dir> --key <k> --value <v>");
+    process.exit(1);
+  }
+  setConfig(target, key, value).then(() => {
+    console.log(`Updated: ${key} = ${value}`);
+  }).catch(err => {
+    console.error(err.message);
+    process.exit(1);
+  });
+}
