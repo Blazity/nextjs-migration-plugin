@@ -22,7 +22,10 @@ export async function getStatus(targetDir: string): Promise<Status> {
   }
 
   const runsDir = join(migrationDir, "runs");
-  const runs = existsSync(runsDir) ? readdirSync(runsDir).sort() : [];
+  // Numeric collation survives past "009" → "010" and "099" → "100".
+  const runs = existsSync(runsDir)
+    ? readdirSync(runsDir).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+    : [];
   const activeRun = runs[runs.length - 1] ?? "001-initial";
 
   const activeRunDir = join(runsDir, activeRun);

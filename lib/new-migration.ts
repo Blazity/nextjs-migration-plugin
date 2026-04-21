@@ -11,6 +11,9 @@ export interface NewMigrationArgs {
 }
 
 export async function runNewMigration(args: NewMigrationArgs): Promise<void> {
+  // `target` is always "./" — the .migration/ directory IS the migration root, so
+  // `target` is the path to code output relative to `.migration/`'s parent.
+  // Multi-target layouts (e.g., apps/web, packages/ui) are a v2 concern.
   const site = SiteFrontmatterSchema.parse({
     sourceUrl: args.sourceUrl,
     target: "./",
@@ -38,11 +41,17 @@ function parseArgs(argv: string[]): NewMigrationArgs {
     return i >= 0 ? argv[i + 1] : undefined;
   };
   const sourceUrl = get("--url");
-  const targetDir = get("--target") ?? process.cwd();
-  const mode = (get("--mode") ?? "attended") as "attended" | "unattended";
-  const goal = (get("--goal") ?? "pixel-perfect") as "wireframe" | "pixel-perfect";
-  const inputMode = (get("--input-mode") ?? "url-only") as "url-only" | "url-plus-repo";
-  const sourceRepo = get("--source-repo");
   if (!sourceUrl) throw new Error("--url is required");
-  return { sourceUrl, targetDir, mode, goal, inputMode, sourceRepo };
+
+  // Cast to literals is safe because `runNewMigration` passes these straight
+  // into `SiteFrontmatterSchema.parse`, which validates the enum values and
+  // throws a structured ZodError on mismatch.
+  return {
+    sourceUrl,
+    targetDir: get("--target") ?? process.cwd(),
+    mode: (get("--mode") ?? "attended") as NewMigrationArgs["mode"],
+    goal: (get("--goal") ?? "pixel-perfect") as NewMigrationArgs["goal"],
+    inputMode: (get("--input-mode") ?? "url-only") as NewMigrationArgs["inputMode"],
+    sourceRepo: get("--source-repo"),
+  };
 }
