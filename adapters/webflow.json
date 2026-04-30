@@ -49,7 +49,9 @@
       "*hero*",
       "*cta*",
       "*testimonial*"
-    ]
+    ],
+    "minExpectedSections": 3,
+    "disableUnwrap": false
   },
   "styles": {
     "wrapperMappings": [
