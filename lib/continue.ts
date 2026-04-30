@@ -2,6 +2,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { loadSite } from "./load-site.ts";
 import { firstIncompletePhase } from "./phase-status.ts";
+import { runDiscover } from "./discover.ts";
 
 export type PhaseDispatcher = (args: { targetDir: string; runDir: string }) => Promise<void>;
 
@@ -40,4 +41,12 @@ export async function resumeMigration(
 
   await dispatcher({ targetDir, runDir: activeRun });
   return { kind: "dispatched", phase: next, runDir: activeRun };
+}
+
+export function defaultDispatchers(): Record<string, PhaseDispatcher> {
+  return {
+    "phase-1-discover": async ({ targetDir, runDir }) => {
+      await runDiscover({ targetDir, runDir });
+    },
+  };
 }
