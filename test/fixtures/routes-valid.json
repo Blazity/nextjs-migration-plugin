@@ -1,0 +1,17 @@
+{
+  "routes": [
+    {
+      "sourceUrl": "https://example.com/",
+      "nextRoute": "/",
+      "params": {},
+      "kind": "static"
+    },
+    {
+      "sourceUrl": "https://example.com/case-study/cookunity",
+      "nextRoute": "/case-study/[slug]",
+      "params": { "slug": "cookunity" },
+      "kind": "dynamic"
+    }
+  ],
+  "updatedAt": "2026-04-30T12:00:00.000Z"
+}
