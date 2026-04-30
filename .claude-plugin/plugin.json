@@ -1,0 +1,24 @@
+{
+  "name": "nextjs-migration-plugin",
+  "version": "0.0.1",
+  "description": "Multi-page Next.js migration via phased, stateful agents.",
+  "author": {
+    "name": "Blazity",
+    "url": "https://github.com/blazity"
+  },
+  "license": "MIT",
+  "keywords": ["nextjs", "migration", "claude-code", "pixel-perfect"],
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.js\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
