@@ -1,0 +1,26 @@
+{
+  "probedAt": "2026-04-30T12:00:00.000Z",
+  "pages": [
+    {
+      "url": "https://example.com/",
+      "sections": [
+        {
+          "id": "home-0",
+          "selector": "body > header",
+          "tagSkeleton": "header>nav>ul>li",
+          "pathShingles": ["body>header", "header>nav", "nav>ul"],
+          "sampleText": "Home About Pricing",
+          "boundingBox": { "x": 0, "y": 0, "width": 1440, "height": 80 }
+        },
+        {
+          "id": "home-1",
+          "selector": "body > main > section.hero",
+          "tagSkeleton": "section>div>h1",
+          "pathShingles": ["body>main", "main>section", "section>div"],
+          "sampleText": "Welcome to example",
+          "boundingBox": { "x": 0, "y": 80, "width": 1440, "height": 600 }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "probedAt": "today",
+  "pages": [
+    { "url": "not-a-url", "sections": [] }
+  ]
+}
