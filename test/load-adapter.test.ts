@@ -10,7 +10,7 @@ describe("loadAdapter", () => {
     const result = loadAdapter(fixturePath("adapter-valid.json"));
     expect(result.valid).toBe(true);
     if (result.valid) {
-      expect(result.adapter.name).toBe("webflow");
+      expect(result.data.name).toBe("webflow");
     }
   });
 
