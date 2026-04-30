@@ -1421,9 +1421,19 @@ let baseUrl: string;
 beforeAll(async () => {
   const port = await getPort();
   server = createServer((req, res) => {
-    const url = req.url === "/" ? "/index.html" : req.url!.split("?")[0];
-    const file = url === "/robots.txt" ? "robots.txt" : `${url.replace(/^\//, "").replace(/\/$/, "")}.html`;
-    const path = join(fixtureDir, file === ".html" ? "index.html" : file);
+    // Deviation from earlier draft: the original mapped `/` → `/index.html` and
+    // unconditionally appended `.html`, which produced `index.html.html`. Map
+    // `/` directly to `index.html` and only append `.html` for non-root paths.
+    const rawUrl = req.url!.split("?")[0];
+    let file: string;
+    if (rawUrl === "/robots.txt") {
+      file = "robots.txt";
+    } else if (rawUrl === "/" || rawUrl === "") {
+      file = "index.html";
+    } else {
+      file = `${rawUrl.replace(/^\//, "").replace(/\/$/, "")}.html`;
+    }
+    const path = join(fixtureDir, file);
     if (!existsSync(path)) { res.statusCode = 404; res.end("nope"); return; }
     const isHtml = file.endsWith(".html");
     res.setHeader("Content-Type", isHtml ? "text/html" : "text/plain");
