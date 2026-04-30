@@ -1,0 +1,7 @@
+{
+  "url": "https://example.com/spa",
+  "matchedAdapters": [],
+  "recommendation": "ABORT_NO_ADAPTER",
+  "detectedCMP": "OneTrust",
+  "spaAnalysis": { "isSPA": true }
+}
