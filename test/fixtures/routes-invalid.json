@@ -1,0 +1,4 @@
+{
+  "routes": [{ "sourceUrl": "not-a-url", "nextRoute": "", "kind": "weird" }],
+  "updatedAt": "today"
+}
