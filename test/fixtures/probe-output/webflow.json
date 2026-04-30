@@ -1,0 +1,7 @@
+{
+  "url": "https://example.com/",
+  "matchedAdapters": ["webflow"],
+  "recommendation": "DIRECT_EXTRACTION",
+  "detectedCMP": null,
+  "spaAnalysis": { "isSPA": false }
+}
