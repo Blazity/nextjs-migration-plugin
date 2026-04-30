@@ -111,3 +111,17 @@ async function readSiteConfig(targetDir: string): Promise<{ sourceUrl: string; m
 function isUnattended(mode: string): boolean {
   return mode === "unattended";
 }
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const get = (flag: string) => {
+    const i = process.argv.indexOf(flag);
+    return i >= 0 ? process.argv[i + 1] : undefined;
+  };
+  const targetDir = get("--target") ?? process.cwd();
+  const runDir = get("--run") ?? "001-initial";
+  const confirmPageList = process.argv.includes("--confirm-page-list");
+  const confirmAborts = process.argv.includes("--confirm-aborts");
+  runDiscover({ targetDir, runDir, confirmPageList, confirmAborts })
+    .then(() => { console.log(`Discover phase complete for run ${runDir}.`); })
+    .catch(err => { console.error(err.message); process.exit(1); });
+}

@@ -50,3 +50,17 @@ export function defaultDispatchers(): Record<string, PhaseDispatcher> {
     },
   };
 }
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const get = (flag: string) => {
+    const i = process.argv.indexOf(flag);
+    return i >= 0 ? process.argv[i + 1] : undefined;
+  };
+  const targetDir = get("--target") ?? process.cwd();
+  resumeMigration(targetDir, { dispatchers: defaultDispatchers() })
+    .then(result => {
+      console.log(JSON.stringify(result, null, 2));
+      if (result.kind === "no-dispatcher") process.exit(2);
+    })
+    .catch(err => { console.error(err.message); process.exit(1); });
+}
