@@ -1,0 +1,26 @@
+{
+  "components": [
+    {
+      "id": "cluster-abc123",
+      "name": "Hero",
+      "signature": "abc123",
+      "tagSkeleton": "section>div>h1",
+      "memberSections": [
+        { "id": "p0-s1", "url": "https://example.com/" },
+        { "id": "p1-s0", "url": "https://example.com/about" }
+      ],
+      "unique": false,
+      "propsRef": "HeroProps"
+    },
+    {
+      "id": "cluster-solo",
+      "name": "PricingTable",
+      "signature": "solo",
+      "tagSkeleton": "section>table",
+      "memberSections": [{ "id": "p2-s1", "url": "https://example.com/pricing" }],
+      "unique": true,
+      "propsRef": null
+    }
+  ],
+  "updatedAt": "2026-04-30T12:00:00.000Z"
+}
