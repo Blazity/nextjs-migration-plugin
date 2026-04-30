@@ -1,0 +1,16 @@
+{
+  "header": {
+    "id": "layout-header-1",
+    "signature": "abc123",
+    "appearsOn": ["https://example.com/", "https://example.com/about"],
+    "tagSkeleton": "header>nav>ul>li"
+  },
+  "footer": {
+    "id": "layout-footer-1",
+    "signature": "def456",
+    "appearsOn": ["https://example.com/", "https://example.com/about"],
+    "tagSkeleton": "footer>p"
+  },
+  "nav": null,
+  "updatedAt": "2026-04-30T12:00:00.000Z"
+}
