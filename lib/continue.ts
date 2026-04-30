@@ -3,6 +3,9 @@ import { join } from "node:path";
 import { loadSite } from "./load-site.ts";
 import { firstIncompletePhase } from "./phase-status.ts";
 import { runDiscover } from "./discover.ts";
+import { runAnalyze } from "./analyze.ts";
+import { loadAdapter } from "./load-adapter.ts";
+import { loadProbe } from "./load-probe.ts";
 
 export type PhaseDispatcher = (args: { targetDir: string; runDir: string }) => Promise<void>;
 
@@ -48,7 +51,32 @@ export function defaultDispatchers(): Record<string, PhaseDispatcher> {
     "phase-1-discover": async ({ targetDir, runDir }) => {
       await runDiscover({ targetDir, runDir });
     },
+    "phase-2-analyze": async ({ targetDir, runDir }) => {
+      const selector = await resolvePrimarySelector(targetDir, runDir);
+      await runAnalyze({ targetDir, runDir, primarySelector: selector });
+    },
   };
+}
+
+async function resolvePrimarySelector(targetDir: string, runDir: string): Promise<string> {
+  const probePath = join(targetDir, ".migration/runs", runDir, "phase-1-discover/discovery/probe.json");
+  const probeResult = loadProbe(probePath);
+  if (!probeResult.valid) {
+    throw new Error(`Cannot resolve primarySelector: probe.json invalid at ${probePath}`);
+  }
+  const adapterPath = probeResult.data.pages[0]?.matchedAdapters[0];
+  if (!adapterPath) {
+    throw new Error("Cannot resolve primarySelector: probe.json has no matchedAdapters");
+  }
+  const adapterResult = loadAdapter(adapterPath);
+  if (!adapterResult.valid) {
+    throw new Error(`Cannot resolve primarySelector: adapter invalid at ${adapterPath}`);
+  }
+  const sd = adapterResult.data.sectionDiscovery;
+  // SectionDiscoverySchema accepts both `primarySelector` (vendored adapters)
+  // and `selector` (plugin-internal fixtures). Prefer the more specific one,
+  // falling back to a generic body-children selector.
+  return sd?.primarySelector ?? sd?.selector ?? "body > *";
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
