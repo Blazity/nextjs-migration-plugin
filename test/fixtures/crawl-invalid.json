@@ -1,0 +1,8 @@
+{
+  "sourceUrl": "not-a-url",
+  "crawledAt": "yesterday",
+  "limits": { "maxPages": -1 },
+  "pages": [
+    { "url": "https://example.com/", "depth": "zero" }
+  ]
+}
