@@ -64,10 +64,12 @@ export function clusterSections(
     }
   }
 
-  const allSingletons = clusters.every(c => c.memberIds.length === 1);
-  const unique = allSingletons
-    ? clusters.map(c => c.representative)
-    : [];
+  // Per spec § 5 row 2: every section "belongs to a cluster or is marked
+  // unique". A singleton cluster — one whose only member is itself — is the
+  // "marked unique" case. Multi-member clusters do not appear in `unique`.
+  const unique = clusters
+    .filter(c => c.memberIds.length === 1)
+    .map(c => c.representative);
 
   return { clusters, ambiguousPairs, unique };
 }

@@ -21,7 +21,8 @@ describe("clusterSections", () => {
     });
     expect(clusters.find(c => c.memberIds.includes("a"))?.memberIds.sort()).toEqual(["a", "b"]);
     expect(clusters.find(c => c.memberIds.includes("c"))?.memberIds).toEqual(["c"]);
-    expect(unique.map(u => u.id).sort()).toEqual([]);
+    // `c` ended up as a singleton cluster → marked unique.
+    expect(unique.map(u => u.id).sort()).toEqual(["c"]);
     expect(ambiguousPairs).toEqual([]);
   });
 
