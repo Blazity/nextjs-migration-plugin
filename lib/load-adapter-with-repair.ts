@@ -1,30 +1,34 @@
 import { loadAdapter } from "./load-adapter.ts";
+import { loadWithRepair, UnrepairableStateError, type RepairDispatcher } from "./load-with-repair.ts";
 import type { Adapter } from "../schemas/adapter.ts";
-import type { LoadResult } from "../schemas/errors.ts";
 
-export class UnrepairableAdapterError extends Error {
-  constructor(public lastResult: Extract<LoadResult<Adapter>, { valid: false }>) {
-    super(`Adapter at ${lastResult.path} could not be auto-repaired after 3 attempts.`);
+export { UnrepairableStateError };
+export class UnrepairableAdapterError extends UnrepairableStateError {
+  constructor(lastResult: ConstructorParameters<typeof UnrepairableStateError>[0]) {
+    super(lastResult);
     this.name = "UnrepairableAdapterError";
+    this.message = `Adapter at ${lastResult.path} could not be auto-repaired after 3 attempts.`;
   }
 }
 
-export type RepairDispatcher = (
-  diagnostic: Extract<LoadResult<Adapter>, { valid: false }>,
-) => Promise<void>;
+export type { RepairDispatcher };
 
 export async function loadAdapterWithRepair(
   path: string,
-  dispatch: RepairDispatcher,
+  dispatch: RepairDispatcher<Adapter>,
   maxAttempts = 3,
 ): Promise<Adapter> {
-  for (let attempt = 0; attempt <= maxAttempts; attempt++) {
-    const result = loadAdapter(path);
-    if (result.valid) return result.data;
-    if (attempt === maxAttempts) {
-      throw new UnrepairableAdapterError(result);
+  try {
+    return await loadWithRepair<Adapter>({
+      path,
+      load: () => loadAdapter(path),
+      dispatch,
+      maxAttempts,
+    });
+  } catch (err) {
+    if (err instanceof UnrepairableStateError && !(err instanceof UnrepairableAdapterError)) {
+      throw new UnrepairableAdapterError(err.lastResult as never);
     }
-    await dispatch(result);
+    throw err;
   }
-  throw new Error("unreachable");
 }
