@@ -24,7 +24,36 @@ describe("urlToSlug", () => {
     expect(urlToSlug("https://example.com/About Us!")).toBe("about-us");
   });
 
-  it("throws on a non-URL string", () => {
-    expect(() => urlToSlug("not a url")).toThrow();
+  it("normalizes a path of only slashes to 'home'", () => {
+    expect(urlToSlug("https://example.com//")).toBe("home");
+  });
+
+  it("lowercases across all path segments", () => {
+    expect(urlToSlug("https://example.com/Foo/BAR/baz")).toBe("foo-bar-baz");
+  });
+
+  it("decodes percent-encoded spaces before stripping", () => {
+    expect(urlToSlug("https://example.com/foo%20bar")).toBe("foo-bar");
+  });
+
+  it("degrades on malformed percent-encoding without throwing", () => {
+    let result: string;
+    expect(() => {
+      result = urlToSlug("https://example.com/foo%XX");
+    }).not.toThrow();
+    expect(result!).not.toBe("");
+    expect(result!.startsWith("foo")).toBe(true);
+  });
+
+  it("falls back to 'page' for non-ASCII-only paths", () => {
+    expect(urlToSlug("https://example.com/中文")).toBe("page");
+  });
+
+  it("strips diacritics via NFKD normalization", () => {
+    expect(urlToSlug("https://example.com/café")).toBe("cafe");
+  });
+
+  it("throws TypeError on a non-URL string", () => {
+    expect(() => urlToSlug("not a url")).toThrow(TypeError);
   });
 });
