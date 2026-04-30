@@ -1,0 +1,28 @@
+{
+  "sourceUrl": "https://example.com",
+  "crawledAt": "2026-04-29T12:00:00.000Z",
+  "limits": { "maxPages": 50, "maxDepth": 3 },
+  "robotsTxt": { "fetched": true, "disallowedPaths": ["/admin"] },
+  "sitemapUrls": ["https://example.com/sitemap.xml"],
+  "pages": [
+    {
+      "url": "https://example.com/",
+      "slug": "home",
+      "title": "Example",
+      "depth": 0,
+      "discoveredVia": "seed",
+      "status": 200,
+      "outboundLinks": ["https://example.com/about"]
+    },
+    {
+      "url": "https://example.com/about",
+      "slug": "about",
+      "title": "About",
+      "depth": 1,
+      "discoveredVia": "link",
+      "status": 200,
+      "outboundLinks": []
+    }
+  ],
+  "errors": []
+}
