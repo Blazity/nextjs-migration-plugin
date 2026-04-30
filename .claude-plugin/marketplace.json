@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "nextjs-migration-plugin",
+  "description": "Multi-page Next.js migration via phased, stateful agents.",
+  "owner": {
+    "name": "Blazity",
+    "url": "https://github.com/blazity"
+  },
+  "plugins": [
+    {
+      "name": "nextjs-migration-plugin",
+      "description": "Pixel-perfect, multi-page Next.js migrations driven by phased agents.",
+      "source": "./",
+      "category": "development"
+    }
+  ]
+}
