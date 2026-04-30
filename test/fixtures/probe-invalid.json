@@ -1,0 +1,6 @@
+{
+  "probedAt": "today",
+  "pages": [
+    { "url": "https://example.com/", "recommendation": "EXTRACT_THIS_PAGE" }
+  ]
+}

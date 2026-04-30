@@ -1,0 +1,19 @@
+{
+  "probedAt": "2026-04-29T12:01:00.000Z",
+  "pages": [
+    {
+      "url": "https://example.com/",
+      "matchedAdapters": ["webflow"],
+      "recommendation": "DIRECT_EXTRACTION",
+      "detectedCMP": null,
+      "isSPA": false
+    },
+    {
+      "url": "https://example.com/spa",
+      "matchedAdapters": [],
+      "recommendation": "ABORT_NO_ADAPTER",
+      "detectedCMP": "OneTrust",
+      "isSPA": true
+    }
+  ]
+}
