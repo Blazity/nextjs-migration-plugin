@@ -20,7 +20,7 @@ export async function loadAdapterWithRepair(
 ): Promise<Adapter> {
   for (let attempt = 0; attempt <= maxAttempts; attempt++) {
     const result = loadAdapter(path);
-    if (result.valid) return result.adapter;
+    if (result.valid) return result.data;
     if (attempt === maxAttempts) {
       throw new UnrepairableAdapterError(result);
     }

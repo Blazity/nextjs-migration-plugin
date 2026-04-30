@@ -22,7 +22,7 @@ export function loadAdapter(path: string): LoadResult<Adapter> {
 
   const result = AdapterSchema.safeParse(rawJson);
   if (result.success) {
-    return { valid: true, adapter: result.data };
+    return { valid: true, data: result.data };
   }
   return {
     valid: false,
