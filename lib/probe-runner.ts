@@ -52,7 +52,17 @@ function defaultProbeOne(pluginRoot?: string): (url: string) => Promise<unknown>
   const root = pluginRoot ?? resolve(fileURLToPath(new URL("..", import.meta.url)));
   const script = resolve(root, "scripts/probe-page.ts");
   return async (url: string) => {
-    const { stdout } = await execFileP("npx", ["tsx", script, url], { env: process.env });
+    // probe-page.ts exits with code 2 for SPA_FLOW_EXTRACTION and 3 for
+    // ABORT_NO_ADAPTER — both are valid outcomes, not errors. execFile
+    // rejects on non-zero exit, so we recover stdout from the error.
+    let stdout: string;
+    try {
+      ({ stdout } = await execFileP("npx", ["tsx", script, url], { env: process.env }));
+    } catch (err) {
+      const errStdout = (err as { stdout?: string }).stdout;
+      if (typeof errStdout !== "string" || errStdout.length === 0) throw err;
+      stdout = errStdout;
+    }
     const lastJson = extractTrailingJson(stdout);
     return JSON.parse(lastJson);
   };
