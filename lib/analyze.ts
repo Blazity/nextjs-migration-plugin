@@ -207,3 +207,16 @@ function nameFromSkeleton(skeleton: string): string {
 function dedupeUrls(urls: string[]): string[] {
   return [...new Set(urls)];
 }
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const get = (flag: string) => {
+    const i = process.argv.indexOf(flag);
+    return i >= 0 ? process.argv[i + 1] : undefined;
+  };
+  const targetDir = get("--target") ?? process.cwd();
+  const runDir = get("--run") ?? "001-initial";
+  const primarySelector = get("--selector") ?? "body > *";
+  runAnalyze({ targetDir, runDir, primarySelector })
+    .then(() => { console.log(`Analyze phase complete for run ${runDir}.`); })
+    .catch(err => { console.error(err.message); process.exit(1); });
+}
