@@ -1,0 +1,14 @@
+{
+  "interfaces": [
+    {
+      "name": "HeroProps",
+      "fields": [
+        { "name": "title", "tsType": "string", "required": true },
+        { "name": "subtitle", "tsType": "string", "required": false },
+        { "name": "cta", "tsType": "{ label: string; href: string }", "required": false }
+      ]
+    },
+    { "name": "EmptyProps", "fields": [] }
+  ],
+  "updatedAt": "2026-04-30T12:00:00.000Z"
+}
