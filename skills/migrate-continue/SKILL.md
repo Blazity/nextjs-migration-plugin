@@ -22,13 +22,16 @@ Phase routing depends on whether the phase needs LLM refinement:
 |---|---|---|
 | `phase-1-discover` | `tsx ${PLUGIN_DIR}/lib/continue.ts --target "${PWD}"` | Deterministic crawl + probe. No LLM needed. |
 | `phase-2-analyze` | **Invoke `/migrate:analyze` skill instead** | Algorithmic pass plus 4 sub-agent dispatches (`layout-extractor` → `component-deduper` → `prop-classifier` → `route-mapper`). The CLI dispatcher in `lib/continue.ts` runs only the algorithmic half — that produces a passing schema gate but useless layouts/components. The `/migrate:analyze` skill orchestrates the LLM refinement on top. |
-| `phase-3-plan`+ | (Not yet implemented — Plan 4+.) | Print which phase is next and ask the user: "Run `/migrate:[next-phase]` manually." |
+| `phase-3-plan` | **Invoke `/migrate:plan` skill instead** | Algorithmic build-order pass plus 2 sub-agent dispatches (`migration-planner` → `plan-checker`). The CLI dispatcher in `lib/continue.ts` runs only the algorithmic half. In `attended` mode the algorithmic-only path fails the user-approval criterion intentionally; the `/migrate:plan` skill collects approval and re-runs `--refine-only --confirm-roadmap` to close the gate. |
+| `phase-4-extract`+ | (Not yet implemented — Plan 5+.) | Print which phase is next and ask the user: "Run `/migrate:[next-phase]` manually." |
 
 For phase-1, run the bash command and read its JSON output:
 - `kind: "dispatched"` — the registered dispatcher ran. Print the result and stop. User runs `/migrate:continue` again to advance.
 - `kind: "no-dispatcher"` — phase has no library-level dispatcher. Surface which phase + ask the user.
 
 For phase-2, follow the `/migrate:analyze` skill end to end. Do NOT call `lib/continue.ts` for phase-2; its dispatcher would skip the LLM step.
+
+For phase-3, follow the `/migrate:plan` skill end to end. Do NOT call `lib/continue.ts` for phase-3 in attended mode; its dispatcher would fail the user-approval criterion. In unattended mode the dispatcher's algorithmic pass is sufficient — the user-approval criterion auto-confirms — but the skill still produces better roadmap names because it dispatches `migration-planner`.
 
 ## Step 2 — In unattended mode, loop
 
