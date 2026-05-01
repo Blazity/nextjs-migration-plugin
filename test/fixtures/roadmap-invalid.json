@@ -1,0 +1,7 @@
+{
+  "goal": "weird",
+  "mode": "unattended",
+  "buildOrder": [],
+  "parallelism": { "maxParallelPages": -1, "maxParallelSections": 0 },
+  "generatedAt": "today"
+}

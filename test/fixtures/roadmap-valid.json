@@ -1,0 +1,32 @@
+{
+  "goal": "wireframe",
+  "mode": "unattended",
+  "buildOrder": [
+    {
+      "kind": "layout",
+      "id": "cluster-footer",
+      "name": "footer: cluster-footer",
+      "dependsOn": []
+    },
+    {
+      "kind": "component",
+      "id": "cluster-hero",
+      "name": "Hero",
+      "dependsOn": []
+    },
+    {
+      "kind": "page",
+      "id": "https://example.com/",
+      "name": "/",
+      "dependsOn": ["cluster-footer", "cluster-hero"]
+    }
+  ],
+  "parallelism": {
+    "maxParallelPages": 4,
+    "maxParallelSections": 4
+  },
+  "resolvedQuestions": [
+    { "question": "priority pages?", "answer": "home + 3 services" }
+  ],
+  "generatedAt": "2026-05-01T12:00:00.000Z"
+}
