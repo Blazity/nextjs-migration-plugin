@@ -4,6 +4,7 @@ import { loadSite } from "./load-site.ts";
 import { firstIncompletePhase } from "./phase-status.ts";
 import { runDiscover } from "./discover.ts";
 import { runAnalyze } from "./analyze.ts";
+import { runPlan } from "./plan.ts";
 import { loadAdapter } from "./load-adapter.ts";
 import { loadProbe } from "./load-probe.ts";
 
@@ -59,6 +60,9 @@ export function defaultDispatchers(): Record<string, PhaseDispatcher> {
         primarySelector: adapter.primarySelector,
         skipSelectors: adapter.skipSelectors,
       });
+    },
+    "phase-3-plan": async ({ targetDir, runDir }) => {
+      await runPlan({ targetDir, runDir });
     },
   };
 }
