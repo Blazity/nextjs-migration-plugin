@@ -23,7 +23,7 @@ The four sub-agents (`layout-extractor`, `component-deduper`, `prop-classifier`,
 ## Clustering
 
 - **Threshold tuning.** `autoMergeThreshold = 0.85` and `ambiguousThreshold = 0.6` are conservative. Lower autoMerge causes false merges (a `Hero` and a `CallToAction` become one component); raise it past 0.95 and almost nothing clusters.
-- **Path shingles vs full DOM trees.** The algorithm uses N-gram path shingles, not real tree-edit distance. Two sections with similar tag paths but very different content can match. The LLM-refinement step (`component-deduper`) is what catches this.
+- **Composite shingles, not path-only.** Body-level sections (`body>section`) all produce a single shallow path shingle, so path-only Jaccard would collapse them all into one cluster regardless of internal structure. `lib/cluster.ts` runs Jaccard over `compositeShingles` — namespaced `p:` (path) plus `t:` (descendant tag tokens) — so heroes, testimonials, stats, CTAs at the same body depth can still be discriminated. Threshold defaults `autoMergeThreshold=0.85` / `ambiguousThreshold=0.6` are calibrated for this composite signal; if you see persistent mega-clusters, lower autoMerge to ~0.75 first.
 - **Cluster IDs are signature-derived.** Re-running on the same crawl yields the same cluster IDs. Re-running after a probe re-crawl that changed the DOM produces NEW IDs — that's by design; downstream `pages/[slug]/component-usage.json` (Phase 4+) must re-resolve.
 
 ## Routes
