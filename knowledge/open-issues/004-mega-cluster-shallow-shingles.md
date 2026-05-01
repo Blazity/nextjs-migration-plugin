@@ -2,7 +2,7 @@
 
 **Surfaced by:** Phase 2 (Analyze)
 **Severity:** High — collapses unrelated content sections (heroes, testimonials, stats, CTAs) into a single bucket; Phase 5 cannot generate distinct components from the result
-**Status:** Resolved (commit-sha-pending)
+**Status:** Resolved (f693326)
 
 ## Evidence pattern
 
