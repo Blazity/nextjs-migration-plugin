@@ -55,4 +55,24 @@ describe("buildRoutes", () => {
     expect(dynamics).toHaveLength(3);
     expect(dynamics.every(r => r.nextRoute === "/case-study/[slug]")).toBe(true);
   });
+
+  it("does NOT promote root-level single-segment siblings to /[slug]", () => {
+    // /about, /services, /pricing, /privacy-policy, /community-hub are
+    // distinct top-level pages, not a dynamic [slug] family.
+    const routes = buildRoutes([
+      "https://example.com/about",
+      "https://example.com/services",
+      "https://example.com/pricing",
+      "https://example.com/privacy-policy",
+      "https://example.com/community-hub",
+    ]);
+    expect(routes.every(r => r.kind === "static")).toBe(true);
+    expect(routes.map(r => r.nextRoute).sort()).toEqual([
+      "/about",
+      "/community-hub",
+      "/pricing",
+      "/privacy-policy",
+      "/services",
+    ]);
+  });
 });

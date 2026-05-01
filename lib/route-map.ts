@@ -23,6 +23,12 @@ export function buildRoutes(urls: string[]): RouteEntry[] {
   const dynamicParents = new Set<string>();
   for (const [parent, members] of groups) {
     if (parent === "__root__") continue;
+    // Never promote the root parent ("/") to a `[slug]` group: top-level
+    // single-segment pages (`/about`, `/services`, `/case-studies`,
+    // `/privacy-policy`, …) are unrelated index pages, not a dynamic family.
+    // Dynamic promotion only makes sense under an explicit collection prefix
+    // like `/case-study/<slug>` or `/blog/<slug>`.
+    if (parent === "/") continue;
     if (members.length >= DYNAMIC_GROUP_THRESHOLD) {
       dynamicParents.add(parent);
     }

@@ -5,6 +5,7 @@ import { dirname } from "node:path";
 interface Args {
   urls: string[];
   primarySelector: string;
+  skipSelectors: string[];
   outputPath: string;
 }
 
@@ -15,13 +16,19 @@ function parseArgs(argv: string[]): Args {
   };
   const urlsArg = get("--urls");
   const primarySelector = get("--selector");
+  const skipArg = get("--skip-selectors");
   const outputPath = get("--output");
   if (!urlsArg || !primarySelector || !outputPath) {
     throw new Error(
-      "Usage: discover-sections --urls <url1,url2,...> --selector <css> --output <path>",
+      "Usage: discover-sections --urls <url1,url2,...> --selector <css> [--skip-selectors <css1,css2>] --output <path>",
     );
   }
-  return { urls: urlsArg.split(","), primarySelector, outputPath };
+  return {
+    urls: urlsArg.split(","),
+    primarySelector,
+    skipSelectors: skipArg ? skipArg.split(",").map(s => s.trim()).filter(Boolean) : [],
+    outputPath,
+  };
 }
 
 async function main() {
@@ -41,12 +48,18 @@ async function main() {
       // page evaluation context, so any named function inside a Playwright
       // `$$eval` callback would throw `ReferenceError: __name is not defined`.
       // We shim it inline at the top of the page-side body.
-      const sections = await page.$$eval(args.primarySelector, (els, selector: string) => {
+      const sections = await page.$$eval(args.primarySelector, (els, payload: { selector: string; skip: string[] }) => {
         // Shim: idempotent no-op equivalent of esbuild's keepNames helper.
         // `globalThis as any` keeps this valid TS without a separate decl.
         if (typeof (globalThis as { __name?: unknown }).__name !== "function") {
           (globalThis as { __name: (fn: unknown) => unknown }).__name = (fn) => fn;
         }
+        const matchesSkip = (el: Element): boolean => {
+          for (const sel of payload.skip) {
+            try { if (el.matches(sel)) return true; } catch { /* invalid selector → ignore */ }
+          }
+          return false;
+        };
         const tagPath = (el: Element): string[] => {
           const path: string[] = [];
           let cur: Element | null = el;
@@ -73,19 +86,21 @@ async function main() {
           }
           return out;
         };
-        return (els as Element[]).map((el, sIdx) => {
-          const rect = el.getBoundingClientRect();
-          const tags = tagPath(el);
-          return {
-            sIdx,
-            selector,
-            tagSkeleton: tagSkeleton(el),
-            pathShingles: pathShinglesOf(tags),
-            sampleText: (el as HTMLElement).innerText.replace(/\s+/g, " ").trim().slice(0, 200),
-            boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-          };
-        });
-      }, args.primarySelector);
+        return (els as Element[])
+          .filter((el) => !matchesSkip(el))
+          .map((el, sIdx) => {
+            const rect = el.getBoundingClientRect();
+            const tags = tagPath(el);
+            return {
+              sIdx,
+              selector: payload.selector,
+              tagSkeleton: tagSkeleton(el),
+              pathShingles: pathShinglesOf(tags),
+              sampleText: (el as HTMLElement).innerText.replace(/\s+/g, " ").trim().slice(0, 200),
+              boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+            };
+          });
+      }, { selector: args.primarySelector, skip: args.skipSelectors });
 
       pages.push({
         url,
