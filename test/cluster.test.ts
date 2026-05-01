@@ -52,6 +52,31 @@ describe("clusterSections", () => {
     expect(unique.map(u => u.id)).toEqual(["solo"]);
   });
 
+  it("splits a body-level mega-bucket on internal tag structure", () => {
+    // All sections share the shallow path "body>section" — pathShingles alone
+    // would Jaccard them all into one cluster. Composite shingles add tag-side
+    // tokens so distinct internal structures (Hero / Testimonial / Stats) end
+    // up in separate clusters even at the same depth in the document.
+    const sections = [
+      mk("h1", ["body>section"], "section>div>h1,p>button"),
+      mk("h2", ["body>section"], "section>div>h1,p>button"),
+      mk("t1", ["body>section"], "section>blockquote>p,cite"),
+      mk("t2", ["body>section"], "section>blockquote>p,cite"),
+      mk("s1", ["body>section"], "section>div>div>span,div>span,div>span"),
+    ];
+    const { clusters } = clusterSections(sections, {
+      autoMergeThreshold: 0.85,
+      ambiguousThreshold: 0.5,
+    });
+    expect(clusters.length).toBeGreaterThanOrEqual(3);
+    const heroes = clusters.find(c => c.memberIds.includes("h1"));
+    const testimonials = clusters.find(c => c.memberIds.includes("t1"));
+    const stats = clusters.find(c => c.memberIds.includes("s1"));
+    expect(heroes?.memberIds.sort()).toEqual(["h1", "h2"]);
+    expect(testimonials?.memberIds.sort()).toEqual(["t1", "t2"]);
+    expect(stats?.memberIds).toEqual(["s1"]);
+  });
+
   it("derives stable cluster ids from the cluster representative signature", () => {
     const sections1 = [
       mk("a", ["body>main>section", "main>section>div", "section>div>h1"]),

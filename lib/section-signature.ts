@@ -10,6 +10,47 @@ export function pathShingles(tags: string[], n = 3): string[] {
   return out;
 }
 
+/**
+ * N-gram windows over the tokens inside a tagSkeleton string.
+ *
+ * `tagSkeleton` encodes the descendant structure of a section as a string
+ * like `"section>div,div>div>div>p,div>img"`. Tokens are tags split on `>`
+ * and `,`. The shingle window is run over the flat token sequence so two
+ * sections with different child substructure produce different shingles
+ * even when their ancestor pathShingles match (e.g., both at body-level).
+ *
+ * Used in `compositeShingles` to discriminate body-level sections that
+ * pathShingles alone would Jaccard-merge into a mega-cluster.
+ */
+export function tagShingles(tagSkeleton: string, n = 3): string[] {
+  const tokens = tagSkeleton.split(/[>,]/).map(t => t.trim()).filter(Boolean);
+  if (tokens.length === 0) return [];
+  if (tokens.length < n) return [tokens.join(">")];
+  const out: string[] = [];
+  for (let i = 0; i + n <= tokens.length; i++) {
+    out.push(tokens.slice(i, i + n).join(">"));
+  }
+  return out;
+}
+
+/**
+ * Combine ancestor-path shingles with descendant-tag shingles into a single
+ * disjoint shingle set suitable for Jaccard similarity.
+ *
+ * Each shingle is namespaced (`p:` for path, `t:` for tag) so a path token
+ * never accidentally matches a tag token. Path shingles capture where a
+ * section sits in the document; tag shingles capture what the section looks
+ * like internally. Sections that share a shallow body-level path but have
+ * different internal structure (Hero vs Testimonial vs StatsBlock) end up
+ * with diverging composite shingle sets.
+ */
+export function compositeShingles(input: SignatureInput): string[] {
+  return [
+    ...input.pathShingles.map(s => `p:${s}`),
+    ...tagShingles(input.tagSkeleton).map(s => `t:${s}`),
+  ];
+}
+
 export function jaccard(a: string[], b: string[]): number {
   if (a.length === 0 || b.length === 0) return 0;
   const setA = new Set(a);

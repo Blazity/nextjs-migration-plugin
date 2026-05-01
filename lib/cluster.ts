@@ -1,4 +1,4 @@
-import { jaccard, signatureDigest } from "./section-signature.ts";
+import { compositeShingles, jaccard, signatureDigest } from "./section-signature.ts";
 
 export interface SectionInput {
   id: string;
@@ -41,9 +41,20 @@ export function clusterSections(
   for (const section of sections) {
     let bestCluster: Cluster | null = null;
     let bestSimilarity = 0;
+    // Composite shingles combine ancestor-path with descendant-tag tokens so
+    // body-level sections (whose pathShingles all collapse to ["body>section"])
+    // can still be discriminated by their internal structure.
+    const sectionShingles = compositeShingles({
+      pathShingles: section.pathShingles,
+      tagSkeleton: section.tagSkeleton,
+    });
 
     for (const cluster of clusters) {
-      const sim = jaccard(section.pathShingles, cluster.representative.pathShingles);
+      const clusterShingles = compositeShingles({
+        pathShingles: cluster.representative.pathShingles,
+        tagSkeleton: cluster.representative.tagSkeleton,
+      });
+      const sim = jaccard(sectionShingles, clusterShingles);
       if (sim > bestSimilarity) {
         bestSimilarity = sim;
         bestCluster = cluster;
