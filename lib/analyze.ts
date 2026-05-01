@@ -149,6 +149,102 @@ export async function runAnalyze(args: RunAnalyzeArgs): Promise<void> {
   });
 }
 
+/**
+ * Re-run the verification gate for an existing Phase 2 output without
+ * re-doing the section probe / clustering. Used after the four sub-agents
+ * (layout-extractor, component-deduper, prop-classifier, route-mapper)
+ * have rewritten library/*.json on top of the algorithmic-pass output.
+ *
+ * Reads:
+ *   - phase-1-discover/discovery/crawl.json (URL list)
+ *   - phase-2-analyze/analysis/sections.json (for section-coverage check)
+ *   - phase-2-analyze/analysis/clusters.json (for unique-vs-clustered check)
+ *   - library/routes.json (for page-coverage check)
+ * Writes:
+ *   - phase-2-analyze/verification.json (always)
+ *   - phase-2-analyze/VERIFICATION.md   (only on pass)
+ */
+export async function runAnalyzeRefineOnly(args: {
+  targetDir: string;
+  runDir: string;
+}): Promise<void> {
+  const phaseDir = join(args.targetDir, ".migration/runs", args.runDir, "phase-2-analyze");
+  const analysisDir = join(phaseDir, "analysis");
+  const libraryDir = join(args.targetDir, ".migration/library");
+
+  const fail = (criteria: { name: string; passed: boolean; detail?: string }[]) =>
+    writeVerification(phaseDir, {
+      phase: "phase-2-analyze",
+      passed: false,
+      checkedAt: new Date().toISOString(),
+      criteria,
+    });
+
+  const crawlPath = join(args.targetDir, ".migration/runs", args.runDir, "phase-1-discover/discovery/crawl.json");
+  const crawlResult = loadCrawl(crawlPath);
+  if (!crawlResult.valid) {
+    await fail([{ name: "crawl.json valid", passed: false, detail: crawlResult.issues[0]?.message }]);
+    return;
+  }
+  const crawlUrls = crawlResult.data.pages.map(p => p.url);
+
+  const sectionsPath = join(analysisDir, "sections.json");
+  if (!existsSync(sectionsPath)) {
+    await fail([{ name: "sections.json exists", passed: false, detail: `Missing ${sectionsPath}` }]);
+    return;
+  }
+  const sectionsResult = loadSections(sectionsPath);
+  if (!sectionsResult.valid) {
+    await fail([{ name: "sections.json valid", passed: false, detail: sectionsResult.issues[0]?.message }]);
+    return;
+  }
+
+  const clustersPath = join(analysisDir, "clusters.json");
+  if (!existsSync(clustersPath)) {
+    await fail([{ name: "clusters.json exists", passed: false, detail: `Missing ${clustersPath}` }]);
+    return;
+  }
+  const clusterResult = JSON.parse(readFileSync(clustersPath, "utf8")) as {
+    clusters: { id: string; memberIds: string[] }[];
+    unique: { id: string }[];
+  };
+
+  const routesPath = join(libraryDir, "routes.json");
+  if (!existsSync(routesPath)) {
+    await fail([{ name: "library/routes.json exists", passed: false, detail: `Missing ${routesPath}` }]);
+    return;
+  }
+  const routes = JSON.parse(readFileSync(routesPath, "utf8")) as {
+    routes: { sourceUrl: string }[];
+  };
+
+  const allSectionIds: string[] = [];
+  for (const page of sectionsResult.data.pages) {
+    for (const s of page.sections) {
+      allSectionIds.push(`${page.url}#${s.id}`);
+    }
+  }
+
+  const routesCoverEveryPage =
+    new Set(routes.routes.map(r => r.sourceUrl)).size === new Set(crawlUrls).size;
+  const everySectionAccountedFor = allSectionIds.length > 0 &&
+    allSectionIds.every(id =>
+      clusterResult.clusters.some(c => c.memberIds.includes(id)) ||
+      clusterResult.unique.some(u => u.id === id)
+    );
+
+  await writeExecution(phaseDir, "Refine-only re-verification.");
+  await writeVerification(phaseDir, {
+    phase: "phase-2-analyze",
+    passed: routesCoverEveryPage && everySectionAccountedFor,
+    checkedAt: new Date().toISOString(),
+    criteria: [
+      { name: "every page in crawl.json has an entry in routes.json", passed: routesCoverEveryPage },
+      { name: "every section belongs to a cluster or is marked unique", passed: everySectionAccountedFor },
+    ],
+  });
+}
+
 // Match agents/layout-extractor.md rule: shell qualifies at >= 80% page coverage.
 // Use distinct page count (memberIds may exceed totalPages when a cluster
 // captures multiple matching elements per page).
@@ -226,10 +322,16 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const i = process.argv.indexOf(flag);
     return i >= 0 ? process.argv[i + 1] : undefined;
   };
+  const refineOnly = process.argv.includes("--refine-only");
   const targetDir = get("--target") ?? process.cwd();
   const runDir = get("--run") ?? "001-initial";
   const primarySelector = get("--selector") ?? "body > *";
-  runAnalyze({ targetDir, runDir, primarySelector })
-    .then(() => { console.log(`Analyze phase complete for run ${runDir}.`); })
+  const work = refineOnly
+    ? runAnalyzeRefineOnly({ targetDir, runDir })
+        .then(() => `Analyze refine-only re-verification complete for run ${runDir}.`)
+    : runAnalyze({ targetDir, runDir, primarySelector })
+        .then(() => `Analyze phase complete for run ${runDir}.`);
+  work
+    .then(msg => { console.log(msg); })
     .catch(err => { console.error(err.message); process.exit(1); });
 }

@@ -9,18 +9,26 @@ You are the orchestrator. You do NOT do phase work yourself — you find the nex
 
 ## Step 1 — Resolve next phase
 
-Run:
+First, check which phase is next WITHOUT yet running its dispatcher. Read `.migration/SITE.md` (for `goal`) and the highest-numbered run dir under `.migration/runs/`. Find the first `phase-N-*` subdir lacking `VERIFICATION.md`. The phase id determines routing in Step 2.
 
-```bash
-tsx ${PLUGIN_DIR}/lib/continue.ts --target "${PWD}"
-```
+If `.migration/` does not exist → print: "No migration here. Run `/migrate:new <url>`." and stop.
+If every in-scope phase has `VERIFICATION.md` → print: "All phases complete for run [runDir]. Run `/migrate:ship` for the final report." and stop.
 
-The script prints a JSON result. Read its `kind`:
+## Step 2 — Route to the right runner
 
-- `not-initialized` — print: "No migration here. Run `/migrate:new <url>`."
-- `all-done` — print: "All phases complete for run [runDir]. Run `/migrate:ship` for the final report."
-- `dispatched` — the script already ran the registered dispatcher (currently only `phase-1-discover`). Print the result and stop. The user can run `/migrate:continue` again to proceed once the gate passes.
-- `no-dispatcher` — the next phase has no library-level dispatcher yet (Plans 3–5). Print which phase is next and ask the user: "Run `/migrate:[next-phase]` manually, or skip to a later phase."
+Phase routing depends on whether the phase needs LLM refinement:
+
+| Next phase | Runner | Why |
+|---|---|---|
+| `phase-1-discover` | `tsx ${PLUGIN_DIR}/lib/continue.ts --target "${PWD}"` | Deterministic crawl + probe. No LLM needed. |
+| `phase-2-analyze` | **Invoke `/migrate:analyze` skill instead** | Algorithmic pass plus 4 sub-agent dispatches (`layout-extractor` → `component-deduper` → `prop-classifier` → `route-mapper`). The CLI dispatcher in `lib/continue.ts` runs only the algorithmic half — that produces a passing schema gate but useless layouts/components. The `/migrate:analyze` skill orchestrates the LLM refinement on top. |
+| `phase-3-plan`+ | (Not yet implemented — Plan 4+.) | Print which phase is next and ask the user: "Run `/migrate:[next-phase]` manually." |
+
+For phase-1, run the bash command and read its JSON output:
+- `kind: "dispatched"` — the registered dispatcher ran. Print the result and stop. User runs `/migrate:continue` again to advance.
+- `kind: "no-dispatcher"` — phase has no library-level dispatcher. Surface which phase + ask the user.
+
+For phase-2, follow the `/migrate:analyze` skill end to end. Do NOT call `lib/continue.ts` for phase-2; its dispatcher would skip the LLM step.
 
 ## Step 2 — In unattended mode, loop
 

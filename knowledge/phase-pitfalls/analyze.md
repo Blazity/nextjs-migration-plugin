@@ -1,5 +1,19 @@
 # Phase 2 (Analyze) — pitfalls
 
+## Algorithmic pass vs LLM refinement — dual-mode
+
+`lib/analyze.ts` runs the **algorithmic first-pass only**: section probe → Jaccard clustering → split into layouts vs components → `buildRoutes`. Output passes the Zod schema gate but components carry placeholder names (`Div`, `Section`) and big mixed-content clusters dominate.
+
+The four sub-agents (`layout-extractor`, `component-deduper`, `prop-classifier`, `route-mapper`) refine that output. They are **dispatched by the `/migrate:analyze` skill**, not invoked by `lib/analyze.ts`. The skill flow is:
+
+1. `tsx lib/analyze.ts ...` — algorithmic pass (writes `library/*.json` + `analysis/*.json`)
+2. Skill dispatches the 4 agents in order, each rewriting its target library JSON in place
+3. `tsx lib/analyze.ts ... --refine-only` — re-runs the gate without re-doing probe/cluster
+
+`/migrate:continue` MUST route phase-2 to the `/migrate:analyze` skill, NOT to `lib/continue.ts`'s `defaultDispatchers["phase-2-analyze"]`. The latter runs only step 1 (algorithmic) and produces placeholder component names. See `skills/migrate-continue/SKILL.md` Step 2 routing table.
+
+**Rule of thumb:** if `library/components.json` has names like `Div`, `Section`, `Header` — only step 1 ran. Re-invoke `/migrate:analyze` to fire the LLM refinement.
+
 ## Section probe
 
 - **Adapter selector mismatch.** The probe selector comes from the matched adapter's `sectionDiscovery.selector` (or `sectionDiscovery.primarySelector` on real-world adapters). Webflow uses `body > *`; Wix uses `#PAGES_CONTAINER .wixui-section`. If clusters are huge mega-sections, the selector is too coarse — refine the adapter, not the analyze code.
