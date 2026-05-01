@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { pathShingles, jaccard, signatureDigest } from "../lib/section-signature.ts";
+import {
+  compositeShingles,
+  jaccard,
+  pathShingles,
+  signatureDigest,
+  tagShingles,
+} from "../lib/section-signature.ts";
 
 describe("pathShingles", () => {
   it("produces N-gram path windows of length 3 by default", () => {
@@ -38,6 +44,61 @@ describe("jaccard", () => {
   it("treats empty inputs as similarity 0", () => {
     expect(jaccard([], [])).toBe(0);
     expect(jaccard(["a"], [])).toBe(0);
+  });
+});
+
+describe("tagShingles", () => {
+  it("splits on > and , and produces N-gram windows", () => {
+    expect(tagShingles("section>div,div>h1,p>button")).toEqual([
+      "section>div>div",
+      "div>div>h1",
+      "div>h1>p",
+      "h1>p>button",
+    ]);
+  });
+
+  it("returns the joined tokens when shorter than n", () => {
+    expect(tagShingles("header")).toEqual(["header"]);
+    expect(tagShingles("section>div")).toEqual(["section>div"]);
+  });
+
+  it("returns empty array for an empty skeleton", () => {
+    expect(tagShingles("")).toEqual([]);
+  });
+
+  it("trims whitespace tokens", () => {
+    expect(tagShingles("section > div , h1")).toEqual(["section>div>h1"]);
+  });
+});
+
+describe("compositeShingles", () => {
+  it("namespaces path shingles with `p:` and tag shingles with `t:`", () => {
+    const composite = compositeShingles({
+      pathShingles: ["body>section"],
+      tagSkeleton: "section>div>h1",
+    });
+    expect(composite).toContain("p:body>section");
+    expect(composite).toContain("t:section>div>h1");
+    expect(composite.every(s => s.startsWith("p:") || s.startsWith("t:"))).toBe(true);
+  });
+
+  it("never overlaps path and tag tokens via the namespace prefixes", () => {
+    // Same string ("section>div") would jaccard-match without prefixes.
+    const a = compositeShingles({ pathShingles: ["section>div"], tagSkeleton: "" });
+    const b = compositeShingles({ pathShingles: [], tagSkeleton: "section>div" });
+    expect(jaccard(a, b)).toBe(0);
+  });
+
+  it("body-level sections with different children have low Jaccard despite identical pathShingles", () => {
+    const hero = compositeShingles({
+      pathShingles: ["body>section"],
+      tagSkeleton: "section>div>h1,p>button",
+    });
+    const testimonial = compositeShingles({
+      pathShingles: ["body>section"],
+      tagSkeleton: "section>blockquote>p,cite",
+    });
+    expect(jaccard(hero, testimonial)).toBeLessThan(0.5);
   });
 });
 
