@@ -106,6 +106,70 @@ export async function runPlan(args: RunPlanArgs): Promise<void> {
   });
 }
 
+/**
+ * Re-run the gate against an already-written ROADMAP.md without rebuilding
+ * the build-order or rewriting ROADMAP.md. Used by the /migrate:plan skill
+ * after the migration-planner / plan-checker agents have refined the
+ * roadmap and the user has confirmed (or after auto-confirm in unattended).
+ */
+export async function runPlanRefineOnly(args: {
+  targetDir: string;
+  runDir: string;
+  confirmRoadmap?: boolean;
+}): Promise<void> {
+  const phaseDir = join(args.targetDir, ".migration/runs", args.runDir, "phase-3-plan");
+  const fail = (criteria: { name: string; passed: boolean; detail?: string }[]) =>
+    writeVerification(phaseDir, {
+      phase: "phase-3-plan",
+      passed: false,
+      checkedAt: new Date().toISOString(),
+      criteria,
+    });
+
+  const siteResult = loadSite(join(args.targetDir, ".migration/SITE.md"));
+  if (!siteResult.valid) {
+    await fail([{ name: "SITE.md valid", passed: false }]);
+    return;
+  }
+  const crawlPath = join(args.targetDir, ".migration/runs", args.runDir, "phase-1-discover/discovery/crawl.json");
+  const crawlResult = loadCrawl(crawlPath);
+  if (!crawlResult.valid) {
+    await fail([{ name: "crawl.json valid", passed: false }]);
+    return;
+  }
+  const libDir = join(args.targetDir, ".migration/library");
+  const layoutsResult = loadLayouts(join(libDir, "layouts.json"));
+  const componentsResult = loadComponents(join(libDir, "components.json"));
+  const routesResult = loadRoutes(join(libDir, "routes.json"));
+  if (!layoutsResult.valid || !componentsResult.valid || !routesResult.valid) {
+    await fail([{ name: "library JSONs valid", passed: false }]);
+    return;
+  }
+  const roadmapPath = join(args.targetDir, ".migration/runs", args.runDir, "ROADMAP.md");
+  if (!existsSync(roadmapPath)) {
+    await fail([{ name: "ROADMAP.md exists", passed: false, detail: `Missing ${roadmapPath}` }]);
+    return;
+  }
+  const { loadRoadmap } = await import("./load-roadmap.ts");
+  const roadmapResult = loadRoadmap(roadmapPath);
+  if (!roadmapResult.valid) {
+    await fail([{ name: "ROADMAP.md frontmatter valid", passed: false, detail: roadmapResult.issues[0]?.message }]);
+    return;
+  }
+
+  await writeExecution(phaseDir, "Refine-only re-verification.");
+  await emitGate({
+    phaseDir,
+    items: roadmapResult.data.buildOrder,
+    crawlUrls: crawlResult.data.pages.map(p => p.url),
+    layouts: layoutsResult.data,
+    components: componentsResult.data,
+    routes: routesResult.data,
+    mode: siteResult.site.mode,
+    confirmRoadmap: args.confirmRoadmap ?? false,
+  });
+}
+
 function renderRoadmapMd(roadmap: Roadmap): string {
   const body = renderRoadmapBody(roadmap);
   return stringifyFrontmatter(roadmap as unknown as Record<string, unknown>, body);
@@ -190,4 +254,23 @@ async function emitGate(args: {
       },
     ],
   });
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const get = (flag: string) => {
+    const i = process.argv.indexOf(flag);
+    return i >= 0 ? process.argv[i + 1] : undefined;
+  };
+  const refineOnly = process.argv.includes("--refine-only");
+  const confirm = process.argv.includes("--confirm-roadmap");
+  const targetDir = get("--target") ?? process.cwd();
+  const runDir = get("--run") ?? "001-initial";
+  const work = refineOnly
+    ? runPlanRefineOnly({ targetDir, runDir, confirmRoadmap: confirm })
+        .then(() => `Plan refine-only re-verification complete for run ${runDir}.`)
+    : runPlan({ targetDir, runDir, confirmRoadmap: confirm })
+        .then(() => `Plan phase complete for run ${runDir}.`);
+  work
+    .then(msg => { console.log(msg); })
+    .catch(err => { console.error(err.message); process.exit(1); });
 }
