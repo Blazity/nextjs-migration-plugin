@@ -15,10 +15,12 @@ export interface RunAnalyzeArgs {
   targetDir: string;
   runDir: string;
   primarySelector: string;
+  skipSelectors?: string[];
   pluginRoot?: string;
   discoverSections?: (args: {
     urls: string[];
     primarySelector: string;
+    skipSelectors?: string[];
     outputPath: string;
   }) => Promise<void>;
   autoMergeThreshold?: number;
@@ -67,6 +69,7 @@ export async function runAnalyze(args: RunAnalyzeArgs): Promise<void> {
   await probe({
     urls: crawlUrls,
     primarySelector: args.primarySelector,
+    skipSelectors: args.skipSelectors,
     outputPath: sectionsPath,
   });
   await writeExecution(phaseDir, `Section probe complete → ${sectionsPath}`);
@@ -146,24 +149,34 @@ export async function runAnalyze(args: RunAnalyzeArgs): Promise<void> {
   });
 }
 
+// Match agents/layout-extractor.md rule: shell qualifies at >= 80% page coverage.
+// Use distinct page count (memberIds may exceed totalPages when a cluster
+// captures multiple matching elements per page).
+const LAYOUT_COVERAGE_THRESHOLD = 0.8;
+
 function extractLayouts(
   clusters: ReturnType<typeof clusterSections>["clusters"],
   sections: { pages: { url: string }[] },
 ): Layouts {
-  // Heuristic: a cluster whose tagSkeleton starts with `header`/`nav`/`footer`
-  // and whose memberIds count == number of crawled pages = layout shell.
   const totalPages = sections.pages.length;
+  const minPages = Math.ceil(totalPages * LAYOUT_COVERAGE_THRESHOLD);
+
   const findShell = (prefix: string): LayoutShell | null => {
-    const candidate = clusters.find(c =>
-      c.representative.tagSkeleton.startsWith(prefix) &&
-      c.memberIds.length === totalPages
-    );
-    if (!candidate) return null;
+    let best: { cluster: typeof clusters[number]; pageCount: number } | null = null;
+    for (const c of clusters) {
+      if (!c.representative.tagSkeleton.startsWith(prefix)) continue;
+      const distinctPages = new Set(c.memberIds.map(id => id.split("#")[0])).size;
+      if (distinctPages < minPages) continue;
+      if (!best || distinctPages > best.pageCount) {
+        best = { cluster: c, pageCount: distinctPages };
+      }
+    }
+    if (!best) return null;
     return {
-      id: candidate.id,
-      signature: candidate.id.replace(/^cluster-/, ""),
-      appearsOn: dedupeUrls(candidate.memberIds.map(id => id.split("#")[0])),
-      tagSkeleton: candidate.representative.tagSkeleton,
+      id: best.cluster.id,
+      signature: best.cluster.id.replace(/^cluster-/, ""),
+      appearsOn: dedupeUrls(best.cluster.memberIds.map(id => id.split("#")[0])),
+      tagSkeleton: best.cluster.representative.tagSkeleton,
     };
   };
   return {
