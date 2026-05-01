@@ -1,0 +1,11 @@
+{
+  "url": "https://example.com/",
+  "slug": "home",
+  "computedAt": "2026-05-01T12:00:00.000Z",
+  "components": [
+    { "id": "cluster-efcf", "instances": 1, "sectionIndices": [0] },
+    { "id": "cluster-0550", "instances": 1, "sectionIndices": [1] },
+    { "id": "cluster-c282", "instances": 5, "sectionIndices": [2, 3, 4, 5, 6] }
+  ],
+  "unmatchedSectionIndices": []
+}
