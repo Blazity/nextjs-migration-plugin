@@ -1,0 +1,19 @@
+{
+  "url": "https://example.com/",
+  "slug": "home",
+  "extractedAt": "2026-05-01T12:00:00.000Z",
+  "viewport": { "width": 1440, "height": 900 },
+  "files": {
+    "styles": "spec/styles.json",
+    "images": "spec/images.json",
+    "animations": "spec/animations.json",
+    "structure": "spec/structure.json",
+    "globals": "spec/00-globals.json"
+  },
+  "stats": {
+    "sectionCount": 4,
+    "imageCount": 12,
+    "animationCount": 3
+  },
+  "errors": []
+}
