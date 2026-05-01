@@ -11,7 +11,7 @@ One issue per file. Filename pattern: `NNN-<kebab-name>.md`.
 | [001](./001-spa-flow-misclassified.md) | SPA_FLOW_EXTRACTION misclassified on statically-rendered pages | Phase 1 | High | Open |
 | [002](./002-duplicate-redirect-urls.md) | Duplicate URL entries from un-resolved redirects | Phase 1 | Medium | Open |
 | [003](./003-layout-extractor-too-strict.md) | layout-extractor heuristic too strict — misses semantic layouts behind generic wrappers | Phase 2 | Medium | Open |
-| [004](./004-mega-cluster-shallow-shingles.md) | Mega-clusters from shallow path-shingles on body-level sections | Phase 2 | High | Resolved (commit-sha-pending) |
+| [004](./004-mega-cluster-shallow-shingles.md) | Mega-clusters from shallow path-shingles on body-level sections | Phase 2 | High | Resolved (f693326) |
 
 ## How to use this folder
 
