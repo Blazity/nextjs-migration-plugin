@@ -38,20 +38,64 @@ This writes:
 - `runs/<runDir>/phase-2-analyze/verification.json` (always)
 - `runs/<runDir>/phase-2-analyze/VERIFICATION.md` (only on gate pass)
 
-## Step 4 — Refine with sub-agents
+## Step 4 — Refine with sub-agents (LLM-driven)
 
-The script produces the algorithmic-first-pass output. Refine it by dispatching the four agents in order:
+Step 3 produced the algorithmic-first-pass output. The four sub-agents below refine it by reading the cluster summaries (NOT full DOM specs) and rewriting the corresponding library JSONs in place. Dispatch them in order via the Task tool. Each agent inherits no prior context — pass exactly the inputs listed.
 
-1. `layout-extractor` — promotes layout shells in `layouts.json`
-2. `component-deduper` — finalizes component names + ambiguous-pair decisions in `components.json`
-3. `prop-classifier` — fills in `props.json` interfaces
-4. `route-mapper` — reviews `routes.json`, applies overrides if any
+### Step 4.1 — `layout-extractor`
 
-Pass each agent only the cluster summaries / route data it needs — never the full sections.json content.
+Read `runs/<runDir>/phase-2-analyze/analysis/clusters.json` and the current `library/layouts.json`. Dispatch the `layout-extractor` agent with:
+
+- `clusters` — full `clusters.json.clusters` array (each cluster: `{ id, representative: { tagSkeleton, pathShingles }, memberIds[] }`)
+- `pageCount` — number of pages in `runs/<runDir>/phase-1-discover/discovery/crawl.json`
+- `existingLayouts` — current `library/layouts.json` contents
+
+Agent rewrites `library/layouts.json` to satisfy `LayoutsSchema` (header / footer / nav slots, each null or a `LayoutShell`).
+
+### Step 4.2 — `component-deduper`
+
+Read `runs/<runDir>/phase-2-analyze/analysis/clusters.json` (for `clusters` + `ambiguousPairs` + `unique`) and the current `library/components.json`. Dispatch the `component-deduper` agent with:
+
+- `clusters`, `ambiguousPairs`, `unique` — all from clusters.json
+- `pageCount` — same as Step 4.1
+- `existingComponents` — current `library/components.json` contents
+
+Agent rewrites `library/components.json` to satisfy `ComponentsSchema`. Component names should be meaningful (`Hero`, `PricingTable`, `CaseStudyCard`) — no `Div`/`Section` placeholders. Layout-shell cluster IDs (those promoted in Step 4.1) MUST be excluded.
+
+### Step 4.3 — `prop-classifier`
+
+Read the refined `library/components.json` and per-cluster sample text (at most 200 chars per member, drawn from `runs/<runDir>/phase-2-analyze/analysis/sections.json`). Dispatch the `prop-classifier` agent with:
+
+- For each component cluster: `{ name, tagSkeleton, memberSections: [{ id, url, sampleText }] }`
+- Cap sample text per member at 200 chars
+
+Agent rewrites `library/props.json` to satisfy `PropsRegistrySchema`. Empty `fields: []` is acceptable for single-member or unique clusters.
+
+### Step 4.4 — `route-mapper`
+
+Read the current `library/routes.json` and the `runs/<runDir>/phase-1-discover/discovery/crawl.json` metadata (page titles + depths). Dispatch the `route-mapper` agent with:
+
+- `routes` — current `library/routes.json.routes` array
+- `crawl` — pages array from crawl.json
+
+Agent rewrites `library/routes.json` to satisfy `RoutesSchema`. Trust the algorithm by default; only demote false-positive `[slug]` groups.
+
+### Cost bound (spec § 11.4)
+
+Every dispatch must pass cluster summaries / route data only. NEVER pass full `sections.json` (it is large — KB to MB) or the full crawl page graph. Each agent prompt explicitly lists what it should NOT receive.
 
 ## Step 5 — Re-run the verification gate
 
-After refinement, re-invoke `lib/analyze.ts` with the same args. The script is idempotent; it re-validates the library JSONs and re-emits the verification.
+After all four agents have written their outputs, re-validate via the `--refine-only` flag. This skips the section probe + clustering and just re-checks the gate criteria against the now-refined library JSONs:
+
+```bash
+tsx ${PLUGIN_DIR}/lib/analyze.ts \
+  --target "${TARGET_DIR}" \
+  --run "${RUN_DIR}" \
+  --refine-only
+```
+
+The script re-emits `verification.json` (always) and rewrites `VERIFICATION.md` (only if gate passes).
 
 If `VERIFICATION.md` exists, print:
 
