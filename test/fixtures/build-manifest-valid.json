@@ -1,0 +1,12 @@
+{
+  "generatedAt": "2026-05-04T12:00:00.000Z",
+  "components": [
+    { "id": "cluster-hero", "name": "PageHero", "filePath": "src/components/PageHero.tsx", "memberCount": 4 }
+  ],
+  "pages": [
+    { "sourceUrl": "https://example.com/", "nextRoute": "/", "filePath": "src/app/page.tsx" }
+  ],
+  "assets": [
+    { "from": "pages/home/_staging/public/images/example.com/home/01-hero/logo-abc.png", "to": "public/images/example.com/home/01-hero/logo-abc.png" }
+  ]
+}
