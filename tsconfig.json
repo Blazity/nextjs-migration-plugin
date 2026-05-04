@@ -11,5 +11,6 @@
     "noEmit": true,
     "types": ["node", "vitest/globals"]
   },
-  "include": ["lib/**/*", "schemas/**/*", "hooks/**/*", "test/**/*", "*.config.ts"]
+  "include": ["lib/**/*", "schemas/**/*", "hooks/**/*", "test/**/*", "*.config.ts"],
+  "exclude": ["test/fixtures/target-scaffold/**/*"]
 }
