@@ -63,7 +63,22 @@ function writePhase2Library(targetDir: string, urls: string[]) {
     updatedAt: now,
   }, null, 2));
   const phase2Dir = join(targetDir, ".migration/runs/001-initial/phase-2-analyze");
-  mkdirSync(phase2Dir, { recursive: true });
+  const analysisDir = join(phase2Dir, "analysis");
+  mkdirSync(analysisDir, { recursive: true });
+  writeFileSync(join(analysisDir, "sections.json"), JSON.stringify({
+    probedAt: now,
+    pages: urls.map((u, i) => ({
+      url: u,
+      sections: [{
+        id: `p${i}-s0`,
+        selector: "body > *",
+        tagSkeleton: "section",
+        pathShingles: ["body>section"],
+        sampleText: "",
+        boundingBox: { x: 0, y: 0, width: 1440, height: 600 },
+      }],
+    })),
+  }, null, 2));
   writeFileSync(join(phase2Dir, "VERIFICATION.md"), "# verified");
 }
 

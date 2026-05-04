@@ -9,6 +9,7 @@ import { loadCrawl } from "./load-crawl.ts";
 import { loadProbe } from "./load-probe.ts";
 import { loadComponents } from "./load-components.ts";
 import { loadRoutes } from "./load-routes.ts";
+import { loadSections } from "./load-sections.ts";
 import { writePlan, writeExecution, writeVerification } from "./phase-state.ts";
 import type { PageSpecManifest } from "../schemas/page-spec.ts";
 
@@ -67,6 +68,21 @@ export async function runExtract(args: RunExtractArgs): Promise<void> {
   if (!routesResult.valid) { await fail([{ name: "routes.json valid", passed: false }]); return; }
   const routes = routesResult.data.routes;
 
+  // Load Phase 2 sections.json for tagSkeleton — the orchestrator used to read
+  // these from spec/styles.json, but extract-styles.ts only writes per-section
+  // sidecars (NN-<label>.styles.json) without tagSkeleton. The authoritative
+  // source is the discovery output produced in Phase 2. See open-issues/005.
+  const sectionsPath = join(args.targetDir, ".migration/runs", args.runDir, "phase-2-analyze/analysis/sections.json");
+  const sectionsResult = loadSections(sectionsPath);
+  if (!sectionsResult.valid) { await fail([{ name: "sections.json valid", passed: false }]); return; }
+  const sectionsByUrl = new Map<string, { index: number; tagSkeleton: string }[]>();
+  for (const page of sectionsResult.data.pages) {
+    sectionsByUrl.set(
+      page.url,
+      page.sections.map((s, i) => ({ index: i, tagSkeleton: s.tagSkeleton })),
+    );
+  }
+
   // Build per-URL adapter map from probe
   const adapterByUrl = new Map<string, string>();
   for (const p of probeResult.data.pages) {
@@ -100,27 +116,21 @@ export async function runExtract(args: RunExtractArgs): Promise<void> {
       try {
         const manifest = await extractOne({ url: route.sourceUrl, slug, pagesDir, adapterPath });
         manifests.push(manifest);
-        // Build component-usage from extracted structure
-        const stylesPath = join(pagesDir, slug, "spec/styles.json");
-        if (existsSync(stylesPath)) {
-          const styles = JSON.parse(readFileSync(stylesPath, "utf8"));
-          const sections = Array.isArray(styles?.sections)
-            ? styles.sections.map((s: { tagSkeleton?: string }, i: number) => ({
-                index: i,
-                tagSkeleton: s.tagSkeleton ?? "",
-              }))
-            : [];
-          const usage = buildComponentUsage({
-            url: route.sourceUrl,
-            slug,
-            sections,
-            registry: componentsRegistry,
-          });
-          writeFileSync(
-            join(pagesDir, slug, "component-usage.json"),
-            JSON.stringify(usage, null, 2),
-          );
-        }
+        // Build component-usage from Phase 2's discovered sections (authoritative
+        // tagSkeleton source). Falls back to empty array for pages that weren't
+        // in the discovery snapshot — they get an empty component-usage rather
+        // than no file at all, so the gate criterion can still pass.
+        const sections = sectionsByUrl.get(route.sourceUrl) ?? [];
+        const usage = buildComponentUsage({
+          url: route.sourceUrl,
+          slug,
+          sections,
+          registry: componentsRegistry,
+        });
+        writeFileSync(
+          join(pagesDir, slug, "component-usage.json"),
+          JSON.stringify(usage, null, 2),
+        );
       } catch (err) {
         extractFailures.push({ url: route.sourceUrl, detail: (err as Error).message });
       }

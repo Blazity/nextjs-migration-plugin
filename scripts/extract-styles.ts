@@ -2,6 +2,7 @@ import { chromium } from "@playwright/test"
 import { loadAdaptersFromArgs } from "./lib/adapter-loader.ts"
 import { dismissCookieBanner } from "./lib/cookie-consent.ts"
 import { extractSectionsAtViewport, assembleMultiViewportOutput, writeStyleOutput } from "./lib/extract-styles-core.ts"
+import { installNameShim } from "./lib/playwright-eval-shim.ts"
 
 const TARGET_URL = process.argv[2] || "https://blazity.com"
 const OUTPUT_DIR = process.argv[3] || "docs/specs/homepage"
@@ -26,6 +27,7 @@ async function main() {
 
   for (const vw of sortedViewports) {
     const context = await browser.newContext({ viewport: { width: vw, height: 900 } })
+    await installNameShim(context)
     const page = await context.newPage()
     await page.goto(TARGET_URL, { waitUntil: "domcontentloaded", timeout: 5000 })
     await dismissCookieBanner(page)

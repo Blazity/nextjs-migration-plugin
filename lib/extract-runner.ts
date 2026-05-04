@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, renameSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve, join } from "node:path";
 import type { PageSpecManifest } from "../schemas/page-spec.ts";
@@ -100,19 +100,37 @@ function readStats(specDir: string): PageSpecManifest["stats"] {
   let sectionCount = 0;
   let imageCount = 0;
   let animationCount = 0;
+  // extract-styles writes per-section sidecars `NN-<label>.styles.json`, not a
+  // unified styles.json. Count sidecars when available; fall back to a unified
+  // file when a stub harness produces one (test fixtures still write
+  // styles.json directly).
   if (existsSync(join(specDir, "styles.json"))) {
     const styles = JSON.parse(readFileSync(join(specDir, "styles.json"), "utf8"));
     sectionCount = Array.isArray(styles?.sections) ? styles.sections.length : 0;
+  } else if (existsSync(specDir)) {
+    sectionCount = readdirSync(specDir).filter(f => /^\d+-.*\.styles\.json$/.test(f)).length;
   }
   if (existsSync(join(specDir, "images.json"))) {
     const images = JSON.parse(readFileSync(join(specDir, "images.json"), "utf8"));
     imageCount = typeof images?.totalImages === "number" ? images.totalImages : 0;
   }
+  // extract-animations also writes per-section sidecars (`NN-<label>.animations.json`).
+  // Same fallback pattern — sum each section's animation count.
   if (existsSync(join(specDir, "animations.json"))) {
     const animations = JSON.parse(readFileSync(join(specDir, "animations.json"), "utf8"));
     animationCount = Array.isArray(animations?.sections)
       ? animations.sections.reduce((sum: number, s: { animations?: unknown[] }) => sum + (s.animations?.length ?? 0), 0)
       : 0;
+  } else if (existsSync(specDir)) {
+    for (const f of readdirSync(specDir)) {
+      if (!/^\d+-.*\.animations\.json$/.test(f)) continue;
+      try {
+        const data = JSON.parse(readFileSync(join(specDir, f), "utf8"));
+        if (Array.isArray(data?.animations)) animationCount += data.animations.length;
+      } catch {
+        // skip malformed sidecar
+      }
+    }
   }
   return { sectionCount, imageCount, animationCount };
 }

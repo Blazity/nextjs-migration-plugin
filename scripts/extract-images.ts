@@ -2,6 +2,7 @@ import { chromium } from "@playwright/test"
 import { loadAdaptersFromArgs } from "./lib/adapter-loader.ts"
 import { dismissCookieBanner } from "./lib/cookie-consent.ts"
 import { extractImagesFromPage, writeImageOutput } from "./lib/extract-images-core.ts"
+import { installNameShim } from "./lib/playwright-eval-shim.ts"
 
 const TARGET_URL = process.argv[2] || "https://blazity.com"
 const pageFlag = process.argv.find(a => a.startsWith("--page="))?.split("=")[1]
@@ -13,6 +14,7 @@ async function main() {
   console.log(`Extracting images from: ${TARGET_URL}`)
   const browser = await chromium.launch()
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  await installNameShim(context)
   const page = await context.newPage()
 
   await page.goto(TARGET_URL, { waitUntil: "domcontentloaded", timeout: 30000 })
