@@ -1,9 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { extractPage } from "../lib/extract-runner.ts";
 import { PageSpecManifestSchema } from "../schemas/page-spec.ts";
+
+const execFileP = promisify(execFile);
 
 describe("extractPage", () => {
   it("writes a schema-valid manifest after the three extraction steps complete", async () => {
@@ -43,6 +47,26 @@ describe("extractPage", () => {
     expect(existsSync(join(pagesDir, "home/spec/styles.json"))).toBe(true);
     expect(existsSync(join(pagesDir, "home/spec/images.json"))).toBe(true);
     expect(existsSync(join(pagesDir, "home/spec/animations.json"))).toBe(true);
+  });
+
+  it("kills a hung subprocess via the configured timeout (issue 004)", async () => {
+    // Spawn a child that sleeps forever, then assert execFile with a short
+    // timeout + SIGKILL terminates it. This proves the underlying mechanism
+    // that lib/extract-runner.ts wires into all three default steps via
+    // EXTRACT_SUBPROCESS_TIMEOUT_MS.
+    const start = Date.now();
+    let err: Error | null = null;
+    try {
+      await execFileP("node", ["-e", "setInterval(() => {}, 1e6)"], {
+        timeout: 1000,
+        killSignal: "SIGKILL",
+      });
+    } catch (e) {
+      err = e as Error;
+    }
+    const elapsed = Date.now() - start;
+    expect(err).not.toBeNull();
+    expect(elapsed).toBeLessThan(5000);
   });
 
   it("captures step failures in manifest.errors instead of throwing", async () => {

@@ -117,9 +117,18 @@ function readStats(specDir: string): PageSpecManifest["stats"] {
   return { sectionCount, imageCount, animationCount };
 }
 
+// Cap per-subprocess wall-clock time. Without this, a hung extract script
+// (see knowledge/open-issues/004) wedges its parent worker indefinitely.
+// Override via env for tests or large-page allowances.
+const SUBPROCESS_TIMEOUT_MS = Number(process.env.EXTRACT_SUBPROCESS_TIMEOUT_MS ?? 180_000);
+
 const defaultRunStyles: ExtractStep = async ({ url, outputDir, adapterPath, pluginRoot }) => {
   const script = resolve(pluginRoot, "scripts/extract-styles.ts");
-  await execFileP("npx", ["tsx", script, url, outputDir, "--adapter", adapterPath], { env: process.env });
+  await execFileP("npx", ["tsx", script, url, outputDir, "--adapter", adapterPath], {
+    env: process.env,
+    timeout: SUBPROCESS_TIMEOUT_MS,
+    killSignal: "SIGKILL",
+  });
 };
 
 const defaultRunImages: ExtractStep = async ({ url, outputDir, adapterPath, pluginRoot }) => {
@@ -134,6 +143,8 @@ const defaultRunImages: ExtractStep = async ({ url, outputDir, adapterPath, plug
   await execFileP("npx", ["tsx", script, url, "--page", "page", "--adapter", adapterPath], {
     env: process.env,
     cwd: stagingDir,
+    timeout: SUBPROCESS_TIMEOUT_MS,
+    killSignal: "SIGKILL",
   });
   const stagedJson = join(stagingDir, "docs/specs/page/images.json");
   if (existsSync(stagedJson)) renameSync(stagedJson, join(outputDir, "images.json"));
@@ -141,7 +152,11 @@ const defaultRunImages: ExtractStep = async ({ url, outputDir, adapterPath, plug
 
 const defaultRunAnimations: ExtractStep = async ({ url, outputDir, adapterPath, pluginRoot }) => {
   const script = resolve(pluginRoot, "scripts/extract-animations.ts");
-  await execFileP("npx", ["tsx", script, url, outputDir, "--adapter", adapterPath], { env: process.env });
+  await execFileP("npx", ["tsx", script, url, outputDir, "--adapter", adapterPath], {
+    env: process.env,
+    timeout: SUBPROCESS_TIMEOUT_MS,
+    killSignal: "SIGKILL",
+  });
 };
 
 function defaultPluginRoot(): string {

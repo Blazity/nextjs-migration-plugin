@@ -1148,14 +1148,49 @@ export async function extractImagesFromPage(
             return Math.round(diffs.sort((a, b) => a - b)[0])
           }
 
+          // Anchor with a real navigational href would destroy the execution
+          // context on click, hanging the whole eval. See open-issues/004.
+          const willNavigate = (el: Element) => {
+            if (el.tagName.toLowerCase() !== "a") return false
+            const href = (el as HTMLAnchorElement).href
+            if (!href) return false
+            const here = el.ownerDocument.location.href
+            if (href === here || href === "#" || href === here + "#") return false
+            return true
+          }
+
+          // setTimeout survives rAF throttling because it runs on the timer
+          // thread, not the compositor thread. 5s is plenty for any real menu
+          // animation; anything longer is a hang.
+          const raceTimeout = <T>(promise: Promise<T>, ms: number) =>
+            Promise.race([
+              promise,
+              new Promise<T>((_, reject) =>
+                setTimeout(() => reject(new Error("trigger-click-timeout")), ms),
+              ),
+            ])
+          const safeClickAndWait = async (el: HTMLElement) => {
+            try {
+              el.click()
+              await raceTimeout(
+                new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r()))),
+                5000,
+              )
+              return true
+            } catch {
+              return false
+            }
+          }
+
           const results: ExpandedShellTriggerEntry[] = []
           for (const trigger of candidates) {
+            if (willNavigate(trigger)) continue
             const triggerText = normalizeText(trigger.textContent || "")
             const baselineKeys = new Set(collectVisibleInteractiveItems(document).map(item => `${item.kind}|${item.label}|${item.href}`))
             const triggerRect = trigger.getBoundingClientRect()
 
-            ;(trigger as HTMLElement).click()
-            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+            const opened = await safeClickAndWait(trigger as HTMLElement)
+            if (!opened) continue
 
             const documentExpandedItemElements = Array.from(document.querySelectorAll("a, button"))
               .filter(el => isVisible(el))
@@ -1196,8 +1231,7 @@ export async function extractImagesFromPage(
                 }))
                 .filter(item => item.label || item.href)
               if (expandedItems.length === 0) {
-                ;(trigger as HTMLElement).click()
-                await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+                await safeClickAndWait(trigger as HTMLElement)
                 continue
               }
               const panelStyles = panelRoot ? window.getComputedStyle(panelRoot) : null
@@ -1252,8 +1286,7 @@ export async function extractImagesFromPage(
               })
             }
 
-            ;(trigger as HTMLElement).click()
-            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+            await safeClickAndWait(trigger as HTMLElement)
           }
 
           return results
