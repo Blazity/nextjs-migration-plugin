@@ -1,8 +1,12 @@
 # ISSUE-002: Duplicate URL entries from un-resolved redirects
 
 **Surfaced by:** Phase 1 (Discover)
-**Severity:** Medium — inflates page count, duplicates work in Phases 4-5, may produce conflicting library entries in Phase 2
+**Severity:** High (escalated 2026-05-04) — now confirmed Phase-4-blocking. `validate-extraction` flags 18 duplicate spec hashes in the blazity.com demo run (9 case studies × 2 URL shapes: `/case-study/<slug>` redirected to `/case-studies/<slug>` but both stored). Phase 4 verification gate criterion #2 fails for the entire run.
 **Status:** Open
+
+## 2026-05-04 update — confirmed Phase 4 blocker
+
+Demo run on blazity.com produced exactly the predicted failure mode. `routes.json` has both URL shapes for all 9 case studies (`case-study` and `case-studies`); both are extracted in Phase 4 to identical specs; `validate-extraction.ts` flags 18 hash duplicates and the gate fails. This must be fixed before any Phase 4 run can pass on a site with redirect-driven path changes — which is most production sites.
 
 ## Evidence pattern
 
