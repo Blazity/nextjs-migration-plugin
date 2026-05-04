@@ -108,12 +108,24 @@ async function main() {
     try {
       const resp = await page.goto(norm, { waitUntil: "domcontentloaded", timeout: 15_000 });
       const status = resp?.status() ?? 0;
+      // Resolve to the post-redirect canonical URL. Without this, a single
+      // logical page that the site exposes via several paths (e.g.
+      // /case-study/X redirected to /case-studies/X, or trailing-slash
+      // variants the server canonicalizes) ends up duplicated in crawl.json
+      // and downstream produces conflicting library entries plus duplicate
+      // spec hashes in Phase 4. See knowledge/open-issues/002.
+      const finalNorm = normalize(page.url());
+      if (visited.has(finalNorm)) continue;
+      const fu = new URL(finalNorm);
+      if (fu.origin !== origin) continue;
+      if (!isAllowed(fu.pathname, robots.disallowedPaths)) continue;
+
       const title = await page.title();
       const links = await page.$$eval("a[href]", as =>
         (as as HTMLAnchorElement[]).map(a => a.href).filter(h => h.startsWith("http")),
       );
-      visited.set(norm, {
-        url: norm, depth: next.depth, discoveredVia: next.via,
+      visited.set(finalNorm, {
+        url: finalNorm, depth: next.depth, discoveredVia: next.via,
         title, status, outboundLinks: links,
       });
       for (const l of links) {

@@ -1,6 +1,7 @@
 import { chromium } from "@playwright/test"
 import { loadAdaptersFromArgs } from "./lib/adapter-loader.ts"
 import { extractAnimationsFromPage, writeAnimationOutput } from "./lib/extract-animations-core.ts"
+import { installNameShim } from "./lib/playwright-eval-shim.ts"
 
 const TARGET_URL = process.argv[2] || "https://blazity.com"
 const OUTPUT_DIR = process.argv[3] || "docs/specs/homepage"
@@ -10,6 +11,7 @@ async function main() {
   console.log(`Extracting animations from: ${TARGET_URL}`)
   const browser = await chromium.launch()
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  await installNameShim(context)
   const page = await context.newPage()
 
   const result = await extractAnimationsFromPage(page, ADAPTER, {

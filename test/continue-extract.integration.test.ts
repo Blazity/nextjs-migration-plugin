@@ -62,7 +62,21 @@ function writePhases1to3(targetDir: string, urls: string[]) {
     updatedAt: now,
   }, null, 2));
   const p2 = join(runDir, "phase-2-analyze");
-  mkdirSync(p2, { recursive: true });
+  mkdirSync(join(p2, "analysis"), { recursive: true });
+  writeFileSync(join(p2, "analysis/sections.json"), JSON.stringify({
+    probedAt: now,
+    pages: urls.map((u, i) => ({
+      url: u,
+      sections: [{
+        id: `p${i}-s0`,
+        selector: "body > *",
+        tagSkeleton: "section",
+        pathShingles: ["body>section"],
+        sampleText: "",
+        boundingBox: { x: 0, y: 0, width: 1440, height: 600 },
+      }],
+    })),
+  }, null, 2));
   writeFileSync(join(p2, "VERIFICATION.md"), "# verified");
 
   // Phase 3
