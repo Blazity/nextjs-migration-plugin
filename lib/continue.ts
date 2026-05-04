@@ -6,6 +6,7 @@ import { runDiscover } from "./discover.ts";
 import { runAnalyze } from "./analyze.ts";
 import { runPlan } from "./plan.ts";
 import { runExtract } from "./extract.ts";
+import { runBuild } from "./build.ts";
 import { loadAdapter } from "./load-adapter.ts";
 import { loadProbe } from "./load-probe.ts";
 
@@ -67,6 +68,9 @@ export function defaultDispatchers(): Record<string, PhaseDispatcher> {
     },
     "phase-4-extract": async ({ targetDir, runDir }) => {
       await runExtract({ targetDir, runDir });
+    },
+    "phase-5-build": async ({ targetDir, runDir }) => {
+      await runBuild({ targetDir, runDir });
     },
   };
 }
