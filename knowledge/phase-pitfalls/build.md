@@ -46,6 +46,10 @@ Marketing copy like "Lightweight Client SDK (<5kB gzipped)" contains a literal `
 
 `library/layouts.json` carries header/footer/nav shells separately from `library/components.json` (by design — `lib/analyze.ts:extractComponents` excludes them). The orchestrator emits `<target>/src/components/Header.tsx`, `Footer.tsx`, `Nav.tsx` for each populated slot, resolving the section TSX via `tagSkeleton` match against `phase-2-analyze/analysis/sections.json`. This means `loadSections` is now a Phase 5 precondition. The hardcoded slot names match what `assembleRootLayoutTsx` imports as a fallback — long-term, accept the names from the orchestrator instead. See open-issues/010.
 
-## 11. next build is the dominant cost
+## 11. Overwriting the user's layout.tsx must preserve `import "./globals.css"`
+
+When `library/layouts.json` has any populated slot, `assembleRootLayoutTsx` writes a fresh `<target>/src/app/layout.tsx` that overwrites `create-next-app`'s scaffold. The scaffold's first line is `import "./globals.css";` — required for Next.js to extract Tailwind into the route's CSS chunk. The plugin's emitter now hardcodes that import so the overwritten layout still ships styles. If a target uses a non-default stylesheet path (e.g. `app.css`, `tailwind.css`), the hardcoded import will break — track upgrades to a "preserve existing CSS imports" strategy in open-issues/011 if a real user hits this. See open-issues/011.
+
+## 12. next build is the dominant cost
 
 A 47-page wireframe build typically takes 30-90 seconds wall-clock once codegen is done. The runner caps at 600_000ms (`NEXT_BUILD_TIMEOUT_MS`). Override via env for very large projects.
