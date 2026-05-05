@@ -18,4 +18,16 @@ describe("assembleRootLayoutTsx", () => {
     expect(tsx).toMatch(/<SiteHeader \/>\s*\{children\}\s*<SiteFooter \/>/);
     expect(tsx).toContain("export default function RootLayout");
   });
+
+  it("prepends `import \"./globals.css\"` so Tailwind compiles into the route bundle (issue 011)", () => {
+    const tsx = assembleRootLayoutTsx({
+      header: { componentName: "Header" }, footer: null, nav: null,
+    });
+    expect(tsx).not.toBeNull();
+    if (!tsx) return;
+    const cssIdx = tsx.indexOf('import "./globals.css"');
+    const componentIdx = tsx.indexOf("import Header from");
+    expect(cssIdx).toBeGreaterThanOrEqual(0);
+    expect(cssIdx).toBeLessThan(componentIdx);
+  });
 });

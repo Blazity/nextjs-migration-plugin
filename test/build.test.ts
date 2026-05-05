@@ -255,5 +255,8 @@ describe("runBuild", () => {
     const layoutTsx = readFileSync(layoutPath, "utf8");
     expect(layoutTsx).toContain('import Header from "@/components/Header"');
     expect(layoutTsx).toContain("<Header />");
+    // Globals CSS import is required for Tailwind to compile into the route
+    // bundle. Without it the served page is unstyled. See issue 011.
+    expect(layoutTsx).toContain('import "./globals.css"');
   });
 });
