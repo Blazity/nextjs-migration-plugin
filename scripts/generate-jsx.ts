@@ -105,6 +105,12 @@ const VALID_TAGS = new Set([
   "span", "button", "form", "ul", "ol", "li", "input", "textarea", "label",
 ])
 
+const VOID_TAGS = new Set(["input", "br", "hr", "img", "meta", "link"])
+
+function escapeJsxText(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\{/g, "&#123;").replace(/\}/g, "&#125;")
+}
+
 function renderJsx(node: TreeNode, styles: StyleEntry[], indent: number = 0, usedStyles: Set<number> = new Set()): string {
   const pad = "  ".repeat(indent)
   const tag = node.tag
@@ -138,12 +144,12 @@ function renderJsx(node: TreeNode, styles: StyleEntry[], indent: number = 0, use
     const allClasses = (classes + hoverClasses).trim()
 
     if (node.children.length === 0 && node.text) {
-      return `${pad}<a href="${href}"${allClasses ? ` className="${allClasses}"` : ""}>${node.text}</a>\n`
+      return `${pad}<a href="${href}"${allClasses ? ` className="${allClasses}"` : ""}>${escapeJsxText(node.text)}</a>\n`
     }
 
     let jsx = `${pad}<a href="${href}"${allClasses ? ` className="${allClasses}"` : ""}>\n`
     if (node.text && node.children.length === 0) {
-      jsx += `${pad}  ${node.text}\n`
+      jsx += `${pad}  ${escapeJsxText(node.text)}\n`
     }
     for (const child of node.children) {
       jsx += renderJsx(child, styles, indent + 1, usedStyles)
@@ -159,9 +165,15 @@ function renderJsx(node: TreeNode, styles: StyleEntry[], indent: number = 0, use
 
   const jsxTag = VALID_TAGS.has(tag) ? tag : "div"
 
+  // Void element — must be self-closing in JSX.
+  if (VOID_TAGS.has(jsxTag)) {
+    const placeholder = node.text ? ` placeholder="${node.text.replace(/"/g, "&quot;")}"` : ""
+    return `${pad}<${jsxTag}${classes ? ` className="${classes}"` : ""}${placeholder} />\n`
+  }
+
   // Leaf element with text only
   if (node.children.length === 0 && node.text) {
-    return `${pad}<${jsxTag}${classes ? ` className="${classes}"` : ""}>${node.text}</${jsxTag}>\n`
+    return `${pad}<${jsxTag}${classes ? ` className="${classes}"` : ""}>${escapeJsxText(node.text)}</${jsxTag}>\n`
   }
 
   // Container element
