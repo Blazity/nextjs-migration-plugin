@@ -8,6 +8,7 @@ import { loadLayouts } from "./load-layouts.ts";
 import { loadProbe } from "./load-probe.ts";
 import { loadCrawl } from "./load-crawl.ts";
 import { loadComponentUsage } from "./load-component-usage.ts";
+import { loadSections } from "./load-sections.ts";
 import { writePlan, writeExecution, writeVerification } from "./phase-state.ts";
 import { checkProjectScaffold } from "./project-scaffold.ts";
 import { copyStagedAssets } from "./asset-copier.ts";
@@ -63,6 +64,12 @@ export async function runBuild(args: RunBuildArgs): Promise<void> {
   const probeResult = loadProbe(join(args.targetDir, ".migration/runs", args.runDir, "phase-1-discover/discovery/probe.json"));
   if (!probeResult.valid) { await fail([{ name: "probe.json valid", passed: false }]); return; }
 
+  // sections.json from Phase 2 carries `tagSkeleton` per (page, sectionIndex).
+  // Layout-shell emission needs it to map a layout shell to a section index
+  // in `appearsOn[0]`. See open-issues/010.
+  const sectionsResult = loadSections(join(args.targetDir, ".migration/runs", args.runDir, "phase-2-analyze/analysis/sections.json"));
+  if (!sectionsResult.valid) { await fail([{ name: "sections.json valid", passed: false }]); return; }
+
   const slugByUrl = new Map<string, string>();
   for (const p of crawlResult.data.pages) slugByUrl.set(p.url, p.slug);
 
@@ -106,6 +113,31 @@ export async function runBuild(args: RunBuildArgs): Promise<void> {
     const dest = join(args.targetDir, plan.filePath);
     writeFileSync(dest, transformOrWrap(sectionTsx, plan.name));
     componentEntries.push({ id: plan.id, name: plan.name, filePath: plan.filePath, memberCount: plan.memberCount });
+  }
+
+  // 2b. Emit layout-shell component files (Header/Footer/Nav). Layout shells
+  //     are excluded from components.json by lib/analyze.ts, but the layout
+  //     assembler still imports them by literal name. Resolve each shell to
+  //     a section TSX via tagSkeleton match in sections.json. See
+  //     open-issues/010.
+  const SLOT_NAMES: Record<"header" | "footer" | "nav", string> = { header: "Header", footer: "Footer", nav: "Nav" };
+  for (const slot of ["header", "footer", "nav"] as const) {
+    const shell = layoutsResult.data[slot];
+    if (!shell) continue;
+    const lookupUrl = shell.appearsOn[0];
+    const slug = slugByUrl.get(lookupUrl);
+    if (!slug) continue;
+    const pageSections = sectionsResult.data.pages.find(p => p.url === lookupUrl);
+    if (!pageSections) continue;
+    const sectionIdx = pageSections.sections.findIndex(s => s.tagSkeleton === shell.tagSkeleton);
+    if (sectionIdx < 0) continue;
+    const generated = join(pagesDir, slug, "generated");
+    const sectionTsx = pickSectionTsxForMember({ generatedDir: generated, sectionId: `pX-s${sectionIdx}` });
+    if (!sectionTsx) continue;
+    const name = SLOT_NAMES[slot];
+    const filePath = `src/components/${name}.tsx`;
+    writeFileSync(join(args.targetDir, filePath), transformOrWrap(sectionTsx, name));
+    componentEntries.push({ id: shell.id, name, filePath, memberCount: shell.appearsOn.length });
   }
 
   // 3. Emit page files (one per route group).
@@ -174,7 +206,12 @@ export async function runBuild(args: RunBuildArgs): Promise<void> {
   };
   writeFileSync(join(buildDir, "manifest.json"), JSON.stringify(manifest, null, 2));
 
-  const everyComponentEmitted = componentEntries.length === components.length;
+  // Layout shells emitted on top of components.json count toward the manifest
+  // but not toward the gate criterion. Compare emitted component-ids against
+  // the components.json id set.
+  const componentIdsInRegistry = new Set(components.map(c => c.id));
+  const emittedComponentCount = componentEntries.filter(e => componentIdsInRegistry.has(e.id)).length;
+  const everyComponentEmitted = emittedComponentCount === components.length;
   const everyRouteEmitted = groups.every(g => existsSync(join(args.targetDir, "src/app", g.nextRoute === "/" ? "" : g.nextRoute, "page.tsx")));
 
   await writeVerification(phaseDir, {
@@ -220,6 +257,16 @@ export function detectNextImports(body: string): string {
   return lines.length > 0 ? lines.join("\n") + "\n\n" : "";
 }
 
+// Vendored generate-jsx.ts embeds DOM textContent verbatim into JSX. Source
+// pages with copy like "Lightweight Client SDK (<5kB gzipped)" hit the JSX
+// parser as `<5` — a tag-name start that fails because `5` is not a valid
+// tag-name character. Escape every `<` not followed by a tag-name-start
+// character to `&lt;`. JSX tag names start with [a-zA-Z], `/`, `!`, or `?`.
+// See knowledge/open-issues/009.
+export function escapeUnsafeLessThan(jsx: string): string {
+  return jsx.replace(/<(?![a-zA-Z/!?])/g, "&lt;");
+}
+
 function indentLines(s: string, spaces: number): string {
   const pad = " ".repeat(spaces);
   return s.split("\n").map(line => (line.length > 0 ? pad + line : line)).join("\n");
@@ -236,11 +283,12 @@ export function transformOrWrap(raw: string, name: string): string {
     return raw.replace(/export\s+default\s+function\s+\w+/, `export default function ${name}`);
   }
   const stripped = raw.replace(/^\s*(?:\{\/\*[\s\S]*?\*\/\}\s*)+/g, "").trim();
-  const imports = detectNextImports(stripped);
+  const escaped = escapeUnsafeLessThan(stripped);
+  const imports = detectNextImports(escaped);
   return `${imports}export default function ${name}() {
   return (
     <>
-${indentLines(stripped, 6)}
+${indentLines(escaped, 6)}
     </>
   );
 }
