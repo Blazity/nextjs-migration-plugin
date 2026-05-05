@@ -163,4 +163,38 @@ describe("runBuild", () => {
     const phaseDir = join(root, ".migration/runs/001-initial/phase-5-build");
     expect(existsSync(join(phaseDir, "VERIFICATION.md"))).toBe(false);
   });
+
+  it("wraps raw .generated.jsx output from the vendored generate-jsx.ts into a valid component (issues 007 + 008)", async () => {
+    const root = mkdtempSync(join(tmpdir(), "build-"));
+    await bootstrapMigration({ targetDir: root, site: baseSite("https://example.com/") });
+    writePhases1to4(root, ["https://example.com/"]);
+    writeTargetScaffold(root);
+
+    // Stub matches production format: .generated.jsx extension, raw JSX
+    // fragment with a leading expression-comment header, references <Image>
+    // with no import — exactly what scripts/generate-jsx.ts emits today.
+    await runBuild({
+      targetDir: root,
+      runDir: "001-initial",
+      runJsxGenerator: async ({ outputDir }) => {
+        mkdirSync(outputDir, { recursive: true });
+        writeFileSync(
+          join(outputDir, "01-section.generated.jsx"),
+          '{/* Auto-generated */}\n{/* Source: 01-section.structure.md */}\n\n<div className="hero"><Image src="/x.png" alt="x" width={10} height={10} /></div>',
+        );
+      },
+      runNextBuild: async () => ({ exitCode: 0, stdout: "", stderr: "", packageManager: "npm" }),
+      runVerifyBuildBaseline: async () => ({ passed: true }),
+    });
+
+    const componentPath = join(root, "src/components/PageBody.tsx");
+    expect(existsSync(componentPath)).toBe(true);
+    const tsx = readFileSync(componentPath, "utf8");
+    expect(tsx).toContain('import Image from "next/image";');
+    expect(tsx).toMatch(/export default function PageBody\(\)/);
+    // Leading JSX comments must be stripped from the wrapped module.
+    expect(tsx.startsWith("{/*")).toBe(false);
+    const v = JSON.parse(readFileSync(join(root, ".migration/runs/001-initial/phase-5-build/verification.json"), "utf8"));
+    expect(v.passed).toBe(true);
+  });
 });

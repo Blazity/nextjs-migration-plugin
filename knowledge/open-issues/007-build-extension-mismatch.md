@@ -2,7 +2,7 @@
 
 **Surfaced by:** Phase 5 (Build)
 **Severity:** Critical — gate criterion #2 ("every component in components.json was emitted") fails for 100% of components on every Phase 5 run. Phase 5 cannot pass on any real project until this is fixed.
-**Status:** Open
+**Status:** Patched 2026-05-05 — `lib/build.ts` `pickSectionTsxForMember` now accepts both `.tsx` and `.generated.jsx` extensions. New regression test in `test/build.test.ts` ("wraps raw .generated.jsx output...") exercises the production path end to end.
 
 ## Evidence pattern
 
