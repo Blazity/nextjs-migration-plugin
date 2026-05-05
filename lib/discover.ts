@@ -113,7 +113,30 @@ export async function runDiscover(args: RunDiscoverArgs): Promise<void> {
   });
   await writeExecution(phaseDir, `Probe complete → ${probePath}`);
 
-  const probeResult = loadProbe(probePath);
+  // Plugin-side override for SPA_FLOW_EXTRACTION false-positives. Vendored
+  // probe-analysis.ts flags any framework-detected page whose URL slug
+  // keywords don't appear in the body or h1 as a SPA fallback. Marketing
+  // pages on Webflow / Wix / WordPress routinely have h1 copy that doesn't
+  // echo the slug — they get false-flagged. When isSPA is false the page
+  // is statically rendered and DIRECT_EXTRACTION is correct regardless of
+  // the slug-keyword heuristic. See open-issues/001.
+  let probePostProcessed = loadProbe(probePath);
+  if (probePostProcessed.valid) {
+    const overridden: { url: string; from: string }[] = [];
+    const pages = probePostProcessed.data.pages.map(p => {
+      if (p.recommendation === "SPA_FLOW_EXTRACTION" && p.isSPA === false) {
+        overridden.push({ url: p.url, from: p.recommendation });
+        return { ...p, recommendation: "DIRECT_EXTRACTION" as const };
+      }
+      return p;
+    });
+    if (overridden.length > 0) {
+      writeFileSync(probePath, JSON.stringify({ ...probePostProcessed.data, pages }, null, 2));
+      await writeExecution(phaseDir, `SPA-recommendation override applied to ${overridden.length} page(s) where isSPA=false (${overridden.slice(0, 3).map(o => new URL(o.url).pathname).join(", ")}${overridden.length > 3 ? ", ..." : ""})`);
+      probePostProcessed = loadProbe(probePath);
+    }
+  }
+  const probeResult = probePostProcessed;
   const probeValid = probeResult.valid;
   const aborts = probeValid
     ? probeResult.data.pages.filter((p) => p.recommendation === "ABORT_NO_ADAPTER")

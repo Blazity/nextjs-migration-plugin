@@ -160,6 +160,42 @@ describe("runDiscover", () => {
     expect(probePages[0].url).toBe(seedUrl);
   }, 60_000);
 
+  it("overrides SPA_FLOW_EXTRACTION → DIRECT_EXTRACTION when isSPA is false (issue 001)", async () => {
+    const root = mkdtempSync(join(tmpdir(), "discover-"));
+    await bootstrapMigration({ targetDir: root, site: baseSite(baseUrl + "/") });
+    const spaFalsePositive = async (url: string) => ({
+      url, matchedAdapters: ["webflow"], recommendation: "SPA_FLOW_EXTRACTION",
+      detectedCMP: null, spaAnalysis: { isSPA: false },
+    });
+    await runDiscover({
+      targetDir: root, runDir: "001-initial",
+      probeOne: spaFalsePositive, confirmPageList: true,
+    });
+    const probe = JSON.parse(readFileSync(join(root, ".migration/runs/001-initial/phase-1-discover/discovery/probe.json"), "utf8"));
+    for (const p of probe.pages) {
+      expect(p.recommendation).toBe("DIRECT_EXTRACTION");
+      expect(p.isSPA).toBe(false);
+    }
+  }, 60_000);
+
+  it("preserves SPA_FLOW_EXTRACTION when isSPA is true (real SPA)", async () => {
+    const root = mkdtempSync(join(tmpdir(), "discover-"));
+    await bootstrapMigration({ targetDir: root, site: baseSite(baseUrl + "/") });
+    const realSpa = async (url: string) => ({
+      url, matchedAdapters: ["react"], recommendation: "SPA_FLOW_EXTRACTION",
+      detectedCMP: null, spaAnalysis: { isSPA: true },
+    });
+    await runDiscover({
+      targetDir: root, runDir: "001-initial",
+      probeOne: realSpa, confirmPageList: true,
+    });
+    const probe = JSON.parse(readFileSync(join(root, ".migration/runs/001-initial/phase-1-discover/discovery/probe.json"), "utf8"));
+    for (const p of probe.pages) {
+      expect(p.recommendation).toBe("SPA_FLOW_EXTRACTION");
+      expect(p.isSPA).toBe(true);
+    }
+  }, 60_000);
+
   it("fails the gate when includeUrls matches zero pages", async () => {
     const root = mkdtempSync(join(tmpdir(), "discover-"));
     await bootstrapMigration({ targetDir: root, site: baseSite(baseUrl + "/") });
