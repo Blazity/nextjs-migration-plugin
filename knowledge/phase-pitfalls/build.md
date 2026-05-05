@@ -24,6 +24,20 @@ Two clusters whose `name` field sanitizes to the same PascalCase string would cl
 
 `copyStagedAssets` walks `pages/<slug>/_staging/public/` recursively and replays the relative path under `<target>/public/`. If two pages stage the same image to the same path (e.g., a shared logo), the latter overwrites the former — both write the same bytes, so this is benign for hashed filenames (extract-images.ts uses md5-prefixed names). The hash convention guarantees stability; if you change the naming scheme upstream, update this assumption.
 
-## 7. next build is the dominant cost
+## 7. Vendored generate-jsx.ts emits raw JSX, not React modules
+
+`scripts/generate-jsx.ts` writes `<label>.generated.jsx` files containing a leading JSX comment header followed by a raw JSX fragment with no `export default`, no `import` lines, and references to `<Image>` (Next.js) without the corresponding `import Image from "next/image"`. The script was originally designed for a single-page workflow where the fragment was hand-pasted into a component shell. The plugin's automated pipeline must wrap it.
+
+`lib/build.ts` exposes two helpers that handle this:
+- `detectNextImports(body)` — scans the JSX body for `<Image>`, `<Link>`, `<Script>` and returns the matching `import ... from "next/..."` lines.
+- `transformOrWrap(raw, name)` — if the input is already a wrapped component (`export default function ...`), just renames the export. Otherwise strips leading expression-comments, injects Next.js imports, and wraps the body in `export default function <Name>() { return (<>...</>); }`.
+
+Per spec § 14, the vendored script is NOT modified. The wrap layer is the plugin's responsibility. Test stubs that ship pre-wrapped components remain valid (the helper detects them and just renames). A regression test in `test/build.test.ts` exercises the production `.generated.jsx` shape end-to-end.
+
+## 8. Generator output extension is `.generated.jsx`, not `.tsx`
+
+Codegen output lands at `pages/<slug>/generated/<label>.generated.jsx`. The orchestrator's file picker (`pickSectionTsxForMember`) accepts both `.tsx` (used by test stubs) and `.generated.jsx` (production). Adding a new generator? Either match one of those extensions or update the picker.
+
+## 9. next build is the dominant cost
 
 A 47-page wireframe build typically takes 30-90 seconds wall-clock once codegen is done. The runner caps at 600_000ms (`NEXT_BUILD_TIMEOUT_MS`). Override via env for very large projects.

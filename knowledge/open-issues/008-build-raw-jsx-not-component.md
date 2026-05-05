@@ -2,7 +2,7 @@
 
 **Surfaced by:** Phase 5 (Build)
 **Severity:** Critical — even after ISSUE-007 (extension mismatch) is fixed, the emitted "component" files are not valid React modules. They will fail `next build` with `does not contain a default export` and `Image is not defined`. Gate criterion #4 (`next build` exit 0) cannot pass.
-**Status:** Open (depends on ISSUE-007 being fixed first to surface)
+**Status:** Patched 2026-05-05 — `lib/build.ts` exports `transformOrWrap(raw, name)` and `detectNextImports(body)`. Replaces the old no-op `transformDefaultExportName`. Detects pre-wrapped vs raw input, strips leading JSX expression-comments, injects `import` lines for any of `<Image>` / `<Link>` / `<Script>`, and wraps raw fragments in `export default function <Name>() { return (<>...</>); }`. 9 unit tests in `test/build-tsx-wrapping.test.ts` cover the helper directly; one integration test in `test/build.test.ts` exercises the full orchestrator with the production `.generated.jsx` shape.
 
 ## Evidence pattern
 

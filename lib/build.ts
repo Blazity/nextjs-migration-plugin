@@ -104,7 +104,7 @@ export async function runBuild(args: RunBuildArgs): Promise<void> {
     const sectionTsx = pickSectionTsxForMember({ generatedDir: generated, sectionId: member.id });
     if (!sectionTsx) continue;
     const dest = join(args.targetDir, plan.filePath);
-    writeFileSync(dest, transformDefaultExportName(sectionTsx, plan.name));
+    writeFileSync(dest, transformOrWrap(sectionTsx, plan.name));
     componentEntries.push({ id: plan.id, name: plan.name, filePath: plan.filePath, memberCount: plan.memberCount });
   }
 
@@ -193,15 +193,58 @@ export async function runBuild(args: RunBuildArgs): Promise<void> {
 
 function pickSectionTsxForMember(args: { generatedDir: string; sectionId: string }): string | null {
   if (!existsSync(args.generatedDir)) return null;
-  const tsxFiles = readdirSync(args.generatedDir).filter(f => f.endsWith(".tsx")).sort();
+  // Vendored generate-jsx.ts emits `<label>.generated.jsx`. Test stubs may
+  // emit `.tsx` directly with a pre-formed export. Accept both — the wrap
+  // step downstream detects pre-wrapped vs raw input. See open-issues/007.
+  const tsxFiles = readdirSync(args.generatedDir)
+    .filter(f => f.endsWith(".tsx") || f.endsWith(".generated.jsx"))
+    .sort();
   const matchIndex = Number(args.sectionId.split("-s")[1] ?? "0");
   const file = tsxFiles[matchIndex] ?? tsxFiles[0];
   if (!file) return null;
   return readFileSync(join(args.generatedDir, file), "utf8");
 }
 
-function transformDefaultExportName(tsx: string, name: string): string {
-  return tsx.replace(/export\s+default\s+function\s+\w+/, `export default function ${name}`);
+// Next.js components referenced by the vendored codegen. Each tag triggers
+// the matching `import` line when detected in the JSX body.
+const NEXT_IMPORTS: Record<string, string> = {
+  Image: 'import Image from "next/image";',
+  Link: 'import Link from "next/link";',
+  Script: 'import Script from "next/script";',
+};
+
+export function detectNextImports(body: string): string {
+  const lines = Object.entries(NEXT_IMPORTS)
+    .filter(([tag]) => new RegExp(`<${tag}\\b`).test(body))
+    .map(([, line]) => line);
+  return lines.length > 0 ? lines.join("\n") + "\n\n" : "";
+}
+
+function indentLines(s: string, spaces: number): string {
+  const pad = " ".repeat(spaces);
+  return s.split("\n").map(line => (line.length > 0 ? pad + line : line)).join("\n");
+}
+
+// Transform a section's emitted source into a valid React module. If the
+// input already contains `export default function ...`, treat it as a
+// pre-wrapped component and just rename. Otherwise strip leading JSX
+// expression-comments (which are invalid at module top), inject Next.js
+// imports for any referenced components, and wrap the JSX body in a
+// fragment-returning default-export function. See open-issues/008.
+export function transformOrWrap(raw: string, name: string): string {
+  if (/export\s+default\s+function\s+\w+/.test(raw)) {
+    return raw.replace(/export\s+default\s+function\s+\w+/, `export default function ${name}`);
+  }
+  const stripped = raw.replace(/^\s*(?:\{\/\*[\s\S]*?\*\/\}\s*)+/g, "").trim();
+  const imports = detectNextImports(stripped);
+  return `${imports}export default function ${name}() {
+  return (
+    <>
+${indentLines(stripped, 6)}
+    </>
+  );
+}
+`;
 }
 
 function defaultPluginRoot(): string {
