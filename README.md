@@ -35,12 +35,14 @@ Session start will fail with a clear message if `superpowers` is missing.
 cd ~/dev/my-new-site
 claude
 # in Claude Code:
+/nextjs-migration-plugin:migrate-help
 /migrate:new https://example.com
 ```
 
 Answer up to four wizard questions (all have defaults). The plugin creates `.migration/` in your current directory with `SITE.md` and a `runs/001-initial/` scaffold.
 
 ```
+/nextjs-migration-plugin:migrate-help   # explain the workflow and recommend the next command
 /migrate:status        # print current state
 /migrate:config mode unattended   # flip a setting
 ```
