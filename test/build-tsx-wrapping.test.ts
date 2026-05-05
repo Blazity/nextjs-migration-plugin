@@ -1,5 +1,27 @@
 import { describe, it, expect } from "vitest";
-import { transformOrWrap, detectNextImports } from "../lib/build.ts";
+import { transformOrWrap, detectNextImports, escapeUnsafeLessThan } from "../lib/build.ts";
+
+describe("escapeUnsafeLessThan", () => {
+  it("escapes `<` followed by a digit (the <5kB case)", () => {
+    expect(escapeUnsafeLessThan("Lightweight (<5kB gzipped)")).toBe("Lightweight (&lt;5kB gzipped)");
+  });
+
+  it("preserves real opening tags like <Image> and <div>", () => {
+    expect(escapeUnsafeLessThan("<Image /> and <div>x</div>")).toBe("<Image /> and <div>x</div>");
+  });
+
+  it("preserves close tags like </div>", () => {
+    expect(escapeUnsafeLessThan("<div>x</div>")).toBe("<div>x</div>");
+  });
+
+  it("preserves comment-like markers <!", () => {
+    expect(escapeUnsafeLessThan("<!-- raw -->")).toBe("<!-- raw -->");
+  });
+
+  it("escapes consecutive non-tag <s in math copy", () => {
+    expect(escapeUnsafeLessThan("a < b < c")).toBe("a &lt; b &lt; c");
+  });
+});
 
 describe("detectNextImports", () => {
   it("emits no imports when no Next.js component is referenced", () => {
@@ -50,6 +72,22 @@ describe("transformOrWrap", () => {
     const result = transformOrWrap(raw, "Hero");
     expect(result).toContain('import Image from "next/image";');
     expect(result.indexOf('import Image from')).toBeLessThan(result.indexOf("export default"));
+  });
+
+  it("escapes unsafe `<` in raw text content before wrapping (issue 009)", () => {
+    const raw = '<p>Lightweight Client SDK (<5kB gzipped)</p>';
+    const result = transformOrWrap(raw, "OpenSourceFeatureList");
+    expect(result).toContain("&lt;5kB");
+    expect(result).not.toContain("(<5kB");
+  });
+
+  it("does not escape `<` inside pre-wrapped components (preserves their JSX as authored)", () => {
+    const raw = `export default function H() { return <p>a < b</p>; }`;
+    const result = transformOrWrap(raw, "Hero");
+    // Pre-wrapped path: do not touch — the input is already valid JSX OR
+    // already broken at the source. Escaping inside attribute values would
+    // corrupt valid attributes.
+    expect(result).toContain("a < b");
   });
 
   it("does not double-import or double-wrap when input is already a component referencing Image", () => {

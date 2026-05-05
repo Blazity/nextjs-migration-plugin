@@ -38,6 +38,14 @@ Per spec § 14, the vendored script is NOT modified. The wrap layer is the plugi
 
 Codegen output lands at `pages/<slug>/generated/<label>.generated.jsx`. The orchestrator's file picker (`pickSectionTsxForMember`) accepts both `.tsx` (used by test stubs) and `.generated.jsx` (production). Adding a new generator? Either match one of those extensions or update the picker.
 
-## 9. next build is the dominant cost
+## 9. JSX text content with `<` followed by digits or punctuation
+
+Marketing copy like "Lightweight Client SDK (<5kB gzipped)" contains a literal `<` in a text node. The vendored `generate-jsx.ts` writes that verbatim, and the JSX parser then tries to parse `<5` as a tag (fails — `5` is not a valid tag-name-start character). `lib/build.ts` `escapeUnsafeLessThan` runs inside `transformOrWrap` to convert any `<` not followed by `[a-zA-Z/!?]` into `&lt;`. Real tags (`<Image>`, `<div>`, `</div>`, `<!--`) are preserved. Pre-wrapped components are NOT escaped (presumed already valid). See open-issues/009.
+
+## 10. Layout-shell components are emitted on top of components.json
+
+`library/layouts.json` carries header/footer/nav shells separately from `library/components.json` (by design — `lib/analyze.ts:extractComponents` excludes them). The orchestrator emits `<target>/src/components/Header.tsx`, `Footer.tsx`, `Nav.tsx` for each populated slot, resolving the section TSX via `tagSkeleton` match against `phase-2-analyze/analysis/sections.json`. This means `loadSections` is now a Phase 5 precondition. The hardcoded slot names match what `assembleRootLayoutTsx` imports as a fallback — long-term, accept the names from the orchestrator instead. See open-issues/010.
+
+## 11. next build is the dominant cost
 
 A 47-page wireframe build typically takes 30-90 seconds wall-clock once codegen is done. The runner caps at 600_000ms (`NEXT_BUILD_TIMEOUT_MS`). Override via env for very large projects.

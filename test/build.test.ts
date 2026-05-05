@@ -48,7 +48,22 @@ function writePhases1to4(targetDir: string, urls: string[]) {
     routes: urls.map(u => ({ sourceUrl: u, nextRoute: new URL(u).pathname || "/", params: {}, kind: "static" as const })),
     updatedAt: now,
   }));
-  mkdirSync(join(runDir, "phase-2-analyze"), { recursive: true });
+  const analysisDir = join(runDir, "phase-2-analyze/analysis");
+  mkdirSync(analysisDir, { recursive: true });
+  writeFileSync(join(analysisDir, "sections.json"), JSON.stringify({
+    probedAt: now,
+    pages: urls.map(u => ({
+      url: u,
+      sections: [{
+        id: `p0-s0`,
+        selector: "body > section",
+        tagSkeleton: "section",
+        pathShingles: ["body>section"],
+        sampleText: "",
+        boundingBox: { x: 0, y: 0, width: 1440, height: 600 },
+      }],
+    })),
+  }));
   writeFileSync(join(runDir, "phase-2-analyze/VERIFICATION.md"), "# verified");
   // Phase 3
   const p3 = join(runDir, "phase-3-plan");
@@ -196,5 +211,49 @@ describe("runBuild", () => {
     expect(tsx.startsWith("{/*")).toBe(false);
     const v = JSON.parse(readFileSync(join(root, ".migration/runs/001-initial/phase-5-build/verification.json"), "utf8"));
     expect(v.passed).toBe(true);
+  });
+
+  it("emits Header.tsx for a populated layout shell that the layout assembler imports (issue 010)", async () => {
+    const root = mkdtempSync(join(tmpdir(), "build-"));
+    await bootstrapMigration({ targetDir: root, site: baseSite("https://example.com/") });
+    writePhases1to4(root, ["https://example.com/"]);
+    writeTargetScaffold(root);
+
+    // Promote the existing section into a layout-shell entry. tagSkeleton
+    // matches what writePhases1to4 already wrote into sections.json.
+    const lib = join(root, ".migration/library");
+    const now = new Date().toISOString();
+    writeFileSync(join(lib, "layouts.json"), JSON.stringify({
+      header: {
+        id: "cluster-header",
+        signature: "header-sig",
+        appearsOn: ["https://example.com/"],
+        tagSkeleton: "section",
+      },
+      footer: null, nav: null, updatedAt: now,
+    }));
+
+    await runBuild({
+      targetDir: root,
+      runDir: "001-initial",
+      runJsxGenerator: async ({ outputDir }) => {
+        mkdirSync(outputDir, { recursive: true });
+        writeFileSync(join(outputDir, "01-section.generated.jsx"), '<header className="site-nav"><a href="/">Home</a></header>');
+      },
+      runNextBuild: async () => ({ exitCode: 0, stdout: "", stderr: "", packageManager: "npm" }),
+      runVerifyBuildBaseline: async () => ({ passed: true }),
+    });
+
+    const headerPath = join(root, "src/components/Header.tsx");
+    expect(existsSync(headerPath)).toBe(true);
+    const headerTsx = readFileSync(headerPath, "utf8");
+    expect(headerTsx).toMatch(/export default function Header\(\)/);
+    expect(headerTsx).toContain('<header className="site-nav">');
+
+    // assembleRootLayoutTsx imports `Header` — file must exist for layout to compile
+    const layoutPath = join(root, "src/app/layout.tsx");
+    const layoutTsx = readFileSync(layoutPath, "utf8");
+    expect(layoutTsx).toContain('import Header from "@/components/Header"');
+    expect(layoutTsx).toContain("<Header />");
   });
 });

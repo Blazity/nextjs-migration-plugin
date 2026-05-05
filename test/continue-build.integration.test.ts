@@ -45,7 +45,18 @@ describe("continue → build end-to-end", () => {
       routes: [{ sourceUrl: "https://example.com/", nextRoute: "/", params: {}, kind: "static" as const }],
       updatedAt: now,
     }));
-    mkdirSync(join(runDir, "phase-2-analyze"), { recursive: true });
+    mkdirSync(join(runDir, "phase-2-analyze/analysis"), { recursive: true });
+    writeFileSync(join(runDir, "phase-2-analyze/analysis/sections.json"), JSON.stringify({
+      probedAt: now,
+      pages: [{
+        url: "https://example.com/",
+        sections: [{
+          id: "p0-s0", selector: "body > section", tagSkeleton: "section",
+          pathShingles: ["body>section"], sampleText: "",
+          boundingBox: { x: 0, y: 0, width: 1440, height: 600 },
+        }],
+      }],
+    }));
     writeFileSync(join(runDir, "phase-2-analyze/VERIFICATION.md"), "# verified");
     mkdirSync(join(runDir, "phase-3-plan"), { recursive: true });
     writeFileSync(join(runDir, "phase-3-plan/VERIFICATION.md"), "# verified");
