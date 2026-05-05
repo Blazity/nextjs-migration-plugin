@@ -25,6 +25,18 @@ tsx ${PLUGIN_DIR}/lib/discover.ts \
 
 Add `--confirm-page-list` and/or `--confirm-aborts` only after you have explicit user confirmation (see below).
 
+To restrict downstream phases to a user-selected subset of crawled URLs, re-run with:
+
+```bash
+tsx ${PLUGIN_DIR}/lib/discover.ts \
+  --target "${TARGET_DIR}" --run "${RUN_DIR}" \
+  --reuse-crawl \
+  --include-urls "https://example.com/,https://example.com/about" \
+  --confirm-page-list
+```
+
+`--reuse-crawl` skips the network crawl and reads the existing `crawl.json`. `--include-urls` is a comma-separated list of URLs to KEEP — pages not listed are dropped from `crawl.json` and never probed.
+
 ## Step-by-step
 
 ### 1. Run the initial discover pass
@@ -42,7 +54,16 @@ Invoke the script without confirmation flags. It writes:
 The two gate criteria you may need to clear are:
 
 - **`every page has matched adapter or confirmed ABORT`** — failed if any page has `recommendation: "ABORT_NO_ADAPTER"` and the user has not yet confirmed. List those URLs to the user, briefly explain why each was unmatched (drawn from `probe.json[].matchedAdapters` length 0 + `detectedCMP` + `isSPA`), and ask: "Skip these N pages? (yes / no — provide an adapter name)".
-- **`user confirmed page list`** — in attended mode this requires explicit user confirmation. Print the discovered page list (URL + slug + depth) and ask: "Proceed with these N pages? (yes / no — edit list)".
+- **`user confirmed page list`** — in attended mode this requires explicit user confirmation AND optional subset selection. Print the discovered page list as a numbered list (`1. /path  (slug, depth N)`) and ask:
+
+  > "Migrate which pages?
+  > - `all` — accept the full list
+  > - `1,3,5` — pick by index (comma-separated)
+  > - `2-7` — range
+  > - `2-7,10` — mixed
+  > Reply with one of the above."
+
+  Resolve the response to a list of URLs. If `all`, no filter is needed. Otherwise build a comma-separated URL list and pass it via `--include-urls "<url1>,<url2>,..."` on the next invocation, together with `--reuse-crawl` to skip re-crawling and `--confirm-page-list` to clear the gate.
 
 In **unattended mode**, the page-list gate auto-confirms; you only need to handle ABORT pages by accepting the default (skip) and noting it in `EXECUTION.md`.
 
@@ -53,11 +74,13 @@ Once the user has answered, invoke discover again with the appropriate flags:
 ```bash
 tsx ${PLUGIN_DIR}/lib/discover.ts \
   --target "${TARGET_DIR}" --run "${RUN_DIR}" \
+  --reuse-crawl \
+  --include-urls "https://x.com/,https://x.com/about"  \  # only when user picked a subset
   --confirm-page-list \
-  --confirm-aborts        # only if user said skip
+  --confirm-aborts        # only if user said skip ABORT pages
 ```
 
-This rewrites `crawl.json` (idempotently — same crawl) and re-emits a passing `VERIFICATION.md`.
+`--reuse-crawl` skips re-crawling and reads the existing `crawl.json`. `--include-urls` filters that crawl to the user-selected subset before probing — omit it when the user replied `all`. The command rewrites `crawl.json` + `probe.json` + `VERIFICATION.md`.
 
 ### 4. Auto-repair for invalid JSON
 

@@ -127,4 +127,57 @@ describe("runDiscover", () => {
     const v = JSON.parse(readFileSync(join(phaseDir, "verification.json"), "utf8"));
     expect(v.criteria.find((c: { name: string }) => c.name.includes("page list")).passed).toBe(false);
   }, 60_000);
+
+  it("filters crawl.json to includeUrls subset and reuses crawl when reuseCrawl is set", async () => {
+    const root = mkdtempSync(join(tmpdir(), "discover-"));
+    await bootstrapMigration({ targetDir: root, site: baseSite(baseUrl + "/") });
+    const matched = async (url: string) => ({
+      url, matchedAdapters: ["static-html"], recommendation: "DIRECT_EXTRACTION",
+      detectedCMP: null, spaAnalysis: { isSPA: false },
+    });
+    // First pass: full crawl, no filter.
+    await runDiscover({
+      targetDir: root, runDir: "001-initial",
+      probeOne: matched, confirmPageList: true,
+    });
+    const crawlPath = join(root, ".migration/runs/001-initial/phase-1-discover/discovery/crawl.json");
+    const fullPages = JSON.parse(readFileSync(crawlPath, "utf8")).pages;
+    expect(fullPages.length).toBeGreaterThan(1);
+
+    // Second pass: reuse crawl + include only the seed URL.
+    const seedUrl = fullPages[0].url;
+    await runDiscover({
+      targetDir: root, runDir: "001-initial",
+      probeOne: matched, confirmPageList: true,
+      reuseCrawl: true, includeUrls: [seedUrl],
+    });
+    const filtered = JSON.parse(readFileSync(crawlPath, "utf8")).pages;
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].url).toBe(seedUrl);
+    const probePath = join(root, ".migration/runs/001-initial/phase-1-discover/discovery/probe.json");
+    const probePages = JSON.parse(readFileSync(probePath, "utf8")).pages;
+    expect(probePages).toHaveLength(1);
+    expect(probePages[0].url).toBe(seedUrl);
+  }, 60_000);
+
+  it("fails the gate when includeUrls matches zero pages", async () => {
+    const root = mkdtempSync(join(tmpdir(), "discover-"));
+    await bootstrapMigration({ targetDir: root, site: baseSite(baseUrl + "/") });
+    const matched = async (url: string) => ({
+      url, matchedAdapters: ["static-html"], recommendation: "DIRECT_EXTRACTION",
+      detectedCMP: null, spaAnalysis: { isSPA: false },
+    });
+    await runDiscover({
+      targetDir: root, runDir: "001-initial",
+      probeOne: matched, confirmPageList: true,
+    });
+    await runDiscover({
+      targetDir: root, runDir: "001-initial",
+      probeOne: matched, confirmPageList: true,
+      reuseCrawl: true, includeUrls: ["https://nope.example.com/"],
+    });
+    const v = JSON.parse(readFileSync(join(root, ".migration/runs/001-initial/phase-1-discover/verification.json"), "utf8"));
+    expect(v.passed).toBe(false);
+    expect(v.criteria[0].name).toContain("URL set is non-empty");
+  }, 60_000);
 });
