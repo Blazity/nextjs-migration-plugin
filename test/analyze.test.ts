@@ -149,4 +149,47 @@ describe("runAnalyze", () => {
     const phaseDir = join(root, ".migration/runs/001-initial/phase-2-analyze");
     expect(existsSync(join(phaseDir, "VERIFICATION.md"))).toBe(true);
   });
+
+  it("filters non-visual clusters (script/noscript/style/link/meta) from components.json", async () => {
+    const root = mkdtempSync(join(tmpdir(), "analyze-"));
+    await bootstrapMigration({ targetDir: root, site: baseSite("https://example.com/") });
+    const urls = ["https://example.com/", "https://example.com/about"];
+    writePhase1Artifacts(root, "001-initial", urls);
+
+    const stubSections = async ({ urls: u, outputPath }: { urls: string[]; outputPath: string }) => {
+      const mk = (id: string, tagSkeleton: string, sampleText: string) => ({
+        id, selector: "body > *", tagSkeleton,
+        pathShingles: [tagSkeleton], sampleText,
+        boundingBox: { x: 0, y: 0, width: 1440, height: 80 },
+      });
+      const data = {
+        probedAt: new Date().toISOString(),
+        pages: u.map((url, i) => ({
+          url,
+          sections: [
+            mk(`p${i}-s0`, "section>div>h1", "real visual content"),
+            mk(`p${i}-s1`, "script", "window.dataLayer = [];"),
+            mk(`p${i}-s2`, "noscript", "<iframe src=gtm/></iframe>"),
+            mk(`p${i}-s3`, "style", "body { margin: 0 }"),
+          ],
+        })),
+      };
+      mkdirSync(join(outputPath, ".."), { recursive: true });
+      writeFileSync(outputPath, JSON.stringify(data, null, 2));
+    };
+
+    await runAnalyze({
+      targetDir: root,
+      runDir: "001-initial",
+      primarySelector: "body > *",
+      discoverSections: stubSections,
+    });
+
+    const components = JSON.parse(readFileSync(join(root, ".migration/library/components.json"), "utf8")).components;
+    const skeletons = components.map((c: { tagSkeleton: string }) => c.tagSkeleton);
+    expect(skeletons).toContain("section>div>h1");
+    expect(skeletons.find((s: string) => /^script\b/.test(s))).toBeUndefined();
+    expect(skeletons.find((s: string) => /^noscript\b/.test(s))).toBeUndefined();
+    expect(skeletons.find((s: string) => /^style\b/.test(s))).toBeUndefined();
+  });
 });

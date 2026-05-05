@@ -94,7 +94,7 @@ describe("continue → build end-to-end", () => {
     const result = await resumeMigration(root, { dispatchers });
     expect(result.kind).toBe("dispatched");
     if (result.kind === "dispatched") expect(result.phase).toBe("phase-5-build");
-    expect(existsSync(join(root, "src/components/PageBody.tsx"))).toBe(true);
+    expect(existsSync(join(root, "src/components/Home01Section.tsx"))).toBe(true);
     expect(existsSync(join(root, "src/app/page.tsx"))).toBe(true);
     expect(existsSync(join(runDir, "phase-5-build/VERIFICATION.md"))).toBe(true);
   });

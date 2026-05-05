@@ -7,7 +7,6 @@ import { loadRoutes } from "./load-routes.ts";
 import { loadLayouts } from "./load-layouts.ts";
 import { loadProbe } from "./load-probe.ts";
 import { loadCrawl } from "./load-crawl.ts";
-import { loadComponentUsage } from "./load-component-usage.ts";
 import { loadSections } from "./load-sections.ts";
 import { writePlan, writeExecution, writeVerification } from "./phase-state.ts";
 import { checkProjectScaffold } from "./project-scaffold.ts";
@@ -15,7 +14,7 @@ import { copyStagedAssets } from "./asset-copier.ts";
 import { runJsxGeneration as defaultRunJsxGen } from "./jsx-generator-runner.ts";
 import { runNextBuild as defaultRunNextBuild, type RunNextBuildResult } from "./next-build-runner.ts";
 import { runVerifyBuildBaseline as defaultRunVerifyBaseline, type RunVerifyBuildBaselineResult } from "./verify-build-baseline-runner.ts";
-import { planComponentFiles } from "./component-tsx-emitter.ts";
+import { sanitizeComponentName } from "./component-tsx-emitter.ts";
 import { groupRoutesByNextRoute, assemblePageTsx } from "./page-assembler.ts";
 import { assembleRootLayoutTsx } from "./layout-assembler.ts";
 import type { BuildManifest } from "../schemas/build-manifest.ts";
@@ -79,8 +78,6 @@ export async function runBuild(args: RunBuildArgs): Promise<void> {
   }
 
   const pagesDir = join(args.targetDir, ".migration/pages");
-  const components = componentsResult.data.components;
-  const componentPlans = planComponentFiles({ components });
   const routes = routesResult.data.routes;
   const groups = groupRoutesByNextRoute(routes);
 
@@ -96,31 +93,14 @@ export async function runBuild(args: RunBuildArgs): Promise<void> {
     }
   }
 
-  // 2. Emit component files. For each component, take the first member's
-  //    section TSX (any member is correct since clusters are equivalence
-  //    classes by structure) and write it under <target>/src/components/.
+  // 2. Emit layout-shell component files first (Header/Footer/Nav). Layout
+  //    shells are excluded from components.json by lib/analyze.ts; the layout
+  //    assembler imports them by literal name. Track the (url, sectionIdx)
+  //    pairs so the body emission below skips them. See open-issues/010.
   const componentEntries: BuildManifest["components"] = [];
   mkdirSync(join(args.targetDir, "src/components"), { recursive: true });
-  for (const plan of componentPlans) {
-    const def = components.find(c => c.id === plan.id);
-    if (!def) continue;
-    const member = def.memberSections[0];
-    const slug = slugByUrl.get(member.url);
-    if (!slug) continue;
-    const generated = join(pagesDir, slug, "generated");
-    const sectionTsx = pickSectionTsxForMember({ generatedDir: generated, sectionId: member.id });
-    if (!sectionTsx) continue;
-    const dest = join(args.targetDir, plan.filePath);
-    writeFileSync(dest, transformOrWrap(sectionTsx, plan.name));
-    componentEntries.push({ id: plan.id, name: plan.name, filePath: plan.filePath, memberCount: plan.memberCount });
-  }
-
-  // 2b. Emit layout-shell component files (Header/Footer/Nav). Layout shells
-  //     are excluded from components.json by lib/analyze.ts, but the layout
-  //     assembler still imports them by literal name. Resolve each shell to
-  //     a section TSX via tagSkeleton match in sections.json. See
-  //     open-issues/010.
   const SLOT_NAMES: Record<"header" | "footer" | "nav", string> = { header: "Header", footer: "Footer", nav: "Nav" };
+  const layoutShellSectionKeys = new Set<string>();
   for (const slot of ["header", "footer", "nav"] as const) {
     const shell = layoutsResult.data[slot];
     if (!shell) continue;
@@ -131,6 +111,12 @@ export async function runBuild(args: RunBuildArgs): Promise<void> {
     if (!pageSections) continue;
     const sectionIdx = pageSections.sections.findIndex(s => s.tagSkeleton === shell.tagSkeleton);
     if (sectionIdx < 0) continue;
+    // Mark THIS section, on every page where the shell appears, as already
+    // emitted so the body loop does not duplicate it.
+    for (const url of shell.appearsOn) {
+      const sec = sectionsResult.data.pages.find(p => p.url === url)?.sections.findIndex(s => s.tagSkeleton === shell.tagSkeleton);
+      if (sec !== undefined && sec >= 0) layoutShellSectionKeys.add(`${url}#${sec}`);
+    }
     const generated = join(pagesDir, slug, "generated");
     const sectionTsx = pickSectionTsxForMember({ generatedDir: generated, sectionId: `pX-s${sectionIdx}` });
     if (!sectionTsx) continue;
@@ -140,19 +126,52 @@ export async function runBuild(args: RunBuildArgs): Promise<void> {
     componentEntries.push({ id: shell.id, name, filePath, memberCount: shell.appearsOn.length });
   }
 
-  // 3. Emit page files (one per route group).
+  // 3. Per-page body section emission. Each (page, section) gets its own TSX
+  //    file under src/components/<Slug><Idx>-<Label>.tsx. No cluster-level
+  //    dedup at codegen — different pages render different content even when
+  //    Phase 2 clustered them together. Filters non-visual tag skeletons so
+  //    <script>/<noscript> sections never become components. See open-issues/012.
+  const NON_VISUAL_TAG = /^(script|noscript|style|link|meta)\b/i;
+  const sectionRefsBySlug = new Map<string, { componentName: string }[]>();
+  for (const route of routes) {
+    const slug = slugByUrl.get(route.sourceUrl);
+    if (!slug) continue;
+    const generatedDir = join(pagesDir, slug, "generated");
+    if (!existsSync(generatedDir)) {
+      sectionRefsBySlug.set(slug, []);
+      continue;
+    }
+    const pageSections = sectionsResult.data.pages.find(p => p.url === route.sourceUrl)?.sections ?? [];
+    const slugPascal = sanitizeComponentName(slug);
+    const refs: { componentName: string }[] = [];
+    const tsxFiles = readdirSync(generatedDir)
+      .filter(f => f.endsWith(".generated.jsx") || f.endsWith(".tsx"))
+      .sort();
+    for (const f of tsxFiles) {
+      const m = f.match(/^(\d+)-(.+?)\.(generated\.jsx|tsx)$/);
+      if (!m) continue;
+      const idx = parseInt(m[1], 10) - 1;
+      const label = m[2];
+      const sec = pageSections[idx];
+      if (sec && NON_VISUAL_TAG.test(sec.tagSkeleton)) continue;
+      if (layoutShellSectionKeys.has(`${route.sourceUrl}#${idx}`)) continue;
+      const compName = `${slugPascal}${sanitizeComponentName(`${m[1]}-${label}`)}`;
+      const tsx = readFileSync(join(generatedDir, f), "utf8");
+      const filePath = `src/components/${compName}.tsx`;
+      writeFileSync(join(args.targetDir, filePath), transformOrWrap(tsx, compName));
+      componentEntries.push({ id: `${slug}-s${idx}`, name: compName, filePath, memberCount: 1 });
+      refs.push({ componentName: compName });
+    }
+    sectionRefsBySlug.set(slug, refs);
+  }
+
+  // 4. Emit page files (one per route group).
   const pageEntries: BuildManifest["pages"] = [];
   for (const group of groups) {
     const sourceUrl = group.entries[0].sourceUrl;
     const slug = slugByUrl.get(sourceUrl);
     if (!slug) continue;
-    const usage = loadComponentUsage(join(pagesDir, slug, "component-usage.json"));
-    if (!usage.valid) continue;
-    const sectionRefs = usage.data.components.flatMap(c => {
-      const plan = componentPlans.find(p => p.id === c.id);
-      if (!plan) return [];
-      return c.sectionIndices.map(() => ({ componentName: plan.name }));
-    });
+    const sectionRefs = sectionRefsBySlug.get(slug) ?? [];
     const tsx = assemblePageTsx({ group, sectionRefs });
     const routeDir = join(args.targetDir, "src/app", group.nextRoute === "/" ? "" : group.nextRoute);
     mkdirSync(routeDir, { recursive: true });
@@ -163,11 +182,11 @@ export async function runBuild(args: RunBuildArgs): Promise<void> {
     }
   }
 
-  // 4. Optional layout.
+  // 5. Optional root layout. Slot names match the SLOT_NAMES used above.
   const layoutTsx = assembleRootLayoutTsx({
-    header: layoutsResult.data.header ? { componentName: planComponentFiles({ components }).find(p => p.id === layoutsResult.data.header!.id)?.name ?? "Header" } : null,
-    footer: layoutsResult.data.footer ? { componentName: planComponentFiles({ components }).find(p => p.id === layoutsResult.data.footer!.id)?.name ?? "Footer" } : null,
-    nav: layoutsResult.data.nav ? { componentName: planComponentFiles({ components }).find(p => p.id === layoutsResult.data.nav!.id)?.name ?? "Nav" } : null,
+    header: layoutsResult.data.header ? { componentName: SLOT_NAMES.header } : null,
+    footer: layoutsResult.data.footer ? { componentName: SLOT_NAMES.footer } : null,
+    nav: layoutsResult.data.nav ? { componentName: SLOT_NAMES.nav } : null,
   });
   if (layoutTsx) writeFileSync(join(args.targetDir, "src/app/layout.tsx"), layoutTsx);
 
@@ -206,22 +225,28 @@ export async function runBuild(args: RunBuildArgs): Promise<void> {
   };
   writeFileSync(join(buildDir, "manifest.json"), JSON.stringify(manifest, null, 2));
 
-  // Layout shells emitted on top of components.json count toward the manifest
-  // but not toward the gate criterion. Compare emitted component-ids against
-  // the components.json id set.
-  const componentIdsInRegistry = new Set(components.map(c => c.id));
-  const emittedComponentCount = componentEntries.filter(e => componentIdsInRegistry.has(e.id)).length;
-  const everyComponentEmitted = emittedComponentCount === components.length;
+  // With per-page section emission the gate counts ROUTES emitted, not
+  // clusters. Each route has its own component files under src/components/
+  // referenced from app/<route>/page.tsx. Layout shells (Header/Footer/Nav)
+  // are tracked separately so empty layouts.json still passes.
   const everyRouteEmitted = groups.every(g => existsSync(join(args.targetDir, "src/app", g.nextRoute === "/" ? "" : g.nextRoute, "page.tsx")));
+  const everyRouteHasSections = routes.every(r => {
+    const slug = slugByUrl.get(r.sourceUrl);
+    return slug ? (sectionRefsBySlug.get(slug)?.length ?? 0) > 0 : false;
+  });
+  const populatedSlots = (["header", "footer", "nav"] as const).filter(s => layoutsResult.data[s] !== null);
+  const emittedShellNames = new Set(componentEntries.filter(e => Object.values(SLOT_NAMES).includes(e.name)).map(e => e.name));
+  const everyShellEmitted = populatedSlots.every(s => emittedShellNames.has(SLOT_NAMES[s]));
 
   await writeVerification(phaseDir, {
     phase: "phase-5-build",
-    passed: scaffold.ok && everyComponentEmitted && everyRouteEmitted && buildResult.exitCode === 0 && baselineResult.passed,
+    passed: scaffold.ok && everyRouteEmitted && everyRouteHasSections && everyShellEmitted && buildResult.exitCode === 0 && baselineResult.passed,
     checkedAt: new Date().toISOString(),
     criteria: [
       { name: "target scaffold present", passed: scaffold.ok },
-      { name: "every component in components.json was emitted", passed: everyComponentEmitted },
       { name: "every route in routes.json was emitted", passed: everyRouteEmitted },
+      { name: "every route has at least one body section emitted", passed: everyRouteHasSections },
+      { name: "every populated layout slot has a shell component emitted", passed: everyShellEmitted },
       { name: "next build exit 0", passed: buildResult.exitCode === 0, detail: buildResult.exitCode === 0 ? undefined : buildResult.stderr.slice(0, 400) },
       { name: "verify-build-baseline passed at 1440px against homepage", passed: baselineResult.passed, detail: baselineResult.detail },
     ],

@@ -283,6 +283,12 @@ function extractLayouts(
   };
 }
 
+// Body-direct children whose root tag is one of these are not visual content
+// (analytics scripts, GTM noscript, embedded styles, prefetch links, meta).
+// Phase 1 section discovery captures them; Phase 2 must drop them so Phase 5
+// does not emit `<InlineScript />` / `<GtmNoscript />` components in pages.
+const NON_VISUAL_TAG = /^(script|noscript|style|link|meta)\b/i;
+
 function extractComponents(
   clusters: ReturnType<typeof clusterSections>["clusters"],
   layouts: Layouts,
@@ -290,6 +296,7 @@ function extractComponents(
   const layoutIds = new Set([layouts.header?.id, layouts.footer?.id, layouts.nav?.id].filter(Boolean));
   return clusters
     .filter(c => !layoutIds.has(c.id))
+    .filter(c => !NON_VISUAL_TAG.test(c.representative.tagSkeleton))
     .map(c => {
       const memberSections = c.memberIds.map(id => {
         const [url, sid] = id.split("#");

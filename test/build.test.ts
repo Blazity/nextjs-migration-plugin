@@ -130,7 +130,9 @@ describe("runBuild", () => {
     expect(existsSync(join(phaseDir, "EXECUTION.md"))).toBe(true);
     expect(existsSync(join(phaseDir, "VERIFICATION.md"))).toBe(true);
     expect(existsSync(join(phaseDir, "build/manifest.json"))).toBe(true);
-    expect(existsSync(join(root, "src/components/PageBody.tsx"))).toBe(true);
+    // Per-page emission: home + p1 (about) each get their own section file
+    expect(existsSync(join(root, "src/components/Home01Section.tsx"))).toBe(true);
+    expect(existsSync(join(root, "src/components/P101Section.tsx"))).toBe(true);
     expect(existsSync(join(root, "src/app/page.tsx"))).toBe(true);
     expect(existsSync(join(root, "src/app/about/page.tsx"))).toBe(true);
     const v = JSON.parse(readFileSync(join(phaseDir, "verification.json"), "utf8"));
@@ -202,11 +204,11 @@ describe("runBuild", () => {
       runVerifyBuildBaseline: async () => ({ passed: true }),
     });
 
-    const componentPath = join(root, "src/components/PageBody.tsx");
+    const componentPath = join(root, "src/components/Home01Section.tsx");
     expect(existsSync(componentPath)).toBe(true);
     const tsx = readFileSync(componentPath, "utf8");
     expect(tsx).toContain('import Image from "next/image";');
-    expect(tsx).toMatch(/export default function PageBody\(\)/);
+    expect(tsx).toMatch(/export default function Home01Section\(\)/);
     // Leading JSX comments must be stripped from the wrapped module.
     expect(tsx.startsWith("{/*")).toBe(false);
     const v = JSON.parse(readFileSync(join(root, ".migration/runs/001-initial/phase-5-build/verification.json"), "utf8"));
