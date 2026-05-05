@@ -2,7 +2,7 @@
 
 **Surfaced by:** Phase 1 (Discover)
 **Severity:** High — routes static pages through the heavier SPA flow in Phase 4 unnecessarily, multiplying extraction cost and complexity
-**Status:** Open
+**Status:** Patched 2026-05-05 — `lib/discover.ts` post-processes probe results: when `recommendation === "SPA_FLOW_EXTRACTION"` AND `isSPA === false`, the recommendation is overridden to `DIRECT_EXTRACTION` and probe.json is rewritten. Per spec § 14, the vendored `scripts/lib/probe-analysis.ts` heuristic stays untouched. Two new tests in `test/discover.test.ts` cover both the override and the real-SPA preservation paths. Override count surfaced via EXECUTION.md.
 
 ## Evidence pattern
 
