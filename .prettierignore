@@ -1,0 +1,5 @@
+# Vendored from obra/superpowers — kept verbatim so version bumps stay clean
+/.ai/skills/
+
+# Implementation plans — preserve original formatting
+/.ai/plans/
