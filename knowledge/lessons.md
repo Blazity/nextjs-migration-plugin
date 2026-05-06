@@ -179,7 +179,7 @@ Read this file at the start of every session. Append new entries when you discov
 **Platform:** Universal
 **Context:** During Ripley's migration, the orchestrator modified 4 shared extraction scripts and created `scripts/lib/section-discovery.ts` to handle Svelte SPA container detection.
 **Problem:** Svelte-specific SPA detection logic was baked into every extraction run for every platform. Future Webflow/WordPress migrations would run unnecessary SPA container detection. The agent solved the wrong problem — the real issue was session state, not section discovery.
-**Rule:** NEVER modify files in `scripts/` or `scripts/lib/` for platform-specific behavior. Create adapter files at `.ai/adapters/<platform>.json` instead. Adapters encode platform knowledge (selectors, cookie banners, CDN patterns, SPA hints) in JSON config that scripts load via `--adapter` flag. The orchestrator skill explicitly prohibits script modifications.
+**Rule:** NEVER modify files in `scripts/` or `scripts/lib/` for platform-specific behavior. Create adapter files at `adapters/<platform>.json` instead. Adapters encode platform knowledge (selectors, cookie banners, CDN patterns, SPA hints) in JSON config that scripts load via `--adapter` flag. The orchestrator skill explicitly prohibits script modifications.
 
 ### 26. Agent assumed page was unreachable without probing — built fully hallucinated page
 
@@ -215,7 +215,7 @@ Read this file at the start of every session. Append new entries when you discov
 **Platform:** Universal
 **Context:** Ripley's v2 committed 151 images and 57 spec files to git. These were regenerated per-run and bloated the repo.
 **Problem:** Extracted specs (`docs/specs/`), images (`public/images/`), and reference screenshots are generated fresh each migration run. They're not reused across migrations and don't improve future runs. Committing them bloats git history with large binaries and stale data.
-**Rule:** Only commit artifacts that improve future migrations: reports (`docs/migrations/`), adapters (`.ai/adapters/`), and lessons. Everything else — specs, images, screenshots, migrated sites — is gitignored and regenerated per-run.
+**Rule:** Only commit artifacts that improve future migrations: reports (`docs/migrations/`), adapters (`adapters/`), and lessons. Everything else — specs, images, screenshots, migrated sites — is gitignored and regenerated per-run.
 
 ### 31. Always scaffold a proper Next.js project before extraction
 
@@ -264,7 +264,7 @@ Read this file at the start of every session. Append new entries when you discov
 **Platform:** Universal
 **Context:** Independent audit found completed plans sitting in active directory with sequential "delete X, create Y" instructions that auditors read as contradictions.
 **Problem:** Old plans reference scripts that no longer exist and approaches that were superseded. Agents or humans reading them follow outdated instructions.
-**Rule:** After implementing a plan, move it to `docs/plans/archive/`. After superseding a spec, move it to `.ai/specs/archive/`. Active directories should only contain current, actionable documents.
+**Rule:** After implementing a plan, move it to `.ai/plans/archive/`. After superseding a spec, move it to `docs/specs/archive/`. Active directories should only contain current, actionable documents.
 
 ### 38. Keep AGENTS.md session startup synchronized with current state
 
@@ -327,14 +327,14 @@ Read this file at the start of every session. Append new entries when you discov
 **Platform:** Universal
 **Context:** Callstack.com migration. Extraction produced 4 sections instead of 11.
 **Problem:** CybotCookiebotDialogActive was counted as a body-level section, increasing the count from 3 to 4. The `tryUnwrapMegaSection()` function only unwraps when there is exactly 1 middle section between first/last. With the cookie banner, there were 2 middle sections, so unwrap didn't trigger. The entire page stayed as one `03-page-wrapper` spec.
-**Rule:** Cookie banner elements must be unconditionally excluded from section discovery. Use `.ai/adapters/cookie-consent.json` — all known CMP containers are always skipped regardless of detection.
+**Rule:** Cookie banner elements must be unconditionally excluded from section discovery. Use `adapters/cookie-consent.json` — all known CMP containers are always skipped regardless of detection.
 
 ### 47. Cookie consent is orthogonal to frameworks — never put cookie handling in framework adapters
 
 **Platform:** Universal
 **Context:** Callstack migration created a full duplicate `callstack-webflow.json` adapter just for a different cookie banner selector.
 **Problem:** Any website can use any cookie consent solution. Baking `cookieBanner` into framework adapters creates N frameworks x M cookie solutions = combinatorial explosion.
-**Rule:** Cookie consent handling lives in `.ai/adapters/cookie-consent.json` and `scripts/lib/cookie-consent.ts`. Framework adapters do NOT have `cookieBanner` fields.
+**Rule:** Cookie consent handling lives in `adapters/cookie-consent.json` and `scripts/lib/cookie-consent.ts`. Framework adapters do NOT have `cookieBanner` fields.
 
 ### 48. Agents without superpowers skills deviate from prescribed architecture
 
@@ -369,7 +369,7 @@ Read this file at the start of every session. Append new entries when you discov
 **Platform:** Framer
 **Context:** doodle.com migration. Body > * found 3 mega-containers instead of 10+ visual sections.
 **Problem:** Framer wraps all content in 2-3 top-level containers with hashed class names. Without a Framer adapter, section discovery can't drill to the right DOM level. The `framer-` prefix is constant but hashes change on recompile.
-**Rule:** Always use `.ai/adapters/framer.json` for Framer sites. The adapter sets `minExpectedSections: 5` and `disableUnwrap: true` to trigger deeper container detection and prevent splitting visually coupled layers.
+**Rule:** Always use `adapters/framer.json` for Framer sites. The adapter sets `minExpectedSections: 5` and `disableUnwrap: true` to trigger deeper container detection and prevent splitting visually coupled layers.
 
 ### 53. Section auto-unwrap must not split absolutely positioned sibling layers
 
@@ -404,7 +404,7 @@ Read this file at the start of every session. Append new entries when you discov
 **Platform:** Universal
 **Context:** Adapter ecosystem audit found 4 stub adapters with URL-pattern-only detection and no verified fields.
 **Problem:** Stub adapters give false confidence. A migration that "detects" Contentful via URL pattern but has no section discovery or image format knowledge will still fail.
-**Rule:** Every adapter must pass the 5-step research protocol: official docs research, live site DOM inspection, detection verification on 2+ sites, section discovery verification, and 3+ documented quirks. Research sources saved in `.ai/adapters/research/[platform]-research.md`.
+**Rule:** Every adapter must pass the 5-step research protocol: official docs research, live site DOM inspection, detection verification on 2+ sites, section discovery verification, and 3+ documented quirks. Research sources are saved in `.ai/research/YYYY-MM-DD-[platform]-adapter-research.md`.
 
 ### 58. Multi-layer probe detection catches 90%+ of frameworks
 
