@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { SiteFrontmatter } from "../schemas/site.ts";
 import { stringifyFrontmatter } from "./frontmatter.ts";
+import { ensureSessionLog } from "./session-log.ts";
 
 export interface BootstrapArgs {
   targetDir: string;
@@ -36,4 +37,6 @@ export async function bootstrapMigration(args: BootstrapArgs): Promise<void> {
     join(migrationDir, "REPORT.md"),
     `# Migration Report\n\n_Accumulated across all runs._\n`,
   );
+
+  ensureSessionLog({ targetDir: args.targetDir, site: args.site });
 }

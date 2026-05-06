@@ -17,6 +17,11 @@ describe("runNewMigration", () => {
     const site = readFileSync(join(target, ".migration/SITE.md"), "utf8");
     expect(site).toContain("sourceUrl: https://example.com");
     expect(site).toContain("goal: pixel-perfect");
+
+    const sessionLog = readFileSync(join(target, "SESSION-LOG.md"), "utf8");
+    expect(sessionLog).toContain("# Session log");
+    expect(sessionLog).toContain("Source URL | https://example.com");
+    expect(sessionLog).toContain("Goal | pixel-perfect");
   });
 
   it("passes sourceRepo through when inputMode is url-plus-repo", async () => {

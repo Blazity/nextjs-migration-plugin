@@ -17,6 +17,8 @@ import { runVerifyBuildBaseline as defaultRunVerifyBaseline, type RunVerifyBuild
 import { sanitizeComponentName } from "./component-tsx-emitter.ts";
 import { groupRoutesByNextRoute, assemblePageTsx } from "./page-assembler.ts";
 import { assembleRootLayoutTsx } from "./layout-assembler.ts";
+import { loadGlobalFoundation, renderGlobalCss } from "./global-styles.ts";
+import { appendSessionLog } from "./session-log.ts";
 import type { BuildManifest } from "../schemas/build-manifest.ts";
 
 export interface RunBuildArgs {
@@ -80,6 +82,15 @@ export async function runBuild(args: RunBuildArgs): Promise<void> {
   const pagesDir = join(args.targetDir, ".migration/pages");
   const routes = routesResult.data.routes;
   const groups = groupRoutesByNextRoute(routes);
+  const homepage = crawlResult.data.pages.find(p => p.depth === 0) ?? crawlResult.data.pages[0];
+  const homeSlug = homepage.slug;
+  const homepageAdapter = adapterByUrl.get(homepage.url) ?? "";
+
+  const globalsResult = loadGlobalFoundation(join(pagesDir, homeSlug, "spec/00-globals.json"));
+  const globalsCssApplied = globalsResult.valid;
+  if (globalsCssApplied) {
+    writeFileSync(join(args.targetDir, "src/app/globals.css"), renderGlobalCss(globalsResult.data));
+  }
 
   // 1. Generate per-page section TSX via the vendored generator (deterministic).
   const runJsxGen = args.runJsxGenerator ?? defaultRunJsxGen;
@@ -195,16 +206,20 @@ export async function runBuild(args: RunBuildArgs): Promise<void> {
   const copy = copyStagedAssets({ pagesDir, slugs, targetDir: args.targetDir });
   const assetEntries: BuildManifest["assets"] = copy.copied.map(c => ({ from: c.from, to: c.to }));
 
-  await writeExecution(phaseDir, `Generated ${componentEntries.length} components, ${pageEntries.length} page entries, copied ${assetEntries.length} assets.`);
+  const componentStrategy =
+    "Per-page section components: v1 emits one TSX file per page section for visual stability; prop-based reusable component consolidation is deferred to a later polish/refactor pass.";
+  const globalsSummary = globalsCssApplied
+    ? "Global styles: applied extracted homepage body background, foreground, and font foundation from 00-globals.json."
+    : `Global styles: skipped because homepage 00-globals.json was unavailable or invalid (${globalsResult.issues[0]?.message ?? "unknown error"}).`;
+  const executionSummary = `Generated ${componentEntries.length} components, ${pageEntries.length} page entries, copied ${assetEntries.length} assets.\n\n${componentStrategy}\n\n${globalsSummary}`;
+  await writeExecution(phaseDir, executionSummary);
+  appendSessionLog({ targetDir: args.targetDir, title: "Phase 5 build", body: executionSummary });
 
   // 6. Run next build.
   const buildImpl = args.runNextBuild ?? ((a: { targetDir: string }) => defaultRunNextBuild(a));
   const buildResult = await buildImpl({ targetDir: args.targetDir });
 
   // 7. Verify-build-baseline against the homepage.
-  const homepage = crawlResult.data.pages.find(p => p.depth === 0) ?? crawlResult.data.pages[0];
-  const homeSlug = homepage.slug;
-  const homepageAdapter = adapterByUrl.get(homepage.url) ?? "";
   let baselineResult: RunVerifyBuildBaselineResult = { passed: false, detail: "skipped (build failed)" };
   if (buildResult.exitCode === 0) {
     const verifyImpl = args.runVerifyBuildBaseline ?? ((a) => defaultRunVerifyBaseline(a));
