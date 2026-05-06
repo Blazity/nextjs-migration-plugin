@@ -157,7 +157,10 @@ All scripts in `scripts/` and all adapters in `adapters/` are **vendored verbati
 
 All migration state lives in the **user's project directory** at `.migration/`. It never lives in the plugin install location. The state survives Claude Code session resets, context compaction, and full reboots.
 
+Each initialized target also has a root-level `SESSION-LOG.md`. It is a human-readable debug ledger for session reconstruction and plugin improvement notes, not a machine-readable phase input.
+
 ```
+<user-project-dir>/SESSION-LOG.md          # human debugging ledger
 <user-project-dir>/.migration/
 ├── SITE.md                        # global config, YAML frontmatter
 ├── library/                       # shared, evolves across runs
@@ -265,6 +268,12 @@ Users can freely mix: start `wireframe`, polish one page, add more pages (delta 
 ### Phase preconditions
 
 Every phase skill checks its preconditions and fails with a clear remediation command if unmet. Example: `/migrate:extract` run before Plan completes → *"Plan phase must complete first. Run `/migrate:plan` or `/migrate:continue`."*
+
+### Phase 5 v1 component strategy
+
+The Phase 5 default builder emits one TSX file per generated page section plus layout-shell files. This keeps the first build visually local to each extracted page and avoids creating prop APIs before visual parity is proven. The Phase 2 component registry still records reusable opportunities, but prop-based consolidation is deferred to a later polish/refactor pass after the baseline build is stable.
+
+Phase 5 also rewrites the target `src/app/globals.css` from the homepage `spec/00-globals.json` body foundation. The scaffold's default dark-mode media query must not override a source site whose captured body background is light.
 
 ## 6. Incremental delta runs
 

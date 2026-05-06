@@ -80,6 +80,20 @@ function writePhases1to4(targetDir: string, urls: string[]) {
     mkdirSync(specDir, { recursive: true });
     writeFileSync(join(specDir, "01-section.styles.json"), "[]");
     writeFileSync(join(specDir, "01-section.structure.md"), "# section\n\n## Element Tree\n\n- div\n");
+    writeFileSync(join(specDir, "00-globals.json"), JSON.stringify({
+      body: {
+        fontSize: "14px",
+        lineHeight: "20px",
+        fontWeight: "400",
+        color: "rgb(62, 68, 76)",
+        fontFamily: "Arial, sans-serif",
+        backgroundColor: "rgb(255, 255, 255)",
+      },
+      container: {},
+      sectionPadding: {},
+      spacers: {},
+      resets: {},
+    }));
     writeFileSync(
       join(targetDir, ".migration/pages", slug, "manifest.json"),
       JSON.stringify({
@@ -105,6 +119,26 @@ function writeTargetScaffold(targetDir: string) {
   mkdirSync(join(targetDir, "src/app"), { recursive: true });
   writeFileSync(join(targetDir, "package.json"), JSON.stringify({ name: "t", scripts: { build: "next build" } }));
   writeFileSync(join(targetDir, "src/app/layout.tsx"), "export default function L({ children }: { children: React.ReactNode }) { return <html><body>{children}</body></html>; }");
+  writeFileSync(join(targetDir, "src/app/globals.css"), `@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+`);
 }
 
 describe("runBuild", () => {
@@ -137,6 +171,32 @@ describe("runBuild", () => {
     expect(existsSync(join(root, "src/app/about/page.tsx"))).toBe(true);
     const v = JSON.parse(readFileSync(join(phaseDir, "verification.json"), "utf8"));
     expect(v.passed).toBe(true);
+
+    const execution = readFileSync(join(phaseDir, "EXECUTION.md"), "utf8");
+    expect(execution).toContain("Per-page section components");
+  });
+
+  it("applies extracted global body colors instead of preserving scaffold dark-mode defaults", async () => {
+    const root = mkdtempSync(join(tmpdir(), "build-"));
+    await bootstrapMigration({ targetDir: root, site: baseSite("https://example.com/") });
+    writePhases1to4(root, ["https://example.com/"]);
+    writeTargetScaffold(root);
+
+    await runBuild({
+      targetDir: root,
+      runDir: "001-initial",
+      runJsxGenerator: async ({ outputDir }) => {
+        mkdirSync(outputDir, { recursive: true });
+        writeFileSync(join(outputDir, "01-section.generated.jsx"), '<section className="page">Hello</section>');
+      },
+      runNextBuild: async () => ({ exitCode: 0, stdout: "ok", stderr: "", packageManager: "npm" }),
+      runVerifyBuildBaseline: async () => ({ passed: true }),
+    });
+
+    const globalsCss = readFileSync(join(root, "src/app/globals.css"), "utf8");
+    expect(globalsCss).toContain("--background: rgb(255, 255, 255);");
+    expect(globalsCss).toContain("--foreground: rgb(62, 68, 76);");
+    expect(globalsCss).not.toContain("prefers-color-scheme");
   });
 
   it("does NOT emit VERIFICATION.md when next build fails", async () => {
