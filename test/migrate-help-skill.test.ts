@@ -16,21 +16,36 @@ describe("migrate-help skill", () => {
     expect(existsSync(repoPath("commands/migrate-help.md"))).toBe(true);
   });
 
-  it("documents static workflow help and a context-aware final paragraph", () => {
+  it("documents only the four-command guided flow and a recovery note", () => {
     const skill = matter(readRepoFile("skills/migrate-help/SKILL.md"));
+    const commands = [...new Set(skill.content.match(/\/migrate:[a-z]+/g) ?? [])].sort();
 
     expect(skill.data.name).toBe("migrate-help");
     expect(skill.data["disable-model-invocation"]).toBe(true);
     expect(skill.content).toContain("# migrate-help");
-    expect(skill.content).toContain("/migrate:new <url>");
-    expect(skill.content).toContain("/migrate:continue");
-    expect(skill.content).toContain("/migrate:status");
-    expect(skill.content).toContain("Phase 1");
-    expect(skill.content).toContain("Recovery tools");
-    expect(skill.content).toContain("advanced recovery tools, not the normal product workflow");
+    expect(commands).toEqual([
+      "/migrate:continue",
+      "/migrate:help",
+      "/migrate:new",
+      "/migrate:status",
+    ]);
+    expect(skill.content).toContain("guided flow");
+    expect(skill.content).toContain("Recovery");
+    expect(skill.content).toContain("lower-level scripts");
+    expect(skill.content).toContain("advanced/recovery tools");
     expect(skill.content).toContain("Context-aware final paragraph");
     expect(skill.content).toContain("No migration in this directory");
     expect(skill.content).not.toContain("/migrate:config");
+    expect(skill.content).not.toContain("/migrate:discover");
+    expect(skill.content).not.toContain("/migrate:analyze");
+    expect(skill.content).not.toContain("/migrate:plan");
+    expect(skill.content).not.toContain("/migrate:extract");
+    expect(skill.content).not.toContain("/migrate:build");
+    expect(skill.content).not.toContain("/migrate:polish");
+    expect(skill.content).not.toContain("/migrate:verify");
+    expect(skill.content).not.toContain("Phase 1");
+    expect(skill.content).not.toContain("completed phases");
+    expect(skill.content).not.toContain("active run");
     expect(skill.content).not.toContain("mode attended|unattended");
     expect(skill.content).not.toContain("goal wireframe|pixel-perfect");
     expect(skill.content).not.toContain("Goal presets");

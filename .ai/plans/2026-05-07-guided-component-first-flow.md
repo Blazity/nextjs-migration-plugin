@@ -598,6 +598,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 11.3 — `/migrate:help` rewrite
 
+- **Status:** Done.
 - **Files to modify:** [skills/migrate-help/SKILL.md](../../skills/migrate-help/SKILL.md), [test/migrate-help-skill.test.ts](../../test/migrate-help-skill.test.ts)
 - **Failing test first:**
   - Help text contains exactly the four user-visible commands and a single-paragraph workflow summary; does not mention any explicit phase command.
