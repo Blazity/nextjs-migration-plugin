@@ -13,7 +13,9 @@ const baseSite = {
   maxParallelSections: 4,
 };
 
-describe("resumeLegacyMigration", () => {
+const describeRecovery = process.env.RECOVERY_TESTS === "1" ? describe : describe.skip;
+
+describeRecovery("resumeLegacyMigration", () => {
   it("returns not-initialized when there is no .migration directory", async () => {
     const targetDir = mkdtempSync(join(tmpdir(), "legacy-cont-"));
 

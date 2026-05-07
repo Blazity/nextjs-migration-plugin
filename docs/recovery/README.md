@@ -12,3 +12,9 @@ Legacy phase libraries remain runnable for maintainer recovery and debugging:
 - `lib/polish.ts`
 
 These files are not slash commands. Run them only with an explicit `--target <dir>` against a migration workspace whose state you intend to inspect or repair.
+
+Recovery-specific tests under `test/recovery` are skipped by default. Run them explicitly with:
+
+```bash
+RECOVERY_TESTS=1 pnpm exec vitest run test/recovery
+```

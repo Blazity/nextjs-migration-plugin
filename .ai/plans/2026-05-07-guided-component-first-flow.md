@@ -623,6 +623,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 12.2 — Recovery-flagged integration tests
 
+- **Status:** Done.
 - **Files to modify/move:** integration tests that exercise the legacy phase dispatchers (`test/continue-discover.integration.test.ts`, `test/continue-analyze.integration.test.ts`, etc.) — leave under `test/` but add a top-level `describe.skip` toggle behind `process.env.RECOVERY_TESTS === "1"`. Document the toggle in the recovery README.
 - **Failing test first:** add a test asserting the active-by-default suite finishes faster than the previous baseline (sanity); the recovery suite gets opt-in execution only.
 - **Commit:** `test(recovery): gate legacy phase dispatcher tests behind RECOVERY_TESTS`.
