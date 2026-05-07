@@ -15,12 +15,19 @@ import { runJsxGeneration as defaultRunJsxGen } from "./jsx-generator-runner.ts"
 import { runNextBuild as defaultRunNextBuild, type RunNextBuildResult } from "./next-build-runner.ts";
 import { runVerifyBuildBaseline as defaultRunVerifyBaseline, type RunVerifyBuildBaselineResult } from "./verify-build-baseline-runner.ts";
 import { runWithNextStartServer, type RunWithNextServerArgs } from "./next-start-runner.ts";
-import { sanitizeComponentName } from "./component-tsx-emitter.ts";
+import { sanitizeComponentName, transformOrWrap } from "./component-tsx-emitter.ts";
 import { groupRoutesByNextRoute, assemblePageTsx } from "./page-assembler.ts";
 import { assembleRootLayoutTsx } from "./layout-assembler.ts";
 import { loadGlobalFoundation, renderGlobalCss } from "./global-styles.ts";
 import { appendSessionLog } from "./session-log.ts";
+import { pickSectionTsxForMember } from "./section-tsx-source.ts";
 import type { BuildManifest } from "../schemas/build-manifest.ts";
+
+export {
+  detectNextImports,
+  escapeUnsafeLessThan,
+  transformOrWrap,
+} from "./component-tsx-emitter.ts";
 
 export interface RunBuildArgs {
   targetDir: string;
@@ -310,7 +317,7 @@ function pickLayoutShellSection(args: {
     const candidateTsx = pickSectionTsxForMember({
       generatedDir: join(args.pagesDir, candidateSlug, "generated"),
       sectionId: `pX-s${candidateIdx}`,
-    });
+    })?.tsx;
     if (!candidateTsx) continue;
     chosen = { sectionTsx: candidateTsx };
     break;
@@ -363,7 +370,7 @@ function findSectionCandidate(args: {
   const sectionTsx = pickSectionTsxForMember({
     generatedDir: join(args.pagesDir, slug, "generated"),
     sectionId: args.sectionId,
-  });
+  })?.tsx;
   return sectionTsx ? { sectionIdx, sectionTsx } : null;
 }
 
@@ -415,73 +422,6 @@ function decodeAssetRef(ref: string): string {
   } catch {
     return ref;
   }
-}
-
-function pickSectionTsxForMember(args: { generatedDir: string; sectionId: string }): string | null {
-  if (!existsSync(args.generatedDir)) return null;
-  // Vendored generate-jsx.ts emits `<label>.generated.jsx`. Test stubs may
-  // emit `.tsx` directly with a pre-formed export. Accept both — the wrap
-  // step downstream detects pre-wrapped vs raw input. See open-issues/007.
-  const tsxFiles = readdirSync(args.generatedDir)
-    .filter(f => f.endsWith(".tsx") || f.endsWith(".generated.jsx"))
-    .sort();
-  const matchIndex = Number(args.sectionId.split("-s")[1] ?? "0");
-  const file = tsxFiles[matchIndex] ?? tsxFiles[0];
-  if (!file) return null;
-  return readFileSync(join(args.generatedDir, file), "utf8");
-}
-
-// Next.js components referenced by the vendored codegen. Each tag triggers
-// the matching `import` line when detected in the JSX body.
-const NEXT_IMPORTS: Record<string, string> = {
-  Image: 'import Image from "next/image";',
-  Link: 'import Link from "next/link";',
-  Script: 'import Script from "next/script";',
-};
-
-export function detectNextImports(body: string): string {
-  const lines = Object.entries(NEXT_IMPORTS)
-    .filter(([tag]) => new RegExp(`<${tag}\\b`).test(body))
-    .map(([, line]) => line);
-  return lines.length > 0 ? lines.join("\n") + "\n\n" : "";
-}
-
-// Vendored generate-jsx.ts embeds DOM textContent verbatim into JSX. Source
-// pages with copy like "Lightweight Client SDK (<5kB gzipped)" hit the JSX
-// parser as `<5` — a tag-name start that fails because `5` is not a valid
-// tag-name character. Escape every `<` not followed by a tag-name-start
-// character to `&lt;`. JSX tag names start with [a-zA-Z], `/`, `!`, or `?`.
-// See knowledge/open-issues/009.
-export function escapeUnsafeLessThan(jsx: string): string {
-  return jsx.replace(/<(?![a-zA-Z/!?])/g, "&lt;");
-}
-
-function indentLines(s: string, spaces: number): string {
-  const pad = " ".repeat(spaces);
-  return s.split("\n").map(line => (line.length > 0 ? pad + line : line)).join("\n");
-}
-
-// Transform a section's emitted source into a valid React module. If the
-// input already contains `export default function ...`, treat it as a
-// pre-wrapped component and just rename. Otherwise strip leading JSX
-// expression-comments (which are invalid at module top), inject Next.js
-// imports for any referenced components, and wrap the JSX body in a
-// fragment-returning default-export function. See open-issues/008.
-export function transformOrWrap(raw: string, name: string): string {
-  if (/export\s+default\s+function\s+\w+/.test(raw)) {
-    return raw.replace(/export\s+default\s+function\s+\w+/, `export default function ${name}`);
-  }
-  const stripped = raw.replace(/^\s*(?:\{\/\*[\s\S]*?\*\/\}\s*)+/g, "").trim();
-  const escaped = escapeUnsafeLessThan(stripped);
-  const imports = detectNextImports(escaped);
-  return `${imports}export default function ${name}() {
-  return (
-    <>
-${indentLines(escaped, 6)}
-    </>
-  );
-}
-`;
 }
 
 function defaultPluginRoot(): string {
