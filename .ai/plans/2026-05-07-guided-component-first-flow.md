@@ -545,6 +545,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 10.1 — Page-assembly planner
 
+- **Status:** Done.
 - **Files to create:** `lib/page-assembly-planner.ts`, `test/page-assembly-planner.test.ts`
 - **Failing test first:**
   - Given the approved inventory and discovered page sections, the planner outputs an ordered list of components per page slug, marking shells first.
