@@ -1,0 +1,172 @@
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, isAbsolute, join } from "node:path";
+import { implementComponent as defaultImplementComponent, type ImplementComponentResult } from "./implement-component.ts";
+import { migrationPaths } from "./migration-paths.ts";
+import type { ComponentReference, VerifyComponentInput, VerifyComponentResult } from "./verify-component.ts";
+import { ApprovedInventoryEntrySchema, type ApprovedInventoryEntry } from "../schemas/approved-inventory.ts";
+import { RawDiscoveryEvidenceSchema, type RawDiscoveryEvidence } from "../schemas/raw-discovery.ts";
+
+export interface ComponentBatchReportEntry {
+  componentGroupId: string;
+  implementationName: string;
+  kind: "shell" | "content";
+  componentPath: string;
+  storyPath: string;
+  verification: "PASS" | "FAIL" | "skipped-by-design";
+  storybookUrls: string[];
+  referencePaths: string[];
+  failingViewports: Array<390 | 768 | 1440>;
+}
+
+export interface ComponentBatchReport {
+  kind: "component-batch-report";
+  artifactVersion: string;
+  generatedAt: string;
+  components: ComponentBatchReportEntry[];
+}
+
+export interface RunComponentBatchResult {
+  reportPath: string;
+  report: ComponentBatchReport;
+}
+
+export interface RunComponentBatchArgs {
+  targetDir: string;
+  artifactVersion: string;
+  batch: ApprovedInventoryEntry[];
+  storybookBaseUrl?: string;
+  now?: () => string;
+  implementComponent?: (args: {
+    targetDir: string;
+    entry: ApprovedInventoryEntry;
+  }) => Promise<ImplementComponentResult> | ImplementComponentResult;
+  verifyComponent?: (input: VerifyComponentInput) => Promise<VerifyComponentResult>;
+}
+
+export async function runComponentBatch(
+  args: RunComponentBatchArgs,
+): Promise<RunComponentBatchResult> {
+  const paths = migrationPaths(args.targetDir);
+  const evidence = RawDiscoveryEvidenceSchema.parse(
+    JSON.parse(readFileSync(paths.rawDiscovery, "utf8")),
+  );
+  const implement = args.implementComponent ?? defaultImplementComponent;
+  const components: ComponentBatchReportEntry[] = [];
+
+  for (const rawEntry of args.batch) {
+    const entry = ApprovedInventoryEntrySchema.parse(rawEntry);
+    const implementation = await implement({
+      targetDir: args.targetDir,
+      entry,
+    });
+
+    if (entry.kind === "shell") {
+      components.push({
+        componentGroupId: entry.componentGroupId,
+        implementationName: entry.implementationName,
+        kind: entry.kind,
+        componentPath: implementation.componentPath,
+        storyPath: implementation.storyPath,
+        verification: "skipped-by-design",
+        storybookUrls: [],
+        referencePaths: [],
+        failingViewports: [],
+      });
+      continue;
+    }
+
+    if (!args.verifyComponent) {
+      throw new Error("verifyComponent dependency is required for content component batches");
+    }
+
+    const references = componentReferences({
+      targetDir: args.targetDir,
+      evidence,
+      entry,
+      storybookBaseUrl: args.storybookBaseUrl ?? "http://127.0.0.1:6006",
+    });
+    const verification = await args.verifyComponent({
+      name: entry.implementationName,
+      references,
+    });
+
+    components.push({
+      componentGroupId: entry.componentGroupId,
+      implementationName: entry.implementationName,
+      kind: entry.kind,
+      componentPath: implementation.componentPath,
+      storyPath: implementation.storyPath,
+      verification: verification.status,
+      storybookUrls: unique(references.map(reference => reference.storyUrl)),
+      referencePaths: references.map(reference => reference.referencePath),
+      failingViewports: verification.failingViewports,
+    });
+  }
+
+  const report: ComponentBatchReport = {
+    kind: "component-batch-report",
+    artifactVersion: args.artifactVersion,
+    generatedAt: (args.now ?? (() => new Date().toISOString()))(),
+    components,
+  };
+  const reportPath = join(
+    args.targetDir,
+    ".migration/reports/component-batches",
+    `${args.artifactVersion}.json`,
+  );
+  mkdirSync(dirname(reportPath), { recursive: true });
+  writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+
+  return { reportPath, report };
+}
+
+function componentReferences(args: {
+  targetDir: string;
+  evidence: RawDiscoveryEvidence;
+  entry: ApprovedInventoryEntry;
+  storybookBaseUrl: string;
+}): ComponentReference[] {
+  const sectionOrder = new Map(
+    args.entry.sectionInstanceIds.map((sectionInstanceId, index) => [sectionInstanceId, index]),
+  );
+  return args.evidence.referenceScreenshots.components
+    .filter(reference => sectionOrder.has(reference.sectionInstanceId))
+    .sort((a, b) =>
+      (sectionOrder.get(a.sectionInstanceId) ?? 0) -
+        (sectionOrder.get(b.sectionInstanceId) ?? 0) ||
+      a.viewport - b.viewport
+    )
+    .map(reference => {
+      const variantIndex = sectionOrder.get(reference.sectionInstanceId) ?? 0;
+      const storyName = variantIndex === 0
+        ? args.entry.implementationName
+        : `${args.entry.implementationName}Variant${variantIndex + 1}`;
+      return {
+        viewport: reference.viewport,
+        referencePath: absoluteReferencePath(args.targetDir, reference.path),
+        storyUrl: storybookUrl(args.storybookBaseUrl, args.entry.implementationName, storyName),
+      };
+    });
+}
+
+function storybookUrl(baseUrl: string, componentName: string, storyName: string): string {
+  return `${baseUrl.replace(/\/$/, "")}/?path=/story/migrated-components-${kebab(componentName)}--${kebab(storyName)}`;
+}
+
+function kebab(value: string): string {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .replace(/[^A-Za-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase();
+}
+
+function absoluteReferencePath(targetDir: string, path: string): string {
+  if (isAbsolute(path)) return path;
+  if (path.startsWith(".migration/")) return join(targetDir, path);
+  return join(targetDir, ".migration", path);
+}
+
+function unique(values: string[]): string[] {
+  return [...new Set(values)];
+}
