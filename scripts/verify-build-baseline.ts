@@ -1,11 +1,12 @@
-import { chromium } from "@playwright/test"
+import { chromium, type Page } from "@playwright/test"
 import { readFileSync } from "fs"
 import { join } from "path"
 import { loadAdaptersFromArgs } from "./lib/adapter-loader.ts"
-import { dismissCookies } from "./lib/freeze.ts"
+import { dismissCookies, freezeDynamicContent } from "./lib/freeze.ts"
 import { summarizeBuildBaseline, type GuardrailSection } from "./lib/phase-guardrails.ts"
 import { snapshotStructuralSections, type StructuralSection } from "./lib/structure-snapshot.ts"
 import { resolveLocalSiteAdapter } from "./lib/local-site-adapter.ts"
+import { summarizeBrokenImages, type BrokenImage } from "./lib/image-health.ts"
 
 const args = process.argv.slice(2)
 const referenceUrl = args[0]
@@ -85,14 +86,40 @@ async function snapshotPage(
   try {
     const page = await context.newPage()
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 })
+    // Match extract-images / extract-styles: deterministically activate first
+    // tab and scroll for lazy images. Without this, hidden tab Image elements
+    // on the local site report `naturalWidth: 0` and trigger false-positive
+    // brokenImage findings even though the structure is correct. Use
+    // extractionSafe so iframe overlay divs don't pollute section discovery —
+    // the reference snapshot must agree with the (extractionSafe) manifest.
+    await freezeDynamicContent(page, { ...freezeOpts, extractionSafe: true })
     await dismissCookies(page, freezeOpts)
-    await page.waitForTimeout(1000)
     const sections = await snapshotStructuralSections(page, options)
+    const brokenImages = await collectBrokenImages(page)
     await page.close()
-    return sections.map(toGuardrailSection)
+    return { sections: sections.map(toGuardrailSection), brokenImages }
   } finally {
     await context.close().catch(() => {})
   }
+}
+
+async function collectBrokenImages(page: Page): Promise<BrokenImage[]> {
+  return page.evaluate(() => {
+    return Array.from(document.images)
+      .filter((img) => {
+        const src = img.currentSrc || img.src || img.getAttribute("src") || ""
+        if (!src) return false
+        const rect = img.getBoundingClientRect()
+        if (rect.width < 5 || rect.height < 5) return false
+        return !img.complete || img.naturalWidth === 0 || img.naturalHeight === 0
+      })
+      .map((img) => ({
+        src: img.currentSrc || img.src || img.getAttribute("src") || "",
+        alt: img.alt || "",
+        naturalWidth: img.naturalWidth,
+        naturalHeight: img.naturalHeight,
+      }))
+  })
 }
 
 async function main() {
@@ -103,22 +130,23 @@ async function main() {
   const browser = await chromium.launch()
   try {
     const manifestSections = loadManifestSections(join(specsDir, "manifest.json"))
-    const referenceSections = await snapshotPage(browser, referenceUrl, {
+    const referenceSnapshot = await snapshotPage(browser, referenceUrl, {
       adapter: adapter?.sectionDiscovery,
       quiet: true,
     })
-    const localSections = await snapshotPage(browser, localUrl, {
+    const localSnapshot = await snapshotPage(browser, localUrl, {
       adapter: localAdapter.sectionDiscovery,
       customSelector: localAdapter.localSite.sectionSelector,
       quiet: true,
     })
     const result = summarizeBuildBaseline({
       manifest: manifestSections,
-      reference: referenceSections,
-      local: localSections,
+      reference: referenceSnapshot.sections,
+      local: localSnapshot.sections,
     })
+    const imageHealth = summarizeBrokenImages(localSnapshot.brokenImages)
 
-    if (!result.passed) {
+    if (!result.passed || !imageHealth.passed) {
       const {
         manifestSignatureMismatch,
         referenceSignatureMismatch,
@@ -130,10 +158,11 @@ async function main() {
             referenceUrl,
             localUrl,
             manifestSectionCount: manifestSections.length,
-            referenceSectionCount: referenceSections.length,
-            localSectionCount: localSections.length,
+            referenceSectionCount: referenceSnapshot.sections.length,
+            localSectionCount: localSnapshot.sections.length,
             manifestSignatureMismatch,
             referenceSignatureMismatch,
+            imageHealth,
             ...baselineResult,
           },
           null,

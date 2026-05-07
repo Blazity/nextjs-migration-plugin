@@ -72,7 +72,7 @@ export async function extractPage(args: ExtractPageArgs): Promise<PageSpecManife
     viewport: args.viewport ?? { width: 1440, height: 900 },
     files: {
       styles: "spec/styles.json",
-      images: "spec/images.json",
+      images: existsSync(join(specDir, "image-manifest.json")) ? "spec/image-manifest.json" : "spec/images.json",
       animations: "spec/animations.json",
       structure: "spec/structure.json",
       globals: "spec/00-globals.json",
@@ -110,8 +110,11 @@ function readStats(specDir: string): PageSpecManifest["stats"] {
   } else if (existsSync(specDir)) {
     sectionCount = readdirSync(specDir).filter(f => /^\d+-.*\.styles\.json$/.test(f)).length;
   }
-  if (existsSync(join(specDir, "images.json"))) {
-    const images = JSON.parse(readFileSync(join(specDir, "images.json"), "utf8"));
+  const imagesPath = existsSync(join(specDir, "images.json"))
+    ? join(specDir, "images.json")
+    : join(specDir, "image-manifest.json");
+  if (existsSync(imagesPath)) {
+    const images = JSON.parse(readFileSync(imagesPath, "utf8"));
     imageCount = typeof images?.totalImages === "number" ? images.totalImages : 0;
   }
   // extract-animations also writes per-section sidecars (`NN-<label>.animations.json`).
@@ -158,15 +161,25 @@ const defaultRunImages: ExtractStep = async ({ url, outputDir, adapterPath, plug
   // <target>/public/ during build. v1 does not move them itself.
   const stagingDir = resolve(outputDir, "..", "_staging");
   mkdirSync(stagingDir, { recursive: true });
-  await execFileP("npx", ["tsx", script, url, "--page", "page", "--adapter", adapterPath], {
-    env: process.env,
-    cwd: stagingDir,
-    timeout: SUBPROCESS_TIMEOUT_MS,
-    killSignal: "SIGKILL",
-  });
+  try {
+    await execFileP("npx", ["tsx", script, url, "--page", "page", "--adapter", adapterPath], {
+      env: process.env,
+      cwd: stagingDir,
+      timeout: SUBPROCESS_TIMEOUT_MS,
+      killSignal: "SIGKILL",
+    });
+  } finally {
+    moveStagedImageOutputs(stagingDir, outputDir);
+  }
+};
+
+export function moveStagedImageOutputs(stagingDir: string, outputDir: string): void {
+  mkdirSync(outputDir, { recursive: true });
+  const stagedManifest = join(stagingDir, "docs/specs/page/image-manifest.json");
+  if (existsSync(stagedManifest)) renameSync(stagedManifest, join(outputDir, "image-manifest.json"));
   const stagedJson = join(stagingDir, "docs/specs/page/images.json");
   if (existsSync(stagedJson)) renameSync(stagedJson, join(outputDir, "images.json"));
-};
+}
 
 const defaultRunAnimations: ExtractStep = async ({ url, outputDir, adapterPath, pluginRoot }) => {
   const script = resolve(pluginRoot, "scripts/extract-animations.ts");

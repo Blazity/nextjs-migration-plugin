@@ -15,7 +15,7 @@ describe("assembleRootLayoutTsx", () => {
     });
     expect(tsx).toContain('import SiteHeader from "@/components/SiteHeader"');
     expect(tsx).toContain('import SiteFooter from "@/components/SiteFooter"');
-    expect(tsx).toMatch(/<SiteHeader \/>\s*\{children\}\s*<SiteFooter \/>/);
+    expect(tsx).toMatch(/<SiteHeader \/>\s*<main>\s*\{children\}\s*<\/main>\s*<SiteFooter \/>/);
     expect(tsx).toContain("export default function RootLayout");
   });
 

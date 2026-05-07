@@ -15,8 +15,8 @@ if (!TARGET_URL) {
 const expectedIdx = process.argv.indexOf("--expected-content")
 const EXPECTED_CONTENT = expectedIdx >= 0 ? process.argv[expectedIdx + 1] : undefined
 // Resolve adapters relative to script location, not CWD. The script ships
-// with the plugin install; `.ai/adapters` was the old repo path and breaks
-// when probe is invoked from a user project dir.
+// with the plugin install; old CWD-relative adapter paths break when probe
+// is invoked from a user project dir.
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
 const ADAPTERS_DIR = resolve(SCRIPT_DIR, "../adapters")
 

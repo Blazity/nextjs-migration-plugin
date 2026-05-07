@@ -20,6 +20,9 @@ export function assembleRootLayoutTsx(args: LayoutAssemblyArgs): string | null {
   const headerJsx = args.header ? `<${args.header.componentName} />` : "";
   const navJsx = args.nav ? `<${args.nav.componentName} />` : "";
   const footerJsx = args.footer ? `<${args.footer.componentName} />` : "";
+  // Wrap page children in <main> so the nextjs adapter's structural-snapshot
+  // selector (`body > header, body > nav, main > *, body > footer`) walks the
+  // emitted body sections instead of seeing only the layout shells.
   return `${cssImport}
 ${componentImports}
 
@@ -27,7 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        ${headerJsx}${navJsx}{children}${footerJsx}
+        ${headerJsx}${navJsx}<main>{children}</main>${footerJsx}
       </body>
     </html>
   );

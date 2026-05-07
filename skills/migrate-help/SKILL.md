@@ -30,8 +30,9 @@ Explicit phase commands
 - Phase 2 Analyze: /migrate:analyze builds route, layout, component, and prop libraries.
 - Phase 3 Plan: /migrate:plan creates and verifies the migration roadmap.
 - Phase 4 Extract: /migrate:extract captures per-page structure, styles, images, and animations.
-- Phase 5 Build: planned /migrate:build generates the Next.js output and runs build gates.
-- Phases 6-8 Polish: planned /migrate:polish improves visual parity, animations, and performance.
+- Phase 5 Build: /migrate:build generates the Next.js output and runs build gates.
+- Phase 6 Visual Polish: /migrate:polish [slug|--all] improves visual parity with live browser agents.
+- Phases 7-8 Animate/Perf: planned follow-up phases for animation parity and 90+ PageSpeed.
 
 Useful controls
 - /migrate:config mode attended|unattended controls whether the workflow pauses for user approval.
@@ -40,7 +41,7 @@ Useful controls
 
 Goal presets
 - wireframe: complete through Phase 5 Build for a useful structured migration.
-- pixel-perfect: continue through polish phases after Build when those phases are available.
+- pixel-perfect: continue through Phase 6 Visual after Build; animation and performance polish remain follow-up phases.
 ```
 
 Keep the help static even if a local migration exists. Only the final paragraph should depend on local state.

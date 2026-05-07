@@ -28,7 +28,7 @@ This:
 - Reads `discovery/probe.json` for per-URL adapter
 - Reads `discovery/crawl.json` for per-URL slug
 - For each page, invokes `scripts/extract-styles.ts` + `scripts/extract-images.ts` + `scripts/extract-animations.ts`, capped at `maxParallelPages`
-- Writes `pages/[slug]/spec/{styles,images,animations,structure,00-globals}.json` per page
+- Writes `pages/[slug]/spec/` per page, including per-section styles/structure/animations plus `image-manifest.json` (or legacy `images.json`) and `00-globals.json`
 - Writes `pages/[slug]/manifest.json` per page with stats + errors
 - Writes `pages/[slug]/component-usage.json` matching extracted sections to library cluster ids
 - Runs `scripts/validate-extraction.ts` and `scripts/qualify-extraction.ts` as gates

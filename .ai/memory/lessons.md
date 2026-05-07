@@ -6,6 +6,30 @@ Entries are reverse-chronological.
 
 ---
 
+## 2026-05-07 - Keep Vitest Coverage Under Test Directory
+
+**Rule:** Put new Vitest regression tests under `test/**/*.test.ts` unless the test command/config is explicitly changed.
+
+**Why:** This repository's `pnpm test` includes only `test/**/*.test.ts`. Passing a path under `scripts/tests/` can print "No test files found" while exiting 0 because `--passWithNoTests` is enabled.
+
+**How to apply:** When adding script-helper coverage, import the script helper from a `test/*.test.ts` file or update the Vitest include pattern as part of the same task.
+
+## 2026-05-07 - Remove Stale Verification Markers On Failed Reruns
+
+**Rule:** When a phase rerun writes `verification.json` with `passed: false`, delete any stale `VERIFICATION.md` for that phase.
+
+**Why:** `/migrate:continue` uses `VERIFICATION.md` as the completion marker. If a later rerun fails but leaves an old markdown marker behind, the workflow falsely treats the phase as complete and skips the failed gate.
+
+**How to apply:** Keep `verification.json` as the current truth and let `writeVerification` remove stale markdown on failure before returning.
+
+## 2026-05-07 - Next Local Verification Must Capture Wrapped Nav Shells
+
+**Rule:** The Next local verification selector must include body-level wrappers that contain a `nav`, not only direct `body > nav` elements.
+
+**Why:** Phase 5 emits layout shells from extracted source structure. A navigation shell may render as `<div><nav>...</nav></div>` and still be the correct nav section. A selector that only captures `body > nav` reports one fewer meaningful local section and surfaces it as missing `content`.
+
+**How to apply:** Keep `adapters/nextjs.json` local selector aligned with generated layout-shell shapes; for wrapped nav shells use `body > div:has(nav):not(:has(main)):not(:has(footer))`.
+
 ## 2026-05-06 - Apply Extracted Globals During Build
 
 **Rule:** Phase 5 must rewrite `src/app/globals.css` from the extracted homepage `spec/00-globals.json` body foundation.

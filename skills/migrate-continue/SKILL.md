@@ -24,8 +24,9 @@ Phase routing depends on whether the phase needs LLM refinement:
 | `phase-2-analyze` | **Invoke `/migrate:analyze` skill instead** | Algorithmic pass plus 4 sub-agent dispatches (`layout-extractor` → `component-deduper` → `prop-classifier` → `route-mapper`). The CLI dispatcher in `lib/continue.ts` runs only the algorithmic half — that produces a passing schema gate but useless layouts/components. The `/migrate:analyze` skill orchestrates the LLM refinement on top. |
 | `phase-3-plan` | **Invoke `/migrate:plan` skill instead** | Algorithmic build-order pass plus 2 sub-agent dispatches (`migration-planner` → `plan-checker`). The CLI dispatcher in `lib/continue.ts` runs only the algorithmic half. In `attended` mode the algorithmic-only path fails the user-approval criterion intentionally; the `/migrate:plan` skill collects approval and re-runs `--refine-only --confirm-roadmap` to close the gate. |
 | `phase-4-extract` | `tsx ${PLUGIN_DIR}/lib/continue.ts --target "${PWD}"` OR `/migrate:extract` skill | Per-page extraction is deterministic; the lib dispatcher's bounded-concurrency loop handles the parallel-by-page work. Invoke the `/migrate:extract` skill only when the site is large or extraction is known-flaky and per-page LLM-side triage is needed. Default: lib dispatcher. |
-| `phase-5-build` | `tsx ${PLUGIN_DIR}/lib/continue.ts --target "${PWD}"` OR `/migrate:build` skill | Codegen is deterministic; the lib dispatcher runs `generate-jsx.ts` per page, assembles routes, runs `next build`, and runs `verify-build-baseline` against the homepage. Invoke the `/migrate:build` skill ONLY if the user passed `--refine` or the gate failed on `verify-build-baseline` and pixel-perfect refinement is wanted (Phase 5's gate accepts wireframe quality on the homepage; per-page polish is Phase 6). Default: lib dispatcher. |
-| `phase-6-visual+` | (Not yet implemented — Plan 7+.) | Print which phase is next and ask the user: "Run `/migrate:[next-phase]` manually." |
+| `phase-5-build` | `tsx ${PLUGIN_DIR}/lib/continue.ts --target "${PWD}"` OR `/migrate:build` skill | Codegen is deterministic; the lib dispatcher runs `generate-jsx.ts` per page, assembles routes, runs `next build`, checks emitted asset references, and runs `verify-build-baseline` against the homepage. Invoke the `/migrate:build` skill ONLY if the user passed `--refine` or the gate failed on `verify-build-baseline` and pixel-perfect refinement is wanted. Default: lib dispatcher. |
+| `phase-6-visual` | **Invoke `/migrate:polish --all` skill instead** | Pixel-perfect migrations continue into a dedicated polish run after Phase 5. Phase 6 hard-requires Playwright MCP-style live browser agents; the CLI dispatcher can only fail the MCP precondition and must not be used as a script-only fallback. |
+| `phase-7-animate+` | (Not yet implemented — follow-up plan.) | Report that Phase 7 Animate and Phase 8 Perf remain pending; do not claim full pixel-perfect completion. |
 
 For phase-1, run the bash command and read its JSON output:
 - `kind: "dispatched"` — the registered dispatcher ran. Print the result and stop. User runs `/migrate:continue` again to advance.
@@ -37,6 +38,8 @@ For phase-3, follow the `/migrate:plan` skill end to end. Do NOT call `lib/conti
 
 For phase-4, the lib dispatcher is the default — extraction is deterministic and parallelism is handled by `lib/extract.ts`'s bounded-concurrency loop. The `/migrate:extract` skill exists for large or flaky sites where per-page LLM-side triage is worth the dispatch cost; in that case follow the skill end to end.
 
+For phase-6, follow `/migrate:polish --all` end to end. It creates or reuses a dedicated polish run and runs Phase 6 Visual only. Do NOT call `lib/continue.ts` for Phase 6 unless you are intentionally checking the MCP precondition failure path.
+
 ## Step 2 — In unattended mode, loop
 
 If `SITE.md` has `mode: unattended` AND the result was `dispatched`, immediately re-invoke `/migrate:continue` (use the `superpowers:dispatching-parallel-agents` pattern only when the next phase fans out — phase 1 does not). Stop on `all-done`, `no-dispatcher`, or any failed gate.
@@ -46,4 +49,6 @@ In attended mode, do not auto-loop. Print and yield control.
 ## You MUST NOT
 
 - Skip the verification gate. If the dispatched phase did not produce `VERIFICATION.md`, the gate failed — read the `verification.json` failed criteria and surface them to the user.
+- Do not mark Phase 5 complete when `verify-build-baseline` fails. A failed baseline can be refined or reported, but it is not a completed gate.
+- Do not claim `pixel-perfect` is fully complete after Phase 6. Phase 7 Animate and Phase 8 Perf remain pending follow-up phases.
 - Mutate `SITE.md`.

@@ -8,6 +8,7 @@ export interface NewMigrationArgs {
   goal: "wireframe" | "pixel-perfect";
   inputMode: "url-only" | "url-plus-repo";
   sourceRepo?: string;
+  initialPageSelection?: string[];
 }
 
 export async function runNewMigration(args: NewMigrationArgs): Promise<void> {
@@ -21,6 +22,7 @@ export async function runNewMigration(args: NewMigrationArgs): Promise<void> {
     goal: args.goal,
     inputMode: args.inputMode,
     sourceRepo: args.sourceRepo,
+    initialPageSelection: args.initialPageSelection,
   });
 
   await bootstrapMigration({ targetDir: args.targetDir, site });
@@ -53,5 +55,12 @@ function parseArgs(argv: string[]): NewMigrationArgs {
     goal: (get("--goal") ?? "pixel-perfect") as NewMigrationArgs["goal"],
     inputMode: (get("--input-mode") ?? "url-only") as NewMigrationArgs["inputMode"],
     sourceRepo: get("--source-repo"),
+    initialPageSelection: parseInitialPageSelection(get("--initial-page-selection")),
   };
+}
+
+function parseInitialPageSelection(raw: string | undefined): string[] | undefined {
+  if (!raw) return undefined;
+  const entries = raw.split(",").map(s => s.trim()).filter(Boolean);
+  return entries.length > 0 ? entries : undefined;
 }
