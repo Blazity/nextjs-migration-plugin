@@ -9,13 +9,7 @@ Re-check the gate for a single phase. Useful after the user has manually edited 
 
 ## Step 1 — Resolve target phase
 
-If the user supplied a phase id, use it. Otherwise read the first incomplete phase via:
-
-```bash
-tsx ${PLUGIN_DIR}/lib/continue.ts --target "${PWD}"
-```
-
-(Use the `phase` field of the JSON output.)
+If the user supplied a phase id, use it. Otherwise ask which recovery phase to verify. `/migrate:continue` is approval-driven and no longer reports a legacy phase id.
 
 ## Step 2 — Re-run the phase's verifier
 

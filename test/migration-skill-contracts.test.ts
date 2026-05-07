@@ -75,18 +75,29 @@ describe("migration skill contracts", () => {
   it("migrate:continue no longer branches on removed mode or goal settings", () => {
     const skill = readSkill("migrate-continue");
 
-    expect(skill).toContain("Do not invoke `lib/continue.ts` during this step");
-    expect(skill).toContain("The first phase whose `VERIFICATION.md` is missing is next");
+    expect(skill).toContain("approval-state scheduler");
+    expect(skill).toContain("Component Inventory Review");
+    expect(skill).toContain("Component Batch Approval");
+    expect(skill).toContain("Page Layout Approval");
     expect(skill).not.toContain("Prefer the status/continue scripts");
     expect(skill).not.toContain("for `goal`");
     expectNoStaleGuidedFlowTerms(skill, "migrate-continue");
   });
 
-  it("does not allow Phase 5 baseline failures to be manually waived", () => {
+  it("migrate:continue does not expose legacy phase dispatch gates", () => {
     const skill = readSkill("migrate-continue");
 
-    expect(skill).not.toContain("Phase 5's gate accepts wireframe quality on the homepage");
-    expect(skill).toContain("Do not mark Phase 5 complete when `verify-build-baseline` fails");
+    for (const phase of [
+      "phase-2-analyze",
+      "phase-3-plan",
+      "phase-4-extract",
+      "phase-5-build",
+      "phase-6-visual",
+    ]) {
+      expect(skill).not.toContain(phase);
+    }
+    expect(skill).not.toContain("VERIFICATION.md");
+    expect(skill).not.toContain("verify-build-baseline");
   });
 
   it("routes inventory corrections through natural-language chat", () => {
@@ -153,6 +164,13 @@ describe("migration skill contracts", () => {
     ]) {
       expectNoStaleGuidedFlowTerms(readRepoFile(path), path);
     }
+  });
+
+  it("migrate:verify does not depend on migrate:continue phase JSON", () => {
+    const skill = readSkill("migrate-verify");
+
+    expect(skill).not.toContain("lib/continue.ts");
+    expect(skill).not.toContain("`phase` field");
   });
 
   it("documents Phase 6 visual polish without claiming animations or perf are done", () => {
