@@ -1,3 +1,4 @@
+// RECOVERY USE ONLY: legacy phase entry point retained for maintainer/debug workflows; normal migrations use guided approvals.
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,6 +16,7 @@ import { runJsxGeneration as defaultRunJsxGen } from "./jsx-generator-runner.ts"
 import { runNextBuild as defaultRunNextBuild, type RunNextBuildResult } from "./next-build-runner.ts";
 import { runVerifyBuildBaseline as defaultRunVerifyBaseline, type RunVerifyBuildBaselineResult } from "./verify-build-baseline-runner.ts";
 import { runWithNextStartServer, type RunWithNextServerArgs } from "./next-start-runner.ts";
+import { requireRecoveryTargetArg } from "./recovery-cli.ts";
 import { sanitizeComponentName, transformOrWrap } from "./component-tsx-emitter.ts";
 import { groupRoutesByNextRoute, assemblePageTsx } from "./page-assembler.ts";
 import { assembleRootLayoutTsx } from "./layout-assembler.ts";
@@ -433,7 +435,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const i = process.argv.indexOf(flag);
     return i >= 0 ? process.argv[i + 1] : undefined;
   };
-  const targetDir = get("--target") ?? process.cwd();
+  const targetDir = requireRecoveryTargetArg();
   const runDir = get("--run") ?? "001-initial";
   runBuild({ targetDir, runDir })
     .then(() => console.log(`Build phase complete for run ${runDir}.`))

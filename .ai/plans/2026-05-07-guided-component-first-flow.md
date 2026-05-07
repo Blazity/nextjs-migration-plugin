@@ -613,6 +613,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 12.1 — Mark recovery entry points
 
+- **Status:** Done.
 - **Files to modify:** the head comment of each `lib/<phase>.ts`, plus a new doc `docs/recovery/README.md` (note: under `docs/`, but spec & ADRs section already lives in `docs/`; add an ADR if architectural).
 - **Failing test first:**
   - A new `test/recovery-entrypoints.test.ts` asserts that each of `lib/discover.ts`, `lib/analyze.ts`, `lib/plan.ts`, `lib/extract.ts`, `lib/build.ts`, `lib/polish.ts` still exposes a CLI entry (`if (import.meta.url === ...)`) and exits non-zero when called without arguments.

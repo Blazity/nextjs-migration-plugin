@@ -1,3 +1,4 @@
+// RECOVERY USE ONLY: legacy phase entry point retained for maintainer/debug workflows; normal migrations use guided approvals.
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadCrawl } from "./load-crawl.ts";
@@ -6,6 +7,7 @@ import { loadComponents } from "./load-components.ts";
 import { loadRoutes } from "./load-routes.ts";
 import { loadSite } from "./load-site.ts";
 import { buildOrder, detectCycles } from "./build-order.ts";
+import { requireRecoveryTargetArg } from "./recovery-cli.ts";
 import { writePlan, writeExecution, writeVerification } from "./phase-state.ts";
 import { stringifyFrontmatter } from "./frontmatter.ts";
 import type { Roadmap, RoadmapItem } from "../schemas/roadmap.ts";
@@ -241,7 +243,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     return i >= 0 ? process.argv[i + 1] : undefined;
   };
   const refineOnly = process.argv.includes("--refine-only");
-  const targetDir = get("--target") ?? process.cwd();
+  const targetDir = requireRecoveryTargetArg();
   const runDir = get("--run") ?? "001-initial";
   const work = refineOnly
     ? runPlanRefineOnly({ targetDir, runDir })
