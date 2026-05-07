@@ -1,0 +1,33 @@
+import { join } from "node:path";
+
+export type MigrationViewport = string | number;
+
+export type ComponentReferencePathArgs = Readonly<{
+  sectionInstanceId: string;
+  viewport: MigrationViewport;
+}>;
+
+export type ApprovedBaselinePathArgs = Readonly<{
+  kind: "component" | "page";
+  slugOrName: string;
+  viewport: MigrationViewport;
+}>;
+
+export function migrationPaths(targetDir: string) {
+  const migrationDir = join(targetDir, ".migration");
+
+  return Object.freeze({
+    rawDiscovery: join(migrationDir, "discovery", "sections.json"),
+    draftInventory: join(migrationDir, "inventory", "component-inventory.json"),
+    reviewHtml: join(migrationDir, "inventory", "inventory-review.html"),
+    approvedInventory: join(migrationDir, "approvals", "component-inventory.json"),
+    componentApproval: (componentId: string) =>
+      join(migrationDir, "approvals", "components", `${componentId}.json`),
+    pageApproval: (slug: string) =>
+      join(migrationDir, "approvals", "pages", `${slug}.json`),
+    componentReference: ({ sectionInstanceId, viewport }: ComponentReferencePathArgs) =>
+      join(migrationDir, "references", "components", `${sectionInstanceId}-${viewport}.png`),
+    approvedBaseline: ({ kind, slugOrName, viewport }: ApprovedBaselinePathArgs) =>
+      join(migrationDir, "baselines", kind, `${slugOrName}-${viewport}.png`),
+  });
+}
