@@ -13,6 +13,11 @@ export type ApprovedBaselinePathArgs = Readonly<{
   viewport: MigrationViewport;
 }>;
 
+export type ApprovedBaselineManifestPathArgs = Readonly<{
+  kind: "component" | "page";
+  slugOrName: string;
+}>;
+
 export function migrationPaths(targetDir: string) {
   const migrationDir = join(targetDir, ".migration");
 
@@ -29,6 +34,12 @@ export function migrationPaths(targetDir: string) {
     componentReference: ({ sectionInstanceId, viewport }: ComponentReferencePathArgs) =>
       join(migrationDir, "references", "components", `${sectionInstanceId}-${viewport}.png`),
     approvedBaseline: ({ kind, slugOrName, viewport }: ApprovedBaselinePathArgs) =>
-      join(migrationDir, "baselines", kind, `${slugOrName}-${viewport}.png`),
+      join(migrationDir, "baselines", baselineKindDir(kind), `${slugOrName}-${viewport}.png`),
+    approvedBaselineManifest: ({ kind, slugOrName }: ApprovedBaselineManifestPathArgs) =>
+      join(migrationDir, "baselines", baselineKindDir(kind), `${slugOrName}.json`),
   });
+}
+
+function baselineKindDir(kind: "component" | "page"): string {
+  return kind === "component" ? "components" : "pages";
 }

@@ -21,6 +21,10 @@ describe("migrationPaths", () => {
       kind: "component",
       slugOrName: "hero",
       viewport: "390",
-    })).toBe(join("/proj", ".migration", "baselines", "component", "hero-390.png"));
+    })).toBe(join("/proj", ".migration", "baselines", "components", "hero-390.png"));
+    expect(paths.approvedBaselineManifest({
+      kind: "component",
+      slugOrName: "hero",
+    })).toBe(join("/proj", ".migration", "baselines", "components", "hero.json"));
   });
 });

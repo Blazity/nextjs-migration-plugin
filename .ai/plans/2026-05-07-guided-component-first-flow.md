@@ -520,6 +520,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 9.1 — Approve-component-batch action
 
+- **Status:** Done.
 - **Files to create:** `lib/approve-component-batch.ts`, `test/approve-component-batch.test.ts`
 - **Failing test first:**
   - Given a batch report and a positive user approval, the action: (a) writes `.migration/approvals/components/<componentGroupId>.json` matching `ComponentBatchApprovalSchema`, (b) captures Storybook screenshots for each approved component at 390/768/1440 and writes them to `.migration/baselines/components/<implementationName>-<viewport>.png`, (c) writes the matching `ApprovedBaseline` JSON with `regressionThreshold: 0.001`.

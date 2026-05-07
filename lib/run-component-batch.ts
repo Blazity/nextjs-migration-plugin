@@ -3,30 +3,11 @@ import { dirname, isAbsolute, join } from "node:path";
 import { BrowserWorkQueue, type BrowserWorkQueueLike } from "./browser-work-queue.ts";
 import { implementComponent as defaultImplementComponent, type ImplementComponentResult } from "./implement-component.ts";
 import { migrationPaths } from "./migration-paths.ts";
-import { verifyComponent as defaultVerifyComponent, type ComponentReference, type ComponentVerifyViewport, type VerifyComponentInput, type VerifyComponentResult } from "./verify-component.ts";
+import { componentStorybookUrl } from "./storybook-url.ts";
+import { verifyComponent as defaultVerifyComponent, type ComponentReference, type VerifyComponentInput, type VerifyComponentResult } from "./verify-component.ts";
 import { ApprovedInventoryEntrySchema, type ApprovedInventoryEntry } from "../schemas/approved-inventory.ts";
+import type { ComponentBatchReport, ComponentBatchReportEntry } from "../schemas/component-batch-report.ts";
 import { RawDiscoveryEvidenceSchema, type RawDiscoveryEvidence } from "../schemas/raw-discovery.ts";
-
-export interface ComponentBatchReportEntry {
-  componentGroupId: string;
-  implementationName: string;
-  kind: "shell" | "content";
-  componentPath: string;
-  storyPath: string;
-  verification: "PASS" | "FAIL" | "skipped-by-design";
-  storybookUrls: string[];
-  referencePaths: string[];
-  diffPaths: string[];
-  failingViewports: ComponentVerifyViewport[];
-  error: string | null;
-}
-
-export interface ComponentBatchReport {
-  kind: "component-batch-report";
-  artifactVersion: string;
-  generatedAt: string;
-  components: ComponentBatchReportEntry[];
-}
 
 export interface RunComponentBatchResult {
   reportPath: string;
@@ -182,21 +163,9 @@ function componentReferences(args: {
       return {
         viewport: reference.viewport,
         referencePath: absoluteReferencePath(args.targetDir, reference.path),
-        storyUrl: storybookUrl(args.storybookBaseUrl, args.entry.implementationName, storyName),
+        storyUrl: componentStorybookUrl(args.storybookBaseUrl, args.entry.implementationName, storyName),
       };
     });
-}
-
-function storybookUrl(baseUrl: string, componentName: string, storyName: string): string {
-  return `${baseUrl.replace(/\/$/, "")}/?path=/story/migrated-components-${kebab(componentName)}--${kebab(storyName)}`;
-}
-
-function kebab(value: string): string {
-  return value
-    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-    .replace(/[^A-Za-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .toLowerCase();
 }
 
 function absoluteReferencePath(targetDir: string, path: string): string {
