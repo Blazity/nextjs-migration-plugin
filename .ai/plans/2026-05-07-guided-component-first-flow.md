@@ -578,6 +578,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 11.1 — Delete user-visible legacy commands
 
+- **Status:** Done.
 - **Files to delete:** [commands/migrate-config.md](../../commands/migrate-config.md), [commands/migrate-discover.md](../../commands/migrate-discover.md), [commands/migrate-analyze.md](../../commands/migrate-analyze.md), [commands/migrate-plan.md](../../commands/migrate-plan.md), [commands/migrate-extract.md](../../commands/migrate-extract.md), [commands/migrate-build.md](../../commands/migrate-build.md), [commands/migrate-polish.md](../../commands/migrate-polish.md), [commands/migrate-verify.md](../../commands/migrate-verify.md). Skill directories under [skills/](../../skills/) follow the same fate **except** for `migrate-status`, `migrate-help`, `migrate-new`, `migrate-continue`.
 - **Files to modify:** [plugin.json](../../plugin.json) so its `commands` and `skills` references list only the four user-visible names.
 - **Failing test first:**

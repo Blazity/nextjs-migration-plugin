@@ -12,8 +12,8 @@ function readRepoFile(path: string): string {
 }
 
 describe("migrate-help skill", () => {
-  it("does not register a legacy command wrapper", () => {
-    expect(existsSync(repoPath("commands/migrate-help.md"))).toBe(false);
+  it("registers the guided-flow help command wrapper", () => {
+    expect(existsSync(repoPath("commands/migrate-help.md"))).toBe(true);
   });
 
   it("documents static workflow help and a context-aware final paragraph", () => {

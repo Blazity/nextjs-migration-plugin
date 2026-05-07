@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 function readSkill(name: string): string {
@@ -31,11 +31,29 @@ function expectNoStaleGuidedFlowTerms(content: string, label: string): void {
 }
 
 describe("migration skill contracts", () => {
-  it("keeps the session log contract inside .migration only", () => {
-    const skill = readSkill("migrate-build");
+  it("exposes only the four guided-flow command wrappers", () => {
+    expect(readdirSync(join(process.cwd(), "commands")).sort()).toEqual([
+      "migrate-continue.md",
+      "migrate-help.md",
+      "migrate-new.md",
+      "migrate-status.md",
+    ]);
+  });
 
-    expect(skill).toContain(".migration/SESSION_LOG.md");
-    expect(skill).toContain("must not create a root `SESSION-LOG.md`");
+  it("exposes only guided-flow user skills", () => {
+    expect(readdirSync(join(process.cwd(), "skills")).sort()).toEqual([
+      "migrate-continue",
+      "migrate-help",
+      "migrate-new",
+      "migrate-status",
+    ]);
+  });
+
+  it("keeps plugin command and skill registration rooted in the reduced surface directories", () => {
+    const plugin = JSON.parse(readRepoFile("plugin.json")) as { commands: string; skills: string };
+
+    expect(plugin.commands).toBe("commands/");
+    expect(plugin.skills).toBe("skills/");
   });
 
   it("migrate:new no longer asks mode or goal questions", () => {
@@ -118,44 +136,12 @@ describe("migration skill contracts", () => {
     expectNoStaleGuidedFlowTerms(agent, "inventory-corrector");
   });
 
-  it("recovery phase skills no longer document removed mode or roadmap-approval flow", () => {
-    const discover = readSkill("migrate-discover");
-    const plan = readSkill("migrate-plan");
-    const config = readSkill("migrate-config");
-    const configCommand = readFileSync(join(process.cwd(), "commands/migrate-config.md"), "utf8");
-
-    for (const [label, content] of [["migrate-discover", discover], ["migrate-plan", plan]]) {
-      expectNoStaleGuidedFlowTerms(content, label);
-    }
-    expect(config).not.toContain("`mode`");
-    expect(config).not.toContain("`goal`");
-    expect(configCommand).not.toContain("mode");
-    expect(configCommand).not.toContain("goal");
-  });
-
-  it("legacy phase command metadata is labeled as recovery", () => {
-    for (const path of [
-      "commands/migrate-discover.md",
-      "commands/migrate-analyze.md",
-      "commands/migrate-plan.md",
-      "commands/migrate-extract.md",
-      "commands/migrate-build.md",
-      "commands/migrate-polish.md",
-      "commands/migrate-verify.md",
-    ]) {
-      expect(readRepoFile(path)).toContain("description: Recovery tool:");
-    }
-  });
-
   it("runtime prompts and knowledge do not preserve removed mode or goal choices", () => {
     for (const path of [
       "agents/site-crawler.md",
       "agents/migration-planner.md",
       "agents/plan-checker.md",
       "agents/phase-verifier.md",
-      "skills/migrate-verify/SKILL.md",
-      "skills/migrate-extract/SKILL.md",
-      "skills/migrate-polish/SKILL.md",
       "knowledge/phase-pitfalls/discover.md",
       "knowledge/phase-pitfalls/plan.md",
       "knowledge/phase-pitfalls/extract.md",
@@ -164,23 +150,5 @@ describe("migration skill contracts", () => {
     ]) {
       expectNoStaleGuidedFlowTerms(readRepoFile(path), path);
     }
-  });
-
-  it("migrate:verify does not depend on migrate:continue phase JSON", () => {
-    const skill = readSkill("migrate-verify");
-
-    expect(skill).not.toContain("lib/continue.ts");
-    expect(skill).not.toContain("`phase` field");
-  });
-
-  it("documents Phase 6 visual polish without claiming animations or perf are done", () => {
-    const command = readFileSync(join(process.cwd(), "commands/migrate-polish.md"), "utf8");
-    const skill = readSkill("migrate-polish");
-
-    expect(command).toContain("[slug|--all]");
-    expect(skill).toContain("Hard-require Playwright MCP");
-    expect(skill).toContain("Phase 6 Visual only");
-    expect(skill).toContain("Phase 7 Animate and Phase 8 Perf remain pending");
-    expect(skill).not.toContain("full migration complete");
   });
 });
