@@ -1,121 +1,146 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { loadSite } from "./load-site.ts";
-import { firstIncompletePhase } from "./phase-status.ts";
-import { runDiscover } from "./discover.ts";
-import { runAnalyze } from "./analyze.ts";
-import { runPlan } from "./plan.ts";
-import { runExtract } from "./extract.ts";
-import { runBuild } from "./build.ts";
-import { runVisualPolish } from "./polish.ts";
-import { loadAdapter } from "./load-adapter.ts";
-import { loadProbe } from "./load-probe.ts";
+import type { ApprovedInventoryEntry } from "../schemas/approved-inventory.ts";
+import { scheduleMigration } from "./migration-scheduler.ts";
 
-export type PhaseDispatcher = (args: { targetDir: string; runDir: string }) => Promise<void>;
+export type ComponentBatchDispatcher = (args: {
+  targetDir: string;
+  artifactVersion: string;
+  batch: ApprovedInventoryEntry[];
+}) => Promise<void>;
+
+export type PageAssemblyDispatcher = (args: {
+  targetDir: string;
+  slug: string;
+  componentGroupIds: string[];
+}) => Promise<void>;
 
 export type ResumeResult =
   | { kind: "not-initialized" }
   | { kind: "all-done" }
-  | { kind: "dispatched"; phase: string; runDir: string }
-  | { kind: "no-dispatcher"; phase: string; runDir: string };
+  | {
+      kind: "awaiting-approval";
+      approval: "component-inventory";
+      artifactVersion: string;
+      reviewHtmlPath: string;
+    }
+  | {
+      kind: "approval-stale";
+      approval: "component-inventory";
+      reason: string;
+      reviewHtmlPath: string;
+      staleSince?: string;
+    }
+  | {
+      kind: "dispatched";
+      action: "implement-component-batch";
+      componentGroupIds: string[];
+    }
+  | {
+      kind: "dispatched";
+      action: "assemble-page";
+      slug: string;
+    }
+  | {
+      kind: "no-dispatcher";
+      action: "implement-component-batch";
+      artifactVersion: string;
+      componentGroupIds: string[];
+    }
+  | {
+      kind: "no-dispatcher";
+      action: "assemble-page";
+      slug: string;
+      componentGroupIds: string[];
+    }
+  | {
+      kind: "blocked";
+      reason: string;
+    };
 
 export interface ResumeArgs {
-  dispatchers?: Record<string, PhaseDispatcher>;
+  dispatchers?: {
+    implementComponentBatch?: ComponentBatchDispatcher;
+    assemblePage?: PageAssemblyDispatcher;
+  };
 }
 
 export async function resumeMigration(
   targetDir: string,
-  args: ResumeArgs,
+  args: ResumeArgs = {},
 ): Promise<ResumeResult> {
-  const migDir = join(targetDir, ".migration");
-  if (!existsSync(migDir)) return { kind: "not-initialized" };
-
-  const siteResult = loadSite(join(migDir, "SITE.md"));
-  if (!siteResult.valid) {
-    throw new Error(`SITE.md is invalid: ${JSON.stringify(siteResult.issues)}`);
+  if (!existsSync(join(targetDir, ".migration"))) {
+    return { kind: "not-initialized" };
   }
 
-  const runs = readdirSync(join(migDir, "runs"))
-    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  const activeRun = runs[runs.length - 1] ?? "001-initial";
-  const runDir = join(migDir, "runs", activeRun);
-
-  const next = isPolishRun(runDir)
-    ? firstIncompletePolishPhase(runDir)
-    : firstIncompletePhase(runDir);
-  if (next === null) return { kind: "all-done" };
-
-  const dispatcher = args.dispatchers?.[next];
-  if (!dispatcher) return { kind: "no-dispatcher", phase: next, runDir: activeRun };
-
-  await dispatcher({ targetDir, runDir: activeRun });
-  return { kind: "dispatched", phase: next, runDir: activeRun };
-}
-
-function isPolishRun(runDir: string): boolean {
-  const runMd = join(runDir, "RUN.md");
-  if (!existsSync(runMd)) return false;
-  return readFileSync(runMd, "utf8").includes("Run type: polish");
-}
-
-function firstIncompletePolishPhase(runDir: string): string | null {
-  for (const phase of ["phase-6-visual", "phase-7-animate", "phase-8-perf"]) {
-    if (!existsSync(join(runDir, phase, "VERIFICATION.md"))) return phase;
-  }
-  return null;
-}
-
-export function defaultDispatchers(): Record<string, PhaseDispatcher> {
-  return {
-    "phase-1-discover": async ({ targetDir, runDir }) => {
-      await runDiscover({ targetDir, runDir });
-    },
-    "phase-2-analyze": async ({ targetDir, runDir }) => {
-      const adapter = await resolveAdapterDiscovery(targetDir, runDir);
-      await runAnalyze({
+  const schedule = scheduleMigration(targetDir);
+  switch (schedule.next) {
+    case "review-inventory":
+      if (schedule.staleApproval) {
+        return {
+          kind: "approval-stale",
+          approval: schedule.staleApproval.approval,
+          reason: "Component Inventory Review changed after approval. Re-review the regenerated inventory before continuing.",
+          reviewHtmlPath: schedule.reviewHtmlPath,
+          staleSince: schedule.staleApproval.staleSince,
+        };
+      }
+      return {
+        kind: "awaiting-approval",
+        approval: "component-inventory",
+        artifactVersion: schedule.artifactVersion,
+        reviewHtmlPath: schedule.reviewHtmlPath,
+      };
+    case "implement-component-batch":
+      if (!args.dispatchers?.implementComponentBatch) {
+        return {
+          kind: "no-dispatcher",
+          action: "implement-component-batch",
+          artifactVersion: schedule.artifactVersion,
+          componentGroupIds: schedule.batch.map(component => component.componentGroupId),
+        };
+      }
+      await args.dispatchers.implementComponentBatch({
         targetDir,
-        runDir,
-        primarySelector: adapter.primarySelector,
-        skipSelectors: adapter.skipSelectors,
+        artifactVersion: schedule.artifactVersion,
+        batch: schedule.batch,
       });
-    },
-    "phase-3-plan": async ({ targetDir, runDir }) => {
-      await runPlan({ targetDir, runDir });
-    },
-    "phase-4-extract": async ({ targetDir, runDir }) => {
-      await runExtract({ targetDir, runDir });
-    },
-    "phase-5-build": async ({ targetDir, runDir }) => {
-      await runBuild({ targetDir, runDir });
-    },
-  };
+      return {
+        kind: "dispatched",
+        action: "implement-component-batch",
+        componentGroupIds: schedule.batch.map(component => component.componentGroupId),
+      };
+    case "assemble-page":
+      if (!args.dispatchers?.assemblePage) {
+        return {
+          kind: "no-dispatcher",
+          action: "assemble-page",
+          slug: schedule.slug,
+          componentGroupIds: schedule.componentGroupIds,
+        };
+      }
+      await args.dispatchers.assemblePage({
+        targetDir,
+        slug: schedule.slug,
+        componentGroupIds: schedule.componentGroupIds,
+      });
+      return {
+        kind: "dispatched",
+        action: "assemble-page",
+        slug: schedule.slug,
+      };
+    case "missing-page-evidence":
+      return {
+        kind: "blocked",
+        reason: schedule.reason,
+      };
+    case "all-done":
+      return { kind: "all-done" };
+  }
 }
 
-async function resolveAdapterDiscovery(
-  targetDir: string,
-  runDir: string,
-): Promise<{ primarySelector: string; skipSelectors: string[] }> {
-  const probePath = join(targetDir, ".migration/runs", runDir, "phase-1-discover/discovery/probe.json");
-  const probeResult = loadProbe(probePath);
-  if (!probeResult.valid) {
-    throw new Error(`Cannot resolve adapter: probe.json invalid at ${probePath}`);
-  }
-  const adapterPath = probeResult.data.pages[0]?.matchedAdapters[0];
-  if (!adapterPath) {
-    throw new Error("Cannot resolve adapter: probe.json has no matchedAdapters");
-  }
-  const adapterResult = loadAdapter(adapterPath);
-  if (!adapterResult.valid) {
-    throw new Error(`Cannot resolve adapter: adapter invalid at ${adapterPath}`);
-  }
-  const sd = adapterResult.data.sectionDiscovery;
-  // SectionDiscoverySchema accepts both `primarySelector` (vendored adapters)
-  // and `selector` (plugin-internal fixtures). Prefer the more specific one,
-  // falling back to a generic body-children selector.
-  return {
-    primarySelector: sd?.primarySelector ?? sd?.selector ?? "body > *",
-    skipSelectors: sd?.skipSelectors ?? [],
-  };
+export function defaultDispatchers(): ResumeArgs["dispatchers"] {
+  return {};
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
