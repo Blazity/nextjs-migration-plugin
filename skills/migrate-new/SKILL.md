@@ -1,6 +1,6 @@
 ---
 name: migrate-new
-description: Wizard intake for a new migration. Asks three questions with sensible defaults, then creates .migration/.
+description: Wizard intake for a new migration. Asks three questions with sensible defaults, then reaches the Component Inventory Review.
 ---
 
 # /migrate:new
@@ -46,8 +46,8 @@ If `${PLUGIN_DIR}` is not set by the harness, resolve it from the plugin install
 
 ## Step 4 — Report the Component Inventory Review
 
-On success, the next message is the Component Inventory Review summary. Report:
+On success, parse the JSON outcome printed by the entry script and report:
 
-> Migration initialized at `[TARGET_DIR]/.migration/`. The next message is the Component Inventory Review summary. When you are ready, describe any name or grouping changes in chat. To approve the inventory, say so in chat.
+> Migration initialized at `[TARGET_DIR]/.migration/`. Open the Component Inventory Review at `[reviewHtmlPath]`. When you are ready, describe any name or grouping changes in chat. To approve the inventory, say so in chat.
 
 If the entry script fails (e.g., `.migration/` already exists), surface the error message verbatim and stop.

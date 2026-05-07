@@ -1,5 +1,4 @@
-import { SiteFrontmatterSchema } from "../schemas/site.ts";
-import { bootstrapMigration } from "./bootstrap.ts";
+import { runMigrationStart, type OutcomeReadyForReview, type RunMigrationStartArgs } from "./migration-start.ts";
 
 export interface NewMigrationArgs {
   sourceUrl: string;
@@ -7,30 +6,31 @@ export interface NewMigrationArgs {
   inputMode: "url-only" | "url-plus-repo";
   sourceRepo?: string;
   initialPageSelection?: string[];
+  migrationStartRunner?: (args: RunMigrationStartArgs) => Promise<OutcomeReadyForReview>;
 }
 
-export async function runNewMigration(args: NewMigrationArgs): Promise<void> {
-  // `target` is always "./" — the .migration/ directory IS the migration root, so
-  // `target` is the path to code output relative to `.migration/`'s parent.
-  // Multi-target layouts (e.g., apps/web, packages/ui) are a v2 concern.
-  const site = SiteFrontmatterSchema.parse({
+export async function runNewMigration(args: NewMigrationArgs): Promise<OutcomeReadyForReview> {
+  const migrationStartRunner = args.migrationStartRunner ?? runMigrationStart;
+  return migrationStartRunner({
     sourceUrl: args.sourceUrl,
-    target: "./",
+    targetDir: args.targetDir,
     inputMode: args.inputMode,
     sourceRepo: args.sourceRepo,
     initialPageSelection: args.initialPageSelection,
   });
-
-  await bootstrapMigration({ targetDir: args.targetDir, site });
 }
 
 // CLI shim: allow invocation via `tsx lib/new-migration.ts --url ... --target ...`
 if (import.meta.url === `file://${process.argv[1]}`) {
   const args = parseNewMigrationArgs(process.argv.slice(2));
-  runNewMigration(args).catch((err) => {
-    console.error(err.message);
-    process.exit(1);
-  });
+  runNewMigration(args)
+    .then((outcome) => {
+      console.log(JSON.stringify(outcome, null, 2));
+    })
+    .catch((err) => {
+      console.error(err.message);
+      process.exit(1);
+    });
 }
 
 export function parseNewMigrationArgs(argv: string[]): NewMigrationArgs {

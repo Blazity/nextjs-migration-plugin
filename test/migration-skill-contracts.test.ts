@@ -65,10 +65,11 @@ describe("migration skill contracts", () => {
   it("reports Component Inventory Review as the migrate:new success checkpoint", () => {
     const skill = readSkill("migrate-new");
 
-    expect(skill).toContain("the next message is the Component Inventory Review summary");
+    expect(skill).toContain("Open the Component Inventory Review at");
+    expect(skill).toContain("reviewHtmlPath");
     expect(skill).toContain("describe any name or grouping changes in chat");
-    expect(skill).not.toContain("REVIEW_HTML_PATH");
     expect(skill).not.toContain("/migrate:discover");
+    expect(skill).not.toContain("the next message is the Component Inventory Review summary");
   });
 
   it("migrate:continue no longer branches on removed mode or goal settings", () => {
