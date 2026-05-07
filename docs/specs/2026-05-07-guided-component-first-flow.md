@@ -1,7 +1,7 @@
 # Guided Component-First Migration Flow
 
-**Date:** 2026-05-07  
-**Status:** Draft, superseding execution model  
+**Date:** 2026-05-07
+**Status:** Draft, superseding execution model
 **Supersedes:** User-facing execution model from `2026-04-21-migration-plugin-design.md`
 
 ## 1. Goal
