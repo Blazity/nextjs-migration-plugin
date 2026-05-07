@@ -4,6 +4,10 @@ export interface BrowserWorkQueueArgs {
   concurrency?: number;
 }
 
+export interface BrowserWorkQueueLike {
+  enqueue<T>(run: () => Promise<T> | T): Promise<T>;
+}
+
 type Job<T> = {
   run: () => Promise<T> | T;
   resolve: (value: T) => void;

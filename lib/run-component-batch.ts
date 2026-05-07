@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
+import { BrowserWorkQueue, type BrowserWorkQueueLike } from "./browser-work-queue.ts";
 import { implementComponent as defaultImplementComponent, type ImplementComponentResult } from "./implement-component.ts";
 import { migrationPaths } from "./migration-paths.ts";
 import { verifyComponent as defaultVerifyComponent, type ComponentReference, type ComponentVerifyViewport, type VerifyComponentInput, type VerifyComponentResult } from "./verify-component.ts";
@@ -43,6 +44,7 @@ export interface RunComponentBatchArgs {
     entry: ApprovedInventoryEntry;
   }) => Promise<ImplementComponentResult> | ImplementComponentResult;
   verifyComponent?: (input: VerifyComponentInput) => Promise<VerifyComponentResult>;
+  browserQueue?: BrowserWorkQueueLike;
 }
 
 export async function runComponentBatch(
@@ -53,7 +55,11 @@ export async function runComponentBatch(
     JSON.parse(readFileSync(paths.rawDiscovery, "utf8")),
   );
   const implement = args.implementComponent ?? defaultImplementComponent;
-  const verify = args.verifyComponent ?? (input => defaultVerifyComponent(input));
+  const browserQueue = args.browserQueue ?? BrowserWorkQueue.from({ targetDir: args.targetDir });
+  const injectedVerify = args.verifyComponent;
+  const verify = injectedVerify
+    ? (input: VerifyComponentInput) => browserQueue.enqueue(() => injectedVerify(input))
+    : (input: VerifyComponentInput) => defaultVerifyComponent(input, { browserQueue });
   const components: ComponentBatchReportEntry[] = [];
   const diffOutputDir = join(
     args.targetDir,

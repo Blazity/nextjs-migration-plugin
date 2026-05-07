@@ -7,6 +7,7 @@ import {
   type DiffAssessment,
   type DiffResult,
 } from "../scripts/lib/visual-verify-core.ts";
+import { BrowserWorkQueue, type BrowserWorkQueueLike } from "./browser-work-queue.ts";
 
 export type ComponentVerifyViewport = 390 | 768 | 1440;
 const REQUIRED_VIEWPORTS = [390, 768, 1440] as const satisfies readonly ComponentVerifyViewport[];
@@ -31,7 +32,8 @@ export interface VerifyComponentPage {
 }
 
 export interface VerifyComponentDeps {
-  pageFactory: () => Promise<VerifyComponentPage>;
+  pageFactory?: () => Promise<VerifyComponentPage>;
+  browserQueue?: BrowserWorkQueueLike;
   readPng?: (path: string) => PNG;
   decodePng?: (buffer: Buffer) => PNG;
   writePng?: (path: string, png: PNG) => void;
@@ -58,58 +60,62 @@ export interface VerifyComponentResult {
 
 export async function verifyComponent(
   input: VerifyComponentInput,
-  deps: VerifyComponentDeps = { pageFactory: defaultPageFactory },
+  deps: VerifyComponentDeps = {},
 ): Promise<VerifyComponentResult> {
   const results: VerifyComponentViewportResult[] = [];
   const ratios: Partial<Record<ComponentVerifyViewport, number>> = {};
   const failingViewports: ComponentVerifyViewport[] = [];
   const seenViewports = new Set<ComponentVerifyViewport>();
+  const browserQueue = deps.browserQueue ?? new BrowserWorkQueue();
+  const pageFactory = deps.pageFactory ?? defaultPageFactory;
 
   for (const reference of input.references) {
     seenViewports.add(reference.viewport);
-    const page = await deps.pageFactory();
-    try {
-      await page.setViewportSize({ width: reference.viewport, height: 900 });
-      await page.goto(reference.storyUrl, {
-        waitUntil: "domcontentloaded",
-        timeout: 15_000,
-      });
-      const screenshot = await page.screenshot({ fullPage: true });
-      const referencePng = (deps.readPng ?? readPng)(reference.referencePath);
-      const localPng = (deps.decodePng ?? decodePng)(screenshot);
-      const diff = (deps.diffPngs ?? diffNormalizedPngs)(referencePng, localPng);
-      const assessment = (deps.assessDiff ?? assessDiffResult)({
-        ratio: diff.ratio,
-        refLabel: `${input.name}:${reference.viewport}:reference`,
-        localLabel: `${input.name}:${reference.viewport}:storybook`,
-        refSize: { width: referencePng.width, height: referencePng.height },
-        localSize: { width: localPng.width, height: localPng.height },
-        exactZeroIsSuspicious: false,
-        maxDiffRatio: 0.01,
-      });
-      const diffPath = maybeWriteDiff({
-        input,
-        viewport: reference.viewport,
-        diff,
-        writePng: deps.writePng ?? writePng,
-      });
+    await browserQueue.enqueue(async () => {
+      const page = await pageFactory();
+      try {
+        await page.setViewportSize({ width: reference.viewport, height: 900 });
+        await page.goto(reference.storyUrl, {
+          waitUntil: "domcontentloaded",
+          timeout: 15_000,
+        });
+        const screenshot = await page.screenshot({ fullPage: true });
+        const referencePng = (deps.readPng ?? readPng)(reference.referencePath);
+        const localPng = (deps.decodePng ?? decodePng)(screenshot);
+        const diff = (deps.diffPngs ?? diffNormalizedPngs)(referencePng, localPng);
+        const assessment = (deps.assessDiff ?? assessDiffResult)({
+          ratio: diff.ratio,
+          refLabel: `${input.name}:${reference.viewport}:reference`,
+          localLabel: `${input.name}:${reference.viewport}:storybook`,
+          refSize: { width: referencePng.width, height: referencePng.height },
+          localSize: { width: localPng.width, height: localPng.height },
+          exactZeroIsSuspicious: false,
+          maxDiffRatio: 0.01,
+        });
+        const diffPath = maybeWriteDiff({
+          input,
+          viewport: reference.viewport,
+          diff,
+          writePng: deps.writePng ?? writePng,
+        });
 
-      ratios[reference.viewport] = assessment.ratio;
-      if (assessment.status === "FAIL") {
-        pushUnique(failingViewports, reference.viewport);
+        ratios[reference.viewport] = assessment.ratio;
+        if (assessment.status === "FAIL") {
+          pushUnique(failingViewports, reference.viewport);
+        }
+        results.push({
+          viewport: reference.viewport,
+          status: assessment.status,
+          ratio: assessment.ratio,
+          referencePath: reference.referencePath,
+          storyUrl: reference.storyUrl,
+          diffPath,
+          diagnostics: assessment.diagnostics,
+        });
+      } finally {
+        await page.close();
       }
-      results.push({
-        viewport: reference.viewport,
-        status: assessment.status,
-        ratio: assessment.ratio,
-        referencePath: reference.referencePath,
-        storyUrl: reference.storyUrl,
-        diffPath,
-        diagnostics: assessment.diagnostics,
-      });
-    } finally {
-      await page.close();
-    }
+    });
   }
 
   for (const viewport of REQUIRED_VIEWPORTS) {

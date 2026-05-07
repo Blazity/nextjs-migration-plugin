@@ -7,6 +7,7 @@ import { CrawlSchema, type Crawl } from "../schemas/crawl.ts";
 import { DiscoveredSectionsSchema, type DiscoveredSections } from "../schemas/sections.ts";
 import { RawDiscoveryEvidenceSchema, type RawDiscoveryEvidence } from "../schemas/raw-discovery.ts";
 import { dismissCookieBanner, getAllCookieSkipSelectors } from "../scripts/lib/cookie-consent.ts";
+import { BrowserWorkQueue, type BrowserWorkQueueLike } from "./browser-work-queue.ts";
 import { runCrawl, type RunCrawlArgs } from "./crawl-runner.ts";
 import { runDiscoverSections, type RunDiscoverSectionsArgs } from "./discover-sections-runner.ts";
 import { migrationPaths } from "./migration-paths.ts";
@@ -37,6 +38,7 @@ export interface RunDiscoveryV2Args {
   probeRunner?: ProbeRunner;
   sectionRunner?: SectionRunner;
   screenshotCapturer?: ScreenshotCapturer;
+  browserQueue?: BrowserWorkQueueLike;
   now?: () => Date;
 }
 
@@ -89,12 +91,15 @@ export async function runDiscoveryV2(args: RunDiscoveryV2Args): Promise<Discover
     JSON.parse(readFileSync(discoveredSectionsPath, "utf8")),
   );
   const screenshotCapturer = args.screenshotCapturer ?? captureReferenceScreenshots;
-  const referenceScreenshots = await screenshotCapturer({
-    targetDir: args.targetDir,
-    crawl: selectedCrawl,
-    discoveredSections,
-    primarySelector: args.primarySelector ?? DEFAULT_SECTION_SELECTOR,
-  });
+  const browserQueue = args.browserQueue ?? BrowserWorkQueue.from({ targetDir: args.targetDir });
+  const referenceScreenshots = await browserQueue.enqueue(() =>
+    screenshotCapturer({
+      targetDir: args.targetDir,
+      crawl: selectedCrawl,
+      discoveredSections,
+      primarySelector: args.primarySelector ?? DEFAULT_SECTION_SELECTOR,
+    })
+  );
 
   const evidence = RawDiscoveryEvidenceSchema.parse({
     probedAt: discoveredSections.probedAt,

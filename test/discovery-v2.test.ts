@@ -175,6 +175,76 @@ describe("runDiscoveryV2", () => {
 
     expect(probeCalled).toBe(false);
   });
+
+  it("queues reference screenshot capture through the injected browser queue", async () => {
+    const targetDir = mkdtempSync(join(tmpdir(), "discovery-v2-"));
+    const guard = queueGuard();
+
+    await runDiscoveryV2({
+      targetDir,
+      sourceUrl: "https://example.com/",
+      browserQueue: guard.queue,
+      crawlRunner: async ({ outputPath }) => {
+        writeJson(outputPath, {
+          sourceUrl: "https://example.com/",
+          crawledAt: "2026-05-07T12:00:00.000Z",
+          limits: { maxPages: 10, maxDepth: 2 },
+          sitemapUrls: [],
+          pages: [page("https://example.com/", "home", "seed")],
+          errors: [],
+        });
+      },
+      probeRunner: async ({ urls, outputPath }) => {
+        writeJson(outputPath, {
+          probedAt: "2026-05-07T12:00:00.000Z",
+          pages: urls.map(url => ({
+            url,
+            matchedAdapters: [],
+            recommendation: "DIRECT_EXTRACTION",
+            detectedCMP: null,
+            isSPA: false,
+          })),
+        });
+      },
+      sectionRunner: async ({ urls, outputPath }) => {
+        writeJson(outputPath, {
+          probedAt: "2026-05-07T12:00:00.000Z",
+          pages: urls.map(url => ({
+            url,
+            sections: [{
+              id: "p0-s0",
+              selector: "main > section",
+              tagSkeleton: "section>h1",
+              pathShingles: ["body>main>section"],
+              sampleText: "Hero",
+              boundingBox: { x: 0, y: 0, width: 100, height: 100 },
+            }],
+          })),
+        });
+      },
+      screenshotCapturer: async () => {
+        guard.assertActive();
+        return {
+          components: [{
+            sectionInstanceId: "p0-s0",
+            url: "https://example.com/",
+            viewport: 390,
+            path: "references/components/p0-s0-390.png",
+            sha256: "0".repeat(64),
+          }],
+          pages: [{
+            slug: "home",
+            url: "https://example.com/",
+            viewport: 390,
+            path: "references/pages/home-390.png",
+            sha256: "1".repeat(64),
+          }],
+        };
+      },
+    });
+
+    expect(guard.calls()).toBe(1);
+  });
 });
 
 function page(url: string, slug: string, discoveredVia: "seed" | "sitemap" | "link") {
@@ -191,4 +261,28 @@ function page(url: string, slug: string, discoveredVia: "seed" | "sitemap" | "li
 
 function writeJson(path: string, value: unknown): void {
   writeFileSync(path, JSON.stringify(value, null, 2));
+}
+
+function queueGuard() {
+  let active = false;
+  let calls = 0;
+  return {
+    queue: {
+      async enqueue<T>(run: () => Promise<T> | T): Promise<T> {
+        calls += 1;
+        active = true;
+        try {
+          return await run();
+        } finally {
+          active = false;
+        }
+      },
+    },
+    assertActive() {
+      if (!active) throw new Error("browser work ran outside BrowserWorkQueue");
+    },
+    calls() {
+      return calls;
+    },
+  };
 }

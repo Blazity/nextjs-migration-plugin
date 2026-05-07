@@ -496,6 +496,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 8.2 — Wire the queue through every browser caller
 
+- **Status:** Done.
 - **Files to modify:** `lib/discovery-v2.ts` (Task 3.1), `lib/verify-component.ts` (Task 7.4), and the future page-assembly verifier (Phase 10), plus `lib/run-component-batch.ts`.
 - **Failing test first:**
   - Each caller test asserts the call goes through a queue instance passed by dependency injection. Default queue concurrency is 1.

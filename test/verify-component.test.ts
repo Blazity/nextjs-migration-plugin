@@ -78,6 +78,24 @@ describe("verifyComponent", () => {
       diagnostics: ["missing reference for viewport 768"],
     });
   });
+
+  it("runs each viewport through the injected browser queue", async () => {
+    const guard = queueGuard();
+    const result = await verifyComponent(
+      {
+        name: "Hero",
+        references: [
+          reference(390, "http://storybook/Hero?viewport=390"),
+          reference(768, "http://storybook/Hero?viewport=768"),
+          reference(1440, "http://storybook/Hero?viewport=1440"),
+        ],
+      },
+      deps(fakePage(guard.assertActive), [0, 0, 0], guard.queue),
+    );
+
+    expect(result.status).toBe("PASS");
+    expect(guard.calls()).toBe(3);
+  });
 });
 
 function reference(viewport: 390 | 768 | 1440, storyUrl: string) {
@@ -88,9 +106,14 @@ function reference(viewport: 390 | 768 | 1440, storyUrl: string) {
   };
 }
 
-function deps(page: ReturnType<typeof fakePage>, ratios: number[]) {
+function deps(
+  page: ReturnType<typeof fakePage>,
+  ratios: number[],
+  browserQueue?: { enqueue<T>(run: () => Promise<T> | T): Promise<T> },
+) {
   const png = new PNG({ width: 10, height: 10 });
   return {
+    browserQueue,
     pageFactory: vi.fn(async () => page),
     readPng: vi.fn(() => png),
     decodePng: vi.fn(() => png),
@@ -107,22 +130,50 @@ function deps(page: ReturnType<typeof fakePage>, ratios: number[]) {
   };
 }
 
-function fakePage(): VerifyComponentPage & { calls: unknown[][] } {
+function fakePage(assertActive: () => void = () => {}): VerifyComponentPage & { calls: unknown[][] } {
   const calls: unknown[][] = [];
   return {
     calls,
     async setViewportSize(size) {
+      assertActive();
       calls.push(["setViewportSize", size]);
     },
     async goto(url) {
+      assertActive();
       calls.push(["goto", url]);
     },
     async screenshot() {
+      assertActive();
       calls.push(["screenshot"]);
       return Buffer.from("png");
     },
     async close() {
+      assertActive();
       calls.push(["close"]);
+    },
+  };
+}
+
+function queueGuard() {
+  let active = false;
+  let calls = 0;
+  return {
+    queue: {
+      async enqueue<T>(run: () => Promise<T> | T): Promise<T> {
+        calls += 1;
+        active = true;
+        try {
+          return await run();
+        } finally {
+          active = false;
+        }
+      },
+    },
+    assertActive() {
+      if (!active) throw new Error("browser work ran outside BrowserWorkQueue");
+    },
+    calls() {
+      return calls;
     },
   };
 }

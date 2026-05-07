@@ -156,6 +156,39 @@ describe("runComponentBatch", () => {
       }),
     ]);
   });
+
+  it("runs content verification through the injected browser queue", async () => {
+    const targetDir = mkdtempSync(join(tmpdir(), "component-batch-"));
+    const guard = queueGuard();
+    writeJson(migrationPaths(targetDir).rawDiscovery, rawDiscovery());
+
+    const verify = vi.fn(async () => {
+      guard.assertActive();
+      return {
+        status: "PASS" as const,
+        ratios: { 390: 0, 768: 0, 1440: 0 },
+        failingViewports: [],
+        results: [],
+      };
+    });
+
+    await runComponentBatch({
+      targetDir,
+      artifactVersion: "abcdefabcdef1234",
+      batch: [contentEntry()],
+      now: () => now,
+      browserQueue: guard.queue,
+      implementComponent: async ({ entry }) => ({
+        componentPath: join(targetDir, entry.filePath),
+        storyPath: join(targetDir, `src/components/${entry.implementationName}.stories.tsx`),
+        sectionInstanceIds: entry.sectionInstanceIds,
+      }),
+      verifyComponent: verify,
+    });
+
+    expect(verify).toHaveBeenCalledTimes(1);
+    expect(guard.calls()).toBe(1);
+  });
 });
 
 function shellEntry(): ApprovedInventoryEntry {
@@ -226,4 +259,28 @@ function rawDiscovery(): RawDiscoveryEvidence {
 function writeJson(path: string, value: unknown): void {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+function queueGuard() {
+  let active = false;
+  let calls = 0;
+  return {
+    queue: {
+      async enqueue<T>(run: () => Promise<T> | T): Promise<T> {
+        calls += 1;
+        active = true;
+        try {
+          return await run();
+        } finally {
+          active = false;
+        }
+      },
+    },
+    assertActive() {
+      if (!active) throw new Error("browser work ran outside BrowserWorkQueue");
+    },
+    calls() {
+      return calls;
+    },
+  };
 }
