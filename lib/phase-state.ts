@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PhaseVerificationSchema, type PhaseVerification } from "../schemas/phase.ts";
 
@@ -20,7 +20,11 @@ export async function writeVerification(
     join(phaseDir, "verification.json"),
     JSON.stringify(validated, null, 2) + "\n",
   );
-  if (!validated.passed) return;
+  if (!validated.passed) {
+    const staleMarkdown = join(phaseDir, "VERIFICATION.md");
+    if (existsSync(staleMarkdown)) unlinkSync(staleMarkdown);
+    return;
+  }
   writeFileSync(
     join(phaseDir, "VERIFICATION.md"),
     renderVerificationMd(validated),

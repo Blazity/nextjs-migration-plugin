@@ -27,7 +27,7 @@ export interface RunDiscoverArgs {
 }
 
 export async function runDiscover(args: RunDiscoverArgs): Promise<void> {
-  const { sourceUrl, mode } = await readSiteConfig(args.targetDir);
+  const { sourceUrl, mode, initialPageSelection } = await readSiteConfig(args.targetDir);
   const phaseDir = join(args.targetDir, ".migration/runs", args.runDir, "phase-1-discover");
   const discoveryDir = join(phaseDir, "discovery");
   mkdirSync(discoveryDir, { recursive: true });
@@ -71,8 +71,13 @@ export async function runDiscover(args: RunDiscoverArgs): Promise<void> {
   // Apply user-selected URL filter to crawl.json. Pages not in the
   // includeUrls set are dropped; the file is rewritten so downstream phases
   // see only the chosen subset.
-  if (args.includeUrls && args.includeUrls.length > 0) {
-    const include = new Set(args.includeUrls);
+  const selectedUrls = resolveSelectedUrls({
+    sourceUrl,
+    initialPageSelection,
+    includeUrls: args.includeUrls,
+  });
+  if (selectedUrls.urls.length > 0) {
+    const include = new Set(selectedUrls.urls);
     const filtered = {
       ...crawlResult.data,
       pages: crawlResult.data.pages.filter(p => include.has(p.url)),
@@ -85,13 +90,13 @@ export async function runDiscover(args: RunDiscoverArgs): Promise<void> {
         criteria: [{
           name: "user-selected URL set is non-empty",
           passed: false,
-          detail: `includeUrls (${args.includeUrls.length}) matched 0 pages in crawl.json`,
+          detail: `${selectedUrls.source} (${selectedUrls.urls.length}) matched 0 pages in crawl.json`,
         }],
       });
       return;
     }
     writeFileSync(crawlPath, JSON.stringify(filtered, null, 2));
-    await writeExecution(phaseDir, `Filtered crawl → ${filtered.pages.length} of ${crawlResult.data.pages.length} pages selected`);
+    await writeExecution(phaseDir, `Filtered crawl → ${filtered.pages.length} of ${crawlResult.data.pages.length} pages selected by ${selectedUrls.source}`);
     crawlResult = loadCrawl(crawlPath);
     if (!crawlResult.valid) {
       await writeVerification(phaseDir, {
@@ -173,15 +178,43 @@ export async function runDiscover(args: RunDiscoverArgs): Promise<void> {
   });
 }
 
-async function readSiteConfig(targetDir: string): Promise<{ sourceUrl: string; mode: string }> {
+async function readSiteConfig(targetDir: string): Promise<{ sourceUrl: string; mode: string; initialPageSelection: string[] }> {
   const { loadSite } = await import("./load-site.ts");
   const result = loadSite(join(targetDir, ".migration/SITE.md"));
   if (!result.valid) throw new Error(`SITE.md is invalid: ${JSON.stringify(result.issues)}`);
-  return { sourceUrl: result.site.sourceUrl, mode: result.site.mode };
+  return {
+    sourceUrl: result.site.sourceUrl,
+    mode: result.site.mode,
+    initialPageSelection: result.site.initialPageSelection,
+  };
 }
 
 function isUnattended(mode: string): boolean {
   return mode === "unattended";
+}
+
+function resolveSelectedUrls(args: {
+  sourceUrl: string;
+  initialPageSelection: string[];
+  includeUrls?: string[];
+}): { source: string; urls: string[] } {
+  if (args.includeUrls && args.includeUrls.length > 0) {
+    return { source: "includeUrls", urls: args.includeUrls };
+  }
+
+  const selection = args.initialPageSelection.map(entry => entry.trim()).filter(Boolean);
+  if (selection.length === 0 || selection.some(entry => entry.toLowerCase() === "all")) {
+    return { source: "initialPageSelection", urls: [] };
+  }
+
+  return {
+    source: "initialPageSelection",
+    urls: selection.map(entry => normalizeSelectedUrl(args.sourceUrl, entry)),
+  };
+}
+
+function normalizeSelectedUrl(sourceUrl: string, entry: string): string {
+  return new URL(entry, sourceUrl).href;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

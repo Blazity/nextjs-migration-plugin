@@ -4,6 +4,7 @@ export const LayoutShellSchema = z.object({
   id: z.string().min(1),
   signature: z.string().min(1),
   appearsOn: z.array(z.string().url()).min(1),
+  memberIds: z.array(z.string().min(1)).default([]),
   tagSkeleton: z.string(),
 });
 

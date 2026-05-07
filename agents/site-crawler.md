@@ -11,7 +11,7 @@ You are running Phase 1 (Discover) of a Next.js migration. Your goal is to produ
 
 - **Target directory** — the user project root (parent of `.migration/`).
 - **Active run** — e.g., `001-initial` (already created by `/migrate:new`).
-- **SITE.md** — read `${target}/.migration/SITE.md` for `sourceUrl`, `mode`, `goal`.
+- **SITE.md** — read `${target}/.migration/SITE.md` for `sourceUrl`, `mode`, `goal`, and `initialPageSelection`.
 
 ## Tools
 
@@ -49,12 +49,14 @@ Invoke the script without confirmation flags. It writes:
 - `runs/${RUN_DIR}/phase-1-discover/verification.json` (always)
 - `runs/${RUN_DIR}/phase-1-discover/VERIFICATION.md` (only if the gate passes)
 
+If `SITE.md` has `initialPageSelection` other than `["all"]`, the script applies that onboarding scope during this first pass: it normalizes selected paths/URLs against `sourceUrl`, filters `crawl.json`, and probes only the selected subset. Do not ask the user for the same selection before this first run.
+
 ### 2. Read the verification.json to find what's blocking the gate
 
 The two gate criteria you may need to clear are:
 
 - **`every page has matched adapter or confirmed ABORT`** — failed if any page has `recommendation: "ABORT_NO_ADAPTER"` and the user has not yet confirmed. List those URLs to the user, briefly explain why each was unmatched (drawn from `probe.json[].matchedAdapters` length 0 + `detectedCMP` + `isSPA`), and ask: "Skip these N pages? (yes / no — provide an adapter name)".
-- **`user confirmed page list`** — in attended mode this requires explicit user confirmation AND optional subset selection. Print the discovered page list as a numbered list (`1. /path  (slug, depth N)`) and ask:
+- **`user confirmed page list`** — in attended mode this requires explicit user confirmation AND optional subset refinement. Print the discovered page list as a numbered list (`1. /path  (slug, depth N)`) and ask:
 
   > "Migrate which pages?
   > - `all` — accept the full list

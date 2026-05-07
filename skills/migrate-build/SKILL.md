@@ -23,7 +23,7 @@ Read its JSON-stdout result:
 - `kind: "dispatched"` AND `phase-5-build/VERIFICATION.md` exists → success. Print the manifest summary (component count, page count, asset count) and stop.
 - `kind: "dispatched"` AND `phase-5-build/VERIFICATION.md` MISSING → read `verification.json` failed criteria and surface them. The `--refine` path may help if the failure was `verify-build-baseline`; otherwise it is a real bug (scaffold missing, build error, schema invalid).
 
-Also check root `SESSION-LOG.md`; `lib/build.ts` appends a Phase 5 event there for debugging. If it is missing, treat that as a plugin bug.
+Also check `.migration/SESSION_LOG.md`; `lib/build.ts` appends a Phase 5 event there for debugging. The plugin must not create a root `SESSION-LOG.md`; if a fresh run creates one, treat that as a plugin bug.
 
 ## Step 3 (optional) — `--refine`
 

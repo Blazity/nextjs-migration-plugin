@@ -12,7 +12,7 @@
  *     --flow .ai/flows/ripleys-checkout.json \
  *     --output-dir docs/specs \
  *     --viewports 375,768,1024,1440 \
- *     [--adapter .ai/adapters/svelte.json --adapter .ai/adapters/directus-cms.json]
+ *     [--adapter adapters/svelte.json --adapter adapters/directus-cms.json]
  *     [--timeout 300000]
  */
 

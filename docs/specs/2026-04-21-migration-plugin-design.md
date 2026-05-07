@@ -157,11 +157,11 @@ All scripts in `scripts/` and all adapters in `adapters/` are **vendored verbati
 
 All migration state lives in the **user's project directory** at `.migration/`. It never lives in the plugin install location. The state survives Claude Code session resets, context compaction, and full reboots.
 
-Each initialized target also has a root-level `SESSION-LOG.md`. It is a human-readable debug ledger for session reconstruction and plugin improvement notes, not a machine-readable phase input.
+Each initialized target has `.migration/SESSION_LOG.md`. It is a human-readable debug ledger for session reconstruction and plugin improvement notes, not a machine-readable phase input. No session log is written at the target root; keeping the ledger inside `.migration/` prevents conflicts with project scaffolding tools.
 
 ```
-<user-project-dir>/SESSION-LOG.md          # human debugging ledger
 <user-project-dir>/.migration/
+├── SESSION_LOG.md                 # human debugging ledger
 ├── SITE.md                        # global config, YAML frontmatter
 ├── library/                       # shared, evolves across runs
 │   ├── components.json            # component registry — live source of truth
@@ -222,6 +222,7 @@ inputMode: url-only                 # url-only | url-plus-repo
 
 # OPTIONAL
 sourceRepo: ~/dev/example-site      # if inputMode == url-plus-repo
+initialPageSelection: ["all"]        # all, or selected source paths/URLs from /migrate:new
 maxParallelPages: 4
 maxParallelSections: 4
 
@@ -256,12 +257,12 @@ Schemas are Zod-validated. Reserved fields in the schema are commented out and d
 - Phases 1 → 2 → 3 are strictly serial
 - Phase 4 is parallel-by-page, capped at `maxParallelPages`
 - Phase 5 is parallel-by-page, same cap. Default is a barrier between 4 and 5 for v1 simplicity (Extract all, then Build all). Per-page pipelining is a v2 optimization.
-- Phases 6 / 7 / 8 are **per-page opt-in** via `/migrate:polish`. They are not auto-invoked in `wireframe` goal. In `pixel-perfect` goal, they auto-run for all pages after phase 5 completes.
+- Phase 6 is **per-page opt-in** via `/migrate:polish`. It is not auto-invoked in `wireframe` goal. In `pixel-perfect` goal, it auto-runs for all pages after phase 5 completes. Phases 7 / 8 are follow-up polish phases and are not part of the current `/migrate:polish` rollout.
 
 ### Goal presets as sugar over the same machinery
 
 - `goal: wireframe` = stop after phase 5
-- `goal: pixel-perfect` = after phase 5, auto-dispatch `/migrate:polish --all`
+- `goal: pixel-perfect` = after phase 5, auto-dispatch `/migrate:polish --all` for Phase 6 Visual; Phase 7 Animate and Phase 8 Perf remain follow-up phases
 
 Users can freely mix: start `wireframe`, polish one page, add more pages (delta run), polish some, and so on.
 
@@ -283,9 +284,9 @@ Each run is a scoped unit of work. First run migrates N pages; later runs add pa
 
 | Trigger | Run type | Phases executed |
 |---|---|---|
-| `/migrate:new` | `initial` | 1-5 (+ 6-8 if pixel-perfect) |
+| `/migrate:new` | `initial` | 1-5 (+ Phase 6 Visual if pixel-perfect) |
 | `/migrate:add-pages <urls…>` | `extend` | 1-5, but phase 2 runs in delta mode and reuses library |
-| `/migrate:polish <slug>` or `--all` | `polish` | 6-8 for in-scope pages only |
+| `/migrate:polish <slug>` or `--all` | `polish` | Phase 6 Visual for in-scope pages only |
 
 ### Delta-mode Analyze
 
@@ -394,7 +395,7 @@ All commands are slash commands invoked inside Claude Code.
 | `/migrate:plan` | Explicitly run phase 3 |
 | `/migrate:extract` | Explicitly run phase 4 |
 | `/migrate:build` | Explicitly run phase 5 |
-| `/migrate:polish <slug> \| --all` | Run phases 6-8 for a specific page or every page |
+| `/migrate:polish <slug> \| --all` | Run Phase 6 Visual for a specific page or every page; animation/performance remain pending |
 | `/migrate:add-pages <url1> <url2> …` | Create a delta run — discover, analyze, plan, build new pages reusing the library |
 | `/migrate:verify [phase]` | Re-run verification gate for current phase (or specified one) |
 | `/migrate:status` | Print state: phases done, pages progressed, blockers |
@@ -405,15 +406,18 @@ All commands are slash commands invoked inside Claude Code.
 
 ### Wizard (`/migrate:new`)
 
-Four skippable questions, all with sensible defaults:
+Five skippable questions, all with sensible defaults:
 
 ```
 /migrate:new https://example.com
   ?  Use current dir or ./example-com/? [enter for subfolder if CWD non-empty]
   ?  Do you have the source code repo? Path (optional): [enter to skip]
+  ?  Pages to migrate — all discovered pages, or comma-separated URLs/paths? [all]
   ?  Goal — wireframe (fast ~80%) or pixel-perfect (slow, production)? [pixel-perfect]
   ?  Run in attended or unattended mode? [attended]
 ```
+
+If the page selection is not `all`, `/migrate:new` stores it in `SITE.md` as `initialPageSelection`. Phase 1 normalizes those entries against the source URL and filters `crawl.json` before probing. In attended mode, the Phase 1 page-list confirmation still displays the resulting crawl list as the final confirmation/refinement gate.
 
 ### Behavior of `/migrate:continue`
 

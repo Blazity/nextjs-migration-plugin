@@ -26,6 +26,8 @@ The reusable component plan still exists in `library/components.json`; treat it 
 
 Per spec § 5 the Phase 5 gate is "verify-build-baseline at 1440px". That script compares structural sections at one viewport for one page. Per-page coverage at all 4 viewports is Phase 6's domain. If users want broader coverage in Phase 5 they should use `/migrate:polish` after Phase 5 completes — that is the documented path.
 
+Phase 5 owns the local server lifecycle for this check. After `next build`, it starts a fresh `next start` on an available local port, waits for HTTP readiness, runs `verify-build-baseline` against that URL, then tears the server down. Do not rely on a manually started `localhost:3000`; it may be missing or serving a stale `.next/` build.
+
 ## 7. Component name collisions
 
 Two clusters whose `name` field sanitizes to the same PascalCase string would clobber the same TSX file. The sanitizer falls back to `Component<index>` for empty/all-symbol names; for genuine collisions of distinct sanitized names, suffix with the cluster id slice (`PageHero1`, `PageHero2`). Detect and warn during the component-emission loop; do NOT silently overwrite.
@@ -33,6 +35,8 @@ Two clusters whose `name` field sanitizes to the same PascalCase string would cl
 ## 8. Asset copy is a flat tree-walk
 
 `copyStagedAssets` walks `pages/<slug>/_staging/public/` recursively and replays the relative path under `<target>/public/`. If two pages stage the same image to the same path (e.g., a shared logo), the latter overwrites the former — both write the same bytes, so this is benign for hashed filenames (extract-images.ts uses md5-prefixed names). The hash convention guarantees stability; if you change the naming scheme upstream, update this assumption.
+
+Phase 5 also gates emitted asset references after codegen. Every `/...png|jpg|jpeg|webp|svg|gif|avif|woff|woff2|mp4|webm|ico` string found under `src/components/` or `src/app/` must resolve under `<target>/public/`. Missing files are hard failures, not warnings, because a compiling site with broken image/font/video URLs is not a valid baseline.
 
 ## 9. Vendored generate-jsx.ts emits raw JSX, not React modules
 

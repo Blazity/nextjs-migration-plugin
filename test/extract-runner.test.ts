@@ -4,12 +4,29 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { extractPage } from "../lib/extract-runner.ts";
+import { extractPage, moveStagedImageOutputs } from "../lib/extract-runner.ts";
 import { PageSpecManifestSchema } from "../schemas/page-spec.ts";
 
 const execFileP = promisify(execFile);
 
 describe("extractPage", () => {
+  it("salvages staged image manifests when the image subprocess fails after writing output", () => {
+    const root = mkdtempSync(join(tmpdir(), "extract-page-"));
+    const stagingDir = join(root, "_staging");
+    const outputDir = join(root, "spec");
+    mkdirSync(join(stagingDir, "docs/specs/page"), { recursive: true });
+    mkdirSync(outputDir, { recursive: true });
+    writeFileSync(
+      join(stagingDir, "docs/specs/page/image-manifest.json"),
+      JSON.stringify({ totalImages: 3, sections: [] }),
+    );
+
+    moveStagedImageOutputs(stagingDir, outputDir);
+
+    expect(existsSync(join(outputDir, "image-manifest.json"))).toBe(true);
+    expect(JSON.parse(readFileSync(join(outputDir, "image-manifest.json"), "utf8")).totalImages).toBe(3);
+  });
+
   it("writes a schema-valid manifest after the three extraction steps complete", async () => {
     const root = mkdtempSync(join(tmpdir(), "extract-page-"));
     const pagesDir = join(root, ".migration/pages");
@@ -47,6 +64,38 @@ describe("extractPage", () => {
     expect(existsSync(join(pagesDir, "home/spec/styles.json"))).toBe(true);
     expect(existsSync(join(pagesDir, "home/spec/images.json"))).toBe(true);
     expect(existsSync(join(pagesDir, "home/spec/animations.json"))).toBe(true);
+  });
+
+  it("counts image-manifest.json output from the image extractor", async () => {
+    const root = mkdtempSync(join(tmpdir(), "extract-page-"));
+    const pagesDir = join(root, ".migration/pages");
+    mkdirSync(pagesDir, { recursive: true });
+
+    const stubStyles = async ({ outputDir }: { outputDir: string }) => {
+      mkdirSync(outputDir, { recursive: true });
+      writeFileSync(join(outputDir, "styles.json"), JSON.stringify({ sections: [{}] }));
+      writeFileSync(join(outputDir, "structure.json"), JSON.stringify({ tree: [] }));
+      writeFileSync(join(outputDir, "00-globals.json"), JSON.stringify({ body: {} }));
+    };
+    const stubImages = async ({ outputDir }: { outputDir: string }) => {
+      writeFileSync(join(outputDir, "image-manifest.json"), JSON.stringify({ totalImages: 4, sections: [] }));
+    };
+    const stubAnimations = async ({ outputDir }: { outputDir: string }) => {
+      writeFileSync(join(outputDir, "animations.json"), JSON.stringify({ sections: [] }));
+    };
+
+    const manifest = await extractPage({
+      url: "https://example.com/",
+      slug: "home",
+      pagesDir,
+      adapterPath: "/some/adapter.json",
+      runStyles: stubStyles,
+      runImages: stubImages,
+      runAnimations: stubAnimations,
+    });
+
+    expect(manifest.stats.imageCount).toBe(4);
+    expect(existsSync(join(pagesDir, "home/spec/image-manifest.json"))).toBe(true);
   });
 
   it("kills a hung subprocess via the configured timeout (issue 004)", async () => {
