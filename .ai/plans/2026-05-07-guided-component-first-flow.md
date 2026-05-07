@@ -529,6 +529,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 9.2 — Regression check runner
 
+- **Status:** Done.
 - **Files to create:** `lib/check-component-regression.ts`, `test/check-component-regression.test.ts`
 - **Failing test first:**
   - Given an approved baseline and the current Storybook render, `checkComponentRegression` calls `assessDiffResult({ maxDiffRatio: 0.001, ... })` and returns `{ status: "PASS" | "FAIL", failingViewports }`.

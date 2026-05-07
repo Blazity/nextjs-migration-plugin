@@ -96,6 +96,34 @@ describe("verifyComponent", () => {
     expect(result.status).toBe("PASS");
     expect(guard.calls()).toBe(3);
   });
+
+  it("passes a caller-supplied max diff ratio to the diff assessment", async () => {
+    const assessDiff = vi.fn(() => ({
+      status: "PASS" as const,
+      ratio: 0.001,
+      diagnostics: [],
+    }));
+
+    await verifyComponent(
+      {
+        name: "Hero",
+        maxDiffRatio: 0.001,
+        references: [
+          reference(390, "http://storybook/Hero?viewport=390"),
+          reference(768, "http://storybook/Hero?viewport=768"),
+          reference(1440, "http://storybook/Hero?viewport=1440"),
+        ],
+      },
+      {
+        ...deps(fakePage(), [0.001, 0.001, 0.001]),
+        assessDiff,
+      },
+    );
+
+    expect(assessDiff).toHaveBeenCalledWith(expect.objectContaining({
+      maxDiffRatio: 0.001,
+    }));
+  });
 });
 
 function reference(viewport: 390 | 768 | 1440, storyUrl: string) {

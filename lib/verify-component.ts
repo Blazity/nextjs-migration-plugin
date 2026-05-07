@@ -22,6 +22,7 @@ export interface VerifyComponentInput {
   name: string;
   references: ComponentReference[];
   diffOutputDir?: string;
+  maxDiffRatio?: number;
 }
 
 export interface VerifyComponentPage {
@@ -90,7 +91,7 @@ export async function verifyComponent(
           refSize: { width: referencePng.width, height: referencePng.height },
           localSize: { width: localPng.width, height: localPng.height },
           exactZeroIsSuspicious: false,
-          maxDiffRatio: 0.01,
+          maxDiffRatio: input.maxDiffRatio ?? 0.01,
         });
         const diffPath = maybeWriteDiff({
           input,
