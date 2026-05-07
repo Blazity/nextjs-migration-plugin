@@ -216,7 +216,7 @@ function pageReferences(
   return references;
 }
 
-async function capturePageScreenshot(args: PageScreenshotCapturerArgs): Promise<void> {
+export async function capturePageScreenshot(args: PageScreenshotCapturerArgs): Promise<void> {
   const { chromium } = await import("@playwright/test");
   const browser = await chromium.launch();
   const page = await browser.newPage();

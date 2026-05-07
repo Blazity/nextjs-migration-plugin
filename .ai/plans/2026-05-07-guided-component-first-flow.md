@@ -563,6 +563,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 10.3 — Approve-page-layout action
 
+- **Status:** Done.
 - **Files to create:** `lib/approve-page-layout.ts`, `test/approve-page-layout.test.ts`
 - **Failing test first:**
   - Given a page report and positive approval, the action: (a) writes `.migration/approvals/pages/<slug>.json` per `PageLayoutApprovalSchema`, (b) captures full-page baselines per viewport, (c) writes matching `ApprovedBaseline` JSON.
