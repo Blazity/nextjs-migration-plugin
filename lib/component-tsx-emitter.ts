@@ -5,6 +5,24 @@ export function sanitizeComponentName(raw: string, fallbackIndex = 0): string {
   return parts.map(p => p[0].toUpperCase() + p.slice(1)).join("");
 }
 
+export type ApprovedNameValidation =
+  | { ok: true }
+  | { ok: false; reason: "implementation name must be semantic PascalCase" };
+
+export function validateApprovedName(name: string): ApprovedNameValidation {
+  if (
+    !/^[A-Z][A-Za-z0-9]*$/.test(name) ||
+    /^(?:Component\d+|Section\d+)$/.test(name) ||
+    /p\d+-s\d+/.test(name)
+  ) {
+    return {
+      ok: false,
+      reason: "implementation name must be semantic PascalCase",
+    };
+  }
+  return { ok: true };
+}
+
 export interface ComponentInput {
   id: string;
   name: string;
