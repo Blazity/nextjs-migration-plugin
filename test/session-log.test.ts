@@ -7,8 +7,6 @@ import { appendSessionLog, ensureSessionLog } from "../lib/session-log.ts";
 const baseSite = {
   sourceUrl: "https://example.com",
   target: "./",
-  mode: "unattended" as const,
-  goal: "pixel-perfect" as const,
   inputMode: "url-only" as const,
   maxParallelPages: 4,
   maxParallelSections: 4,
@@ -27,7 +25,8 @@ describe("session log", () => {
     const contents = readFileSync(migrationLog, "utf8");
     expect(contents).toContain("# Session log");
     expect(contents).toContain("Source URL | https://example.com");
-    expect(contents).toContain("Goal | pixel-perfect");
+    expect(contents).not.toContain("| Mode |");
+    expect(contents).not.toContain("| Goal |");
   });
 
   it("does not overwrite an existing canonical log", () => {

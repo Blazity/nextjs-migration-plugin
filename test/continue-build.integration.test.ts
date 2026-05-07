@@ -8,7 +8,7 @@ import { bootstrapMigration } from "../lib/bootstrap.ts";
 
 const baseSite = (sourceUrl: string) => ({
   sourceUrl, target: "./",
-  mode: "unattended" as const, goal: "wireframe" as const, inputMode: "url-only" as const,
+  inputMode: "url-only" as const,
   maxParallelPages: 4, maxParallelSections: 4,
 });
 
@@ -60,7 +60,7 @@ describe("continue → build end-to-end", () => {
     writeFileSync(join(runDir, "phase-2-analyze/VERIFICATION.md"), "# verified");
     mkdirSync(join(runDir, "phase-3-plan"), { recursive: true });
     writeFileSync(join(runDir, "phase-3-plan/VERIFICATION.md"), "# verified");
-    writeFileSync(join(runDir, "ROADMAP.md"), "---\ngoal: wireframe\n---\n# Roadmap\n");
+    writeFileSync(join(runDir, "ROADMAP.md"), "# Roadmap\n");
     mkdirSync(join(runDir, "phase-4-extract"), { recursive: true });
     writeFileSync(join(runDir, "phase-4-extract/VERIFICATION.md"), "# verified");
     const specDir = join(root, ".migration/pages/home/spec");

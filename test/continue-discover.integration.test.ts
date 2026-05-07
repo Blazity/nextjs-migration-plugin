@@ -38,7 +38,7 @@ describe("continue → discover end-to-end", () => {
       targetDir: root,
       site: {
         sourceUrl: baseUrl + "/", target: "./",
-        mode: "unattended", goal: "wireframe", inputMode: "url-only",
+        inputMode: "url-only",
         maxParallelPages: 4, maxParallelSections: 4,
       },
     });
@@ -50,6 +50,7 @@ describe("continue → discover end-to-end", () => {
             url, matchedAdapters: ["static-html"], recommendation: "DIRECT_EXTRACTION",
             detectedCMP: null, spaAnalysis: { isSPA: false },
           }),
+          confirmPageList: true,
         });
       },
     };

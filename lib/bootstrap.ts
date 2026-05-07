@@ -31,7 +31,7 @@ export async function bootstrapMigration(args: BootstrapArgs): Promise<void> {
 
   writeFileSync(
     join(migrationDir, "runs/001-initial/RUN.md"),
-    `# Run 001 — initial\n\nScope: ${describeInitialScope(site)}\n\nGoal: ${site.goal}\nMode: ${site.mode}\n`,
+    `# Run 001 — initial\n\nScope: ${describeInitialScope(site)}\n`,
   );
 
   writeFileSync(

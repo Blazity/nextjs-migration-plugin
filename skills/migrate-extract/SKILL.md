@@ -38,7 +38,7 @@ Wall-clock: ~3-8 seconds per page, parallelized at `maxParallelPages` (default 4
 
 ## Step 3 — Triage failures
 
-If `verification.json.passed === false`, read `extraction/failures.json` and `pages/[slug]/manifest.json` per page to see which step failed. Common patterns are catalogued in `knowledge/phase-pitfalls/extract.md`. In `attended` mode, surface failures to the user before re-running. In `unattended` mode, log + continue but do NOT auto-confirm.
+If `verification.json.passed === false`, read `extraction/failures.json` and `pages/[slug]/manifest.json` per page to see which step failed. Common patterns are catalogued in `knowledge/phase-pitfalls/extract.md`. Surface failures to the user before re-running; do not silently auto-confirm failed extraction.
 
 ## Step 4 — Optional LLM-side fan-out (large sites only)
 

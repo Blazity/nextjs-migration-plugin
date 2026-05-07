@@ -1,29 +1,27 @@
 # Phase 3 (Plan) — pitfalls
 
-## Algorithmic pass vs LLM refinement — dual-mode
+## Algorithmic pass vs LLM refinement
 
-`lib/plan.ts` runs the **algorithmic build-order computation only**: read library + crawl + SITE.md → topologically sort layouts → components → pages → polish (when pixel-perfect) → write `ROADMAP.md` with placeholder names. Output passes the schema gate but components carry the same placeholder names that survived `/migrate:analyze` (e.g., `Div`, `Section`, `ContentSection`).
+`lib/plan.ts` runs the algorithmic build-order computation only: read library + crawl + SITE.md, topologically sort layouts → components → pages, write `ROADMAP.md` with placeholder names. Output can pass the schema gate while components still carry placeholder names that survived `/migrate:analyze` (for example, `Div`, `Section`, `ContentSection`).
 
-The two sub-agents (`migration-planner`, `plan-checker`) refine the roadmap. They are **dispatched by the `/migrate:plan` skill**, not invoked by `lib/plan.ts`. The skill flow is:
+The two sub-agents (`migration-planner`, `plan-checker`) refine the roadmap. They are dispatched by the `/migrate:plan` recovery skill, not invoked by `lib/plan.ts`. The skill flow is:
 
 1. `tsx lib/plan.ts ...` — algorithmic pass (writes `ROADMAP.md` + phase artifacts)
-2. Skill dispatches `migration-planner` to refine names + add `dependsOn` + populate `resolvedQuestions`
-3. Skill dispatches `plan-checker` to goal-backward-review the refined roadmap
-4. Skill collects user approval (attended) or auto-confirms (unattended)
-5. `tsx lib/plan.ts ... --refine-only --confirm-roadmap` — re-runs the gate
+2. Skill dispatches `migration-planner` to refine names, add evidence-backed `dependsOn`, and populate `resolvedQuestions`
+3. Skill dispatches `plan-checker` to review the refined roadmap
+4. `tsx lib/plan.ts ... --refine-only` — re-runs the deterministic gate
 
-`/migrate:continue` MUST route phase-3 to the `/migrate:plan` skill in attended mode. In unattended mode the algorithmic dispatcher is sufficient (the user-approval criterion auto-confirms) but skipping the skill means inferior names ship to Phase 5.
+`/migrate:continue` may route phase-3 to the `/migrate:plan` skill when roadmap refinement is useful. The algorithmic dispatcher is enough for recovery-only schema verification, but skipping the skill means inferior names can ship to later phases.
 
 ## Build-order semantics
 
-- **Layouts always sort before components.** Pages depend on every layout shell + every component (v1 conservative model). If layouts.json has all-null slots, that's fine — buildOrder simply omits the layout entries and pages depend on components only.
+- **Layouts always sort before components.** Pages depend on every layout shell + every component. If layouts.json has all-null slots, that's fine — buildOrder simply omits the layout entries and pages depend on components only.
 - **Components are alphabetized by name** in v1. Once `migration-planner` learns to detect inter-component dependencies (`CaseStudyGrid` renders `CaseStudyCard`), the order becomes a real topological sort. The schema accepts this — `dependsOn` is already array-typed.
-- **Pages depend on EVERYTHING.** A page entry's `dependsOn` lists every layout-shell id and every component id. This is intentional v1 conservatism — it guarantees Phase 5 builds shells + components first, regardless of which page actually renders which. v2 may narrow per-page deps using `pages/[slug]/component-usage.json` from Phase 4.
-- **Polish entries depend on their page.** A `polish:<sourceUrl>` entry depends only on the page id, not on every component. This means polish for Page A can run in parallel with polish for Page B once both pages are built.
+- **Pages depend on EVERYTHING.** A page entry's `dependsOn` lists every layout-shell id and every component id. This is intentional recovery-path conservatism — it guarantees later phases build shells + components first, regardless of which page actually renders which.
 
 ## Cycle detection
 
-- **`detectCycles` ignores unknown ids.** A `dependsOn` entry whose id is not in the build-order is silently dropped — it cannot create a cycle. This is by design: Phase 4+ may add post-hoc dependencies via `notes` references that mention historical ids (e.g., resolved variants from a delta run). Cycles only fire among ids actually present.
+- **`detectCycles` ignores unknown ids.** A `dependsOn` entry whose id is not in the build-order is silently dropped — it cannot create a cycle. This is by design: later phases may add post-hoc dependencies via `notes` references that mention historical ids.
 - **`acyclic` is a hard gate.** No `passed: true` if any cycle exists. The script outputs the cycle as `id-A -> id-B -> id-A` in `verification.json.criteria[].detail` so the user can hand-edit ROADMAP.md.
 
 ## ROADMAP.md location quirk
@@ -37,10 +35,9 @@ Per spec § 4, `ROADMAP.md` lives at `runs/<runDir>/ROADMAP.md` (run top level),
 ## Gate criteria
 
 - **`every page in crawl.json has an entry in routes.json`** — re-checks the same gate criterion from Phase 2 because the user may have hand-edited `routes.json` between Phase 2 and Phase 3. Catches that drift.
-- **`every component has a build-order entry`** — fails when `lib/build-order.ts` skipped a component. Should never fail in v1 (the algorithm enumerates every entry); fails if a future change adds filtering.
+- **`every component has a build-order entry`** — fails when `lib/build-order.ts` skipped a component. Should never fail in v1 because the algorithm enumerates every entry.
 - **`every non-null layout slot has a build-order entry`** — same shape as the components check, scoped to layouts.
 - **`build-order is acyclic`** — hard gate, see above.
-- **`user approved the roadmap`** — auto-pass in unattended; requires explicit `confirmRoadmap` in attended. The `/migrate:plan` skill's user-prompt step is what closes this gate.
 
 ## Open issues that may surface
 

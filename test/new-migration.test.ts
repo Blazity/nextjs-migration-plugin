@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { mkdtempSync, existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runNewMigration } from "../lib/new-migration.ts";
+import { parseNewMigrationArgs, runNewMigration } from "../lib/new-migration.ts";
 
 describe("runNewMigration", () => {
   it("creates .migration/ with correct frontmatter from args", async () => {
@@ -10,18 +10,18 @@ describe("runNewMigration", () => {
     await runNewMigration({
       sourceUrl: "https://example.com",
       targetDir: target,
-      mode: "attended",
-      goal: "pixel-perfect",
       inputMode: "url-only",
     });
     const site = readFileSync(join(target, ".migration/SITE.md"), "utf8");
     expect(site).toContain("sourceUrl: https://example.com");
-    expect(site).toContain("goal: pixel-perfect");
+    expect(site).not.toContain("mode:");
+    expect(site).not.toContain("goal:");
 
     const sessionLog = readFileSync(join(target, ".migration/SESSION_LOG.md"), "utf8");
     expect(sessionLog).toContain("# Session log");
     expect(sessionLog).toContain("Source URL | https://example.com");
-    expect(sessionLog).toContain("Goal | pixel-perfect");
+    expect(sessionLog).not.toContain("| Mode |");
+    expect(sessionLog).not.toContain("| Goal |");
     expect(existsSync(join(target, "SESSION-LOG.md"))).toBe(false);
   });
 
@@ -30,8 +30,6 @@ describe("runNewMigration", () => {
     await runNewMigration({
       sourceUrl: "https://example.com",
       targetDir: target,
-      mode: "attended",
-      goal: "pixel-perfect",
       inputMode: "url-plus-repo",
       sourceRepo: "/tmp/source-repo",
     });
@@ -45,11 +43,9 @@ describe("runNewMigration", () => {
     await runNewMigration({
       sourceUrl: "https://example.com",
       targetDir: target,
-      mode: "attended",
-      goal: "pixel-perfect",
       inputMode: "url-only",
       initialPageSelection: ["/", "/about"],
-    } as Parameters<typeof runNewMigration>[0] & { initialPageSelection: string[] });
+    });
 
     const site = readFileSync(join(target, ".migration/SITE.md"), "utf8");
     expect(site).toContain('initialPageSelection: ["/","/about"]');
@@ -63,16 +59,28 @@ describe("runNewMigration", () => {
     await runNewMigration({
       sourceUrl: "https://example.com",
       targetDir: target,
-      mode: "attended",
-      goal: "pixel-perfect",
       inputMode: "url-only",
     });
     await expect(runNewMigration({
       sourceUrl: "https://example.com",
       targetDir: target,
-      mode: "attended",
-      goal: "pixel-perfect",
       inputMode: "url-only",
     })).rejects.toThrow();
+  });
+});
+
+describe("parseNewMigrationArgs", () => {
+  it("ignores --mode and --goal flags if passed (no-op, deprecated)", () => {
+    const args = parseNewMigrationArgs([
+      "--url",
+      "https://example.com",
+      "--mode",
+      "unattended",
+      "--goal",
+      "wireframe",
+    ]);
+
+    expect(args).not.toHaveProperty("mode");
+    expect(args).not.toHaveProperty("goal");
   });
 });

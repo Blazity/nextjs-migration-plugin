@@ -21,11 +21,12 @@ Normal workflow
 1. Start: /migrate:new <url>
 2. Continue: /migrate:continue
 3. Check progress: /migrate:status
-4. Re-run a gate when needed: /migrate:verify [phase]
 
 Most users should use /migrate:continue after the initial setup. It finds the first incomplete phase and routes to the right runner.
 
-Explicit phase commands
+Recovery tools
+The explicit phase commands are advanced recovery tools, not the normal product workflow.
+
 - Phase 1 Discover: /migrate:discover crawls the source site and probes platform/adapters.
 - Phase 2 Analyze: /migrate:analyze builds route, layout, component, and prop libraries.
 - Phase 3 Plan: /migrate:plan creates and verifies the migration roadmap.
@@ -34,14 +35,8 @@ Explicit phase commands
 - Phase 6 Visual Polish: /migrate:polish [slug|--all] improves visual parity with live browser agents.
 - Phases 7-8 Animate/Perf: planned follow-up phases for animation parity and 90+ PageSpeed.
 
-Useful controls
-- /migrate:config mode attended|unattended controls whether the workflow pauses for user approval.
-- /migrate:config goal wireframe|pixel-perfect controls whether the migration stops after Build or continues through polish.
-- /migrate:config maxParallelPages <number> tunes per-page concurrency for heavier phases.
-
-Goal presets
-- wireframe: complete through Phase 5 Build for a useful structured migration.
-- pixel-perfect: continue through Phase 6 Visual after Build; animation and performance polish remain follow-up phases.
+Advanced settings
+- Threshold and concurrency settings are advanced state. /migrate:status displays current settings, and you can ask in chat to change them when needed.
 ```
 
 Keep the help static even if a local migration exists. Only the final paragraph should depend on local state.

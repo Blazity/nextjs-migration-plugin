@@ -16,8 +16,6 @@ export const RoadmapItemSchema = z.object({
 });
 
 export const RoadmapSchema = z.object({
-  goal: z.enum(["wireframe", "pixel-perfect"]),
-  mode: z.enum(["attended", "unattended"]),
   buildOrder: z.array(RoadmapItemSchema).min(1),
   parallelism: z.object({
     maxParallelPages: z.number().int().positive(),

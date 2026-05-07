@@ -1,11 +1,11 @@
 ---
 name: migrate-config
-description: Update a single config key in SITE.md.
+description: Advanced recovery command for updating a supported SITE.md setting.
 ---
 
 # /migrate:config <key> <value>
 
-Update a single config value. Valid keys: `mode`, `goal`, `inputMode`, `sourceRepo`, `maxParallelPages`, `maxParallelSections`.
+Update a single advanced config value. Valid keys: `inputMode`, `sourceRepo`, `initialPageSelection`, `maxParallelPages`, `maxParallelSections`.
 
 ## Step 1 — Invoke
 

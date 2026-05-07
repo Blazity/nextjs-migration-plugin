@@ -11,8 +11,6 @@ export function ensureSessionLog(args: { targetDir: string; site: SiteFrontmatte
     ["Created", new Date().toISOString()],
     ["Source URL", site.sourceUrl],
     ["Target dir", `\`${args.targetDir}\``],
-    ["Mode", site.mode],
-    ["Goal", site.goal],
     ["Input mode", site.inputMode],
     ["Initial pages", site.initialPageSelection.join(", ")],
   ];

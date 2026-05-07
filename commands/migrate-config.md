@@ -1,6 +1,6 @@
 ---
 name: migrate:config
-description: Update a config value in .migration/SITE.md (mode, goal, parallelism).
+description: Advanced recovery command for editable .migration/SITE.md settings.
 arguments:
   - name: key
     required: true

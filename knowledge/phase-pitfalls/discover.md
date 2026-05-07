@@ -16,6 +16,6 @@
 
 ## Gate
 
-- **Unattended mode auto-confirms the page list but NOT ABORTs.** This is intentional. ABORT pages need an explicit user decision the first time; subsequent runs use the recorded confirmation.
+- **Page-list confirmation is no longer a gate.** Initial page scope comes from onboarding state or explicit include-url recovery reruns. ABORT pages still need an explicit user decision the first time; subsequent runs use the recorded confirmation.
 - **`VERIFICATION.md` is never written when `passed: false`.** The presence of `VERIFICATION.md` is the system's only signal that the gate passed; do not write it by hand.
 - **`verification.json` is always written.** Even on fail. That's where you read failed-criteria detail from.

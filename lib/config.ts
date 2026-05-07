@@ -9,6 +9,7 @@ import { stringifyFrontmatter } from "./frontmatter.ts";
 const LOCKED_KEYS = new Set(["sourceUrl", "target"]);
 
 export const NUMERIC_KEYS = new Set(["maxParallelPages", "maxParallelSections"]);
+const ARRAY_KEYS = new Set(["initialPageSelection"]);
 export const ALLOWED_KEYS = new Set(
   Object.keys(SiteFrontmatterSchema.shape).filter(k => !LOCKED_KEYS.has(k)),
 );
@@ -21,7 +22,7 @@ export async function setConfig(targetDir: string, key: string, value: string): 
   const contents = readFileSync(sitePath, "utf8");
   const parsed = matter(contents);
 
-  const next = { ...parsed.data, [key]: NUMERIC_KEYS.has(key) ? Number(value) : value };
+  const next = { ...parsed.data, [key]: parseConfigValue(key, value) };
   const validation = SiteFrontmatterSchema.safeParse(next);
   if (!validation.success) {
     throw new Error(`Invalid value for ${key}: ${validation.error.issues.map(i => i.message).join("; ")}`);
@@ -32,6 +33,14 @@ export async function setConfig(targetDir: string, key: string, value: string): 
     parsed.content,
   );
   writeFileSync(sitePath, updated);
+}
+
+function parseConfigValue(key: string, value: string): unknown {
+  if (NUMERIC_KEYS.has(key)) return Number(value);
+  if (ARRAY_KEYS.has(key)) {
+    return value.split(",").map(entry => entry.trim()).filter(Boolean);
+  }
+  return value;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

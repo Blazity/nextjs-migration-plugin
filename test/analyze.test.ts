@@ -35,7 +35,7 @@ afterAll(() => new Promise<void>(r => server.close(() => r())));
 
 const baseSite = (sourceUrl: string) => ({
   sourceUrl, target: "./",
-  mode: "unattended" as const, goal: "wireframe" as const, inputMode: "url-only" as const,
+  inputMode: "url-only" as const,
   maxParallelPages: 4, maxParallelSections: 4,
 });
 

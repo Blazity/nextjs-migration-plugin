@@ -8,16 +8,9 @@ import { bootstrapMigration } from "../lib/bootstrap.ts";
 const baseSite = {
   sourceUrl: "https://example.com",
   target: "./",
-  mode: "unattended" as const,
-  goal: "wireframe" as const,
   inputMode: "url-only" as const,
   maxParallelPages: 4,
   maxParallelSections: 4,
-};
-
-const pixelPerfectSite = {
-  ...baseSite,
-  goal: "pixel-perfect" as const,
 };
 
 describe("resumeMigration", () => {
@@ -40,7 +33,7 @@ describe("resumeMigration", () => {
     expect(dispatched).toEqual(["phase-1-discover"]);
   });
 
-  it("returns { kind: 'all-done' } when wireframe goal phases 1-5 are all verified", async () => {
+  it("continues to phase-6-visual after Phase 5 in the single guided flow", async () => {
     const target = mkdtempSync(join(tmpdir(), "cont-"));
     await bootstrapMigration({ targetDir: target, site: baseSite });
     const run = join(target, ".migration/runs/001-initial");
@@ -50,12 +43,13 @@ describe("resumeMigration", () => {
       writeFileSync(join(run, p, "VERIFICATION.md"), "# verified");
     }
     const result = await resumeMigration(target, {});
-    expect(result.kind).toBe("all-done");
+    expect(result.kind).toBe("no-dispatcher");
+    if (result.kind === "no-dispatcher") expect(result.phase).toBe("phase-6-visual");
   });
 
-  it("dispatches phase-6-visual after Phase 5 when goal is pixel-perfect", async () => {
+  it("dispatches phase-6-visual after Phase 5", async () => {
     const target = mkdtempSync(join(tmpdir(), "cont-"));
-    await bootstrapMigration({ targetDir: target, site: pixelPerfectSite });
+    await bootstrapMigration({ targetDir: target, site: baseSite });
     const run = join(target, ".migration/runs/001-initial");
     for (const p of ["phase-1-discover", "phase-2-analyze", "phase-3-plan",
                      "phase-4-extract", "phase-5-build"]) {
@@ -76,7 +70,7 @@ describe("resumeMigration", () => {
 
   it("resumes an active polish run at phase-6-visual instead of phase-1-discover", async () => {
     const target = mkdtempSync(join(tmpdir(), "cont-"));
-    await bootstrapMigration({ targetDir: target, site: pixelPerfectSite });
+    await bootstrapMigration({ targetDir: target, site: baseSite });
     const polishRun = join(target, ".migration/runs/002-polish-all");
     mkdirSync(polishRun, { recursive: true });
     writeFileSync(join(polishRun, "RUN.md"), "# Run 002 — polish all\n\nRun type: polish\nScope key: all\n");
@@ -95,7 +89,7 @@ describe("resumeMigration", () => {
 
   it("reports phase-7-animate pending after an active polish run verifies Phase 6", async () => {
     const target = mkdtempSync(join(tmpdir(), "cont-"));
-    await bootstrapMigration({ targetDir: target, site: pixelPerfectSite });
+    await bootstrapMigration({ targetDir: target, site: baseSite });
     const polishRun = join(target, ".migration/runs/002-polish-all");
     mkdirSync(join(polishRun, "phase-6-visual"), { recursive: true });
     writeFileSync(join(polishRun, "RUN.md"), "# Run 002 — polish all\n\nRun type: polish\nScope key: all\n");

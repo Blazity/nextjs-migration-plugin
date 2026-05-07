@@ -1,6 +1,6 @@
 ---
 name: migrate:build
-description: Run Phase 5 (Build) — generate Next.js TSX, run next build, verify against the source homepage.
+description: Recovery tool: run Phase 5 (Build) — generate Next.js TSX, run next build, verify against the source homepage.
 argument-hint: "[--refine]"
 ---
 

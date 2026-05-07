@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getStatus } from "../lib/status.ts";
@@ -8,8 +8,6 @@ import { bootstrapMigration } from "../lib/bootstrap.ts";
 const baseSite = {
   sourceUrl: "https://example.com",
   target: "./",
-  mode: "attended" as const,
-  goal: "pixel-perfect" as const,
   inputMode: "url-only" as const,
   maxParallelPages: 4,
   maxParallelSections: 4,
@@ -29,9 +27,19 @@ describe("getStatus", () => {
     expect(status.initialized).toBe(true);
     if (status.initialized) {
       expect(status.site.sourceUrl).toBe("https://example.com");
+      expect("mode" in status.site).toBe(false);
+      expect("goal" in status.site).toBe(false);
       expect(status.activeRun).toBe("001-initial");
       expect(status.completedPhases).toEqual([]);
     }
+  });
+
+  it("does not document Mode or Goal in the status summary", () => {
+    const skill = readFileSync(join(process.cwd(), "skills/migrate-status/SKILL.md"), "utf8");
+    expect(skill).not.toContain("Mode:");
+    expect(skill).not.toContain("Goal:");
+    expect(skill).not.toContain("[mode]");
+    expect(skill).not.toContain("[goal]");
   });
 
   it("reports completedPhases based on VERIFICATION.md presence", async () => {

@@ -1,14 +1,12 @@
 import type { Layouts } from "../schemas/layouts.ts";
 import type { Components } from "../schemas/components.ts";
 import type { Routes } from "../schemas/routes.ts";
-import type { SiteFrontmatter } from "../schemas/site.ts";
 import type { RoadmapItem } from "../schemas/roadmap.ts";
 
 export interface BuildOrderInput {
   layouts: Layouts;
   components: Components;
   routes: Routes;
-  goal: SiteFrontmatter["goal"];
 }
 
 export function buildOrder(input: BuildOrderInput): RoadmapItem[] {
@@ -47,18 +45,6 @@ export function buildOrder(input: BuildOrderInput): RoadmapItem[] {
       name: r.nextRoute,
       dependsOn: [...foundationIds],
     });
-  }
-
-  // 4. Polish — only when goal is pixel-perfect; one entry per page.
-  if (input.goal === "pixel-perfect") {
-    for (const r of input.routes.routes) {
-      items.push({
-        kind: "polish",
-        id: `polish:${r.sourceUrl}`,
-        name: `polish ${r.nextRoute}`,
-        dependsOn: [r.sourceUrl],
-      });
-    }
   }
 
   return items;

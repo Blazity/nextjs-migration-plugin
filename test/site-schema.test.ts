@@ -1,12 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { SiteFrontmatterSchema } from "../schemas/site.ts";
+import { SiteFrontmatterSchema, type SiteFrontmatter } from "../schemas/site.ts";
+
+type LegacySiteKeys = "mode" | "goal";
+type Assert<T extends true> = T;
+type SiteFrontmatterHasNoLegacyKeys = Assert<
+  Extract<keyof SiteFrontmatter, LegacySiteKeys> extends never ? true : false
+>;
 
 describe("SiteFrontmatterSchema", () => {
   const minimal = {
     sourceUrl: "https://example.com",
     target: "./",
-    mode: "attended",
-    goal: "pixel-perfect",
     inputMode: "url-only",
   };
 
@@ -21,8 +25,12 @@ describe("SiteFrontmatterSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects invalid mode enum", () => {
-    const result = SiteFrontmatterSchema.safeParse({ ...minimal, mode: "weird" });
+  it("rejects unknown legacy keys 'mode' and 'goal'", () => {
+    const result = SiteFrontmatterSchema.safeParse({
+      ...minimal,
+      mode: "attended",
+      goal: "wireframe",
+    });
     expect(result.success).toBe(false);
   });
 
@@ -40,10 +48,13 @@ describe("SiteFrontmatterSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("defaults maxParallelPages and maxParallelSections to 4", () => {
+  it("parses a minimal site with only sourceUrl, target, and inputMode", () => {
     const result = SiteFrontmatterSchema.safeParse(minimal);
     expect(result.success).toBe(true);
     if (result.success) {
+      expect("mode" in result.data).toBe(false);
+      expect("goal" in result.data).toBe(false);
+      expect(result.data.initialPageSelection).toEqual(["all"]);
       expect(result.data.maxParallelPages).toBe(4);
       expect(result.data.maxParallelSections).toBe(4);
     }

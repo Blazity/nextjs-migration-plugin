@@ -55,7 +55,7 @@ describe("continue → analyze end-to-end", () => {
       targetDir: root,
       site: {
         sourceUrl: baseUrl + "/", target: "./",
-        mode: "unattended", goal: "wireframe", inputMode: "url-only",
+        inputMode: "url-only",
         maxParallelPages: 4, maxParallelSections: 4,
       },
     });

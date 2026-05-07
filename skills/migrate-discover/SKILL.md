@@ -1,6 +1,6 @@
 ---
 name: migrate-discover
-description: Run Phase 1 (Discover) — crawl the source URL, probe each page, gate on user confirmation + adapter matches.
+description: Run Phase 1 (Discover) — crawl the source URL, probe each page, gate on adapter matches.
 ---
 
 # /migrate:discover
@@ -19,9 +19,9 @@ Dispatch the `site-crawler` agent with:
 - `targetDir` = `${PWD}`
 - `runDir` = the active run dir name (latest under `.migration/runs/`, default `001-initial`)
 
-The agent owns: running the script, reading verification.json, asking the page-list and ABORT confirmations in attended mode, re-running with `--reuse-crawl` + `--include-urls` (when the user picks or refines a subset) + `--confirm-page-list` / `--confirm-aborts`, and dispatching `state-repairer` on Zod failures.
+The agent owns: running the script, reading verification.json, asking for ABORT confirmations when needed, re-running with `--reuse-crawl` + `--include-urls` when the user picks or refines a subset, re-running with `--confirm-aborts` when the user accepts ABORT pages, and dispatching `state-repairer` on Zod failures.
 
-If `SITE.md` has `initialPageSelection` other than `["all"]`, `lib/discover.ts` applies that onboarding scope during the first pass before probing. In attended mode the agent then renders the resulting numbered URL list and asks the user to confirm or refine the subset (`all`, indices like `1,3,5`, ranges like `2-7`). The selection is enforced by `lib/discover.ts` filtering `crawl.json` and re-running probe on the subset only. In unattended mode the scoped page list auto-confirms.
+If `SITE.md` has `initialPageSelection` other than `["all"]`, `lib/discover.ts` applies that onboarding scope during the first pass before probing. If the user asks to refine the page subset, render the numbered URL list and re-run with `--reuse-crawl` plus `--include-urls`. The selection is enforced by `lib/discover.ts` filtering `crawl.json` and re-running probe on the subset only.
 
 ## Step 3 — Report
 

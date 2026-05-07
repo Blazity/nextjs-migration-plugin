@@ -26,7 +26,13 @@ describe("migrate-help skill", () => {
     expect(skill.content).toContain("/migrate:continue");
     expect(skill.content).toContain("/migrate:status");
     expect(skill.content).toContain("Phase 1");
+    expect(skill.content).toContain("Recovery tools");
+    expect(skill.content).toContain("advanced recovery tools, not the normal product workflow");
     expect(skill.content).toContain("Context-aware final paragraph");
     expect(skill.content).toContain("No migration in this directory");
+    expect(skill.content).not.toContain("/migrate:config");
+    expect(skill.content).not.toContain("mode attended|unattended");
+    expect(skill.content).not.toContain("goal wireframe|pixel-perfect");
+    expect(skill.content).not.toContain("Goal presets");
   });
 });

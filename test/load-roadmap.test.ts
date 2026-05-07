@@ -9,14 +9,10 @@ function tempRoadmapMd(frontmatterJson: object, body: string): string {
   const path = join(dir, "ROADMAP.md");
   const fm = ["---"];
   const fmJson = frontmatterJson as {
-    goal: string;
-    mode: string;
     generatedAt: string;
     parallelism: { maxParallelPages: number; maxParallelSections: number };
     buildOrder: Array<{ kind: string; id: string; name: string; dependsOn?: string[] }>;
   };
-  fm.push(`goal: ${fmJson.goal}`);
-  fm.push(`mode: ${fmJson.mode}`);
   fm.push(`generatedAt: "${fmJson.generatedAt}"`);
   fm.push("parallelism:");
   fm.push(`  maxParallelPages: ${fmJson.parallelism.maxParallelPages}`);
@@ -37,8 +33,6 @@ function tempRoadmapMd(frontmatterJson: object, body: string): string {
 describe("loadRoadmap", () => {
   it("returns { valid: true } for a valid ROADMAP.md", () => {
     const path = tempRoadmapMd({
-      goal: "wireframe",
-      mode: "unattended",
       generatedAt: "2026-05-01T12:00:00.000Z",
       parallelism: { maxParallelPages: 4, maxParallelSections: 4 },
       buildOrder: [
@@ -48,7 +42,8 @@ describe("loadRoadmap", () => {
     const result = loadRoadmap(path);
     expect(result.valid).toBe(true);
     if (result.valid) {
-      expect(result.data.goal).toBe("wireframe");
+      expect("goal" in result.data).toBe(false);
+      expect("mode" in result.data).toBe(false);
       expect(result.data.buildOrder).toHaveLength(1);
     }
   });
@@ -56,7 +51,7 @@ describe("loadRoadmap", () => {
   it("returns { valid: false } for invalid frontmatter", () => {
     const dir = mkdtempSync(join(tmpdir(), "roadmap-load-"));
     const path = join(dir, "ROADMAP.md");
-    writeFileSync(path, "---\ngoal: weird\n---\nbody\n");
+    writeFileSync(path, "---\ngeneratedAt: today\n---\nbody\n");
     const result = loadRoadmap(path);
     expect(result.valid).toBe(false);
   });

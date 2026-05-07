@@ -11,7 +11,9 @@ describe("loadSite", () => {
     expect(result.valid).toBe(true);
     if (result.valid) {
       expect(result.site.sourceUrl).toBe("https://example.com");
-      expect(result.site.mode).toBe("attended");
+      expect("mode" in result.site).toBe(false);
+      expect("goal" in result.site).toBe(false);
+      expect(result.site.initialPageSelection).toEqual(["all"]);
       expect(result.body.trim().startsWith("# example.com migration")).toBe(true);
     }
   });

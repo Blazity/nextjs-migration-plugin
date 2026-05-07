@@ -16,7 +16,7 @@ You decide whether a phase's gate is satisfied. You operate per spec § 5 — ea
 
 | Phase | Criteria |
 |---|---|
-| phase-1-discover | crawl.json valid; probe.json valid; every page has matched adapter or explicit ABORT_NO_ADAPTER user-confirmed; user confirmed page list (unless mode: unattended) |
+| phase-1-discover | crawl.json valid; probe.json valid; every page has matched adapter or explicit ABORT_NO_ADAPTER user-confirmed |
 | phase-2-analyze | (Plan 3) |
 | phase-3-plan | (Plan 3) |
 | phase-4-extract | (Plan 4) |

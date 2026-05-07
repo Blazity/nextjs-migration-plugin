@@ -7,7 +7,7 @@ import { bootstrapMigration } from "../lib/bootstrap.ts";
 
 const baseSite = (sourceUrl: string) => ({
   sourceUrl, target: "./",
-  mode: "attended" as const, goal: "wireframe" as const, inputMode: "url-only" as const,
+  inputMode: "url-only" as const,
   maxParallelPages: 4, maxParallelSections: 4,
 });
 
@@ -61,7 +61,7 @@ function writePhase2Library(targetDir: string, urls: string[]) {
 }
 
 describe("runPlanRefineOnly", () => {
-  it("flips the user-approved criterion when called with confirmRoadmap=true after a failing first pass", async () => {
+  it("re-verifies an already-written roadmap without a user approval criterion", async () => {
     const root = mkdtempSync(join(tmpdir(), "plan-refine-"));
     await bootstrapMigration({ targetDir: root, site: baseSite("https://example.com/") });
     const urls = ["https://example.com/"];
@@ -71,10 +71,11 @@ describe("runPlanRefineOnly", () => {
     await runPlan({ targetDir: root, runDir: "001-initial" });
     const phaseDir = join(root, ".migration/runs/001-initial/phase-3-plan");
     let v = JSON.parse(readFileSync(join(phaseDir, "verification.json"), "utf8"));
-    expect(v.passed).toBe(false);
-    expect(existsSync(join(phaseDir, "VERIFICATION.md"))).toBe(false);
+    expect(v.passed).toBe(true);
+    expect(v.criteria.find((c: { name: string }) => c.name.includes("user approved"))).toBeUndefined();
+    expect(existsSync(join(phaseDir, "VERIFICATION.md"))).toBe(true);
 
-    await runPlanRefineOnly({ targetDir: root, runDir: "001-initial", confirmRoadmap: true });
+    await runPlanRefineOnly({ targetDir: root, runDir: "001-initial" });
     v = JSON.parse(readFileSync(join(phaseDir, "verification.json"), "utf8"));
     expect(v.passed).toBe(true);
     expect(existsSync(join(phaseDir, "VERIFICATION.md"))).toBe(true);
@@ -91,7 +92,7 @@ describe("runPlanRefineOnly", () => {
     const roadmapPath = join(root, ".migration/runs/001-initial/ROADMAP.md");
     const before = readFileSync(roadmapPath, "utf8");
 
-    await runPlanRefineOnly({ targetDir: root, runDir: "001-initial", confirmRoadmap: true });
+    await runPlanRefineOnly({ targetDir: root, runDir: "001-initial" });
     const after = readFileSync(roadmapPath, "utf8");
     expect(after).toBe(before);
   });

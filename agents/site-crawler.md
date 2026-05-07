@@ -11,7 +11,7 @@ You are running Phase 1 (Discover) of a Next.js migration. Your goal is to produ
 
 - **Target directory** — the user project root (parent of `.migration/`).
 - **Active run** — e.g., `001-initial` (already created by `/migrate:new`).
-- **SITE.md** — read `${target}/.migration/SITE.md` for `sourceUrl`, `mode`, `goal`, and `initialPageSelection`.
+- **SITE.md** — read `${target}/.migration/SITE.md` for `sourceUrl` and `initialPageSelection`.
 
 ## Tools
 
@@ -23,7 +23,7 @@ tsx ${PLUGIN_DIR}/lib/discover.ts \
   --run "${RUN_DIR}"
 ```
 
-Add `--confirm-page-list` and/or `--confirm-aborts` only after you have explicit user confirmation (see below).
+Add `--confirm-aborts` only after you have explicit user confirmation (see below).
 
 To restrict downstream phases to a user-selected subset of crawled URLs, re-run with:
 
@@ -31,8 +31,7 @@ To restrict downstream phases to a user-selected subset of crawled URLs, re-run 
 tsx ${PLUGIN_DIR}/lib/discover.ts \
   --target "${TARGET_DIR}" --run "${RUN_DIR}" \
   --reuse-crawl \
-  --include-urls "https://example.com/,https://example.com/about" \
-  --confirm-page-list
+  --include-urls "https://example.com/,https://example.com/about"
 ```
 
 `--reuse-crawl` skips the network crawl and reads the existing `crawl.json`. `--include-urls` is a comma-separated list of URLs to KEEP — pages not listed are dropped from `crawl.json` and never probed.
@@ -53,21 +52,11 @@ If `SITE.md` has `initialPageSelection` other than `["all"]`, the script applies
 
 ### 2. Read the verification.json to find what's blocking the gate
 
-The two gate criteria you may need to clear are:
+The gate criterion you may need to clear is:
 
 - **`every page has matched adapter or confirmed ABORT`** — failed if any page has `recommendation: "ABORT_NO_ADAPTER"` and the user has not yet confirmed. List those URLs to the user, briefly explain why each was unmatched (drawn from `probe.json[].matchedAdapters` length 0 + `detectedCMP` + `isSPA`), and ask: "Skip these N pages? (yes / no — provide an adapter name)".
-- **`user confirmed page list`** — in attended mode this requires explicit user confirmation AND optional subset refinement. Print the discovered page list as a numbered list (`1. /path  (slug, depth N)`) and ask:
 
-  > "Migrate which pages?
-  > - `all` — accept the full list
-  > - `1,3,5` — pick by index (comma-separated)
-  > - `2-7` — range
-  > - `2-7,10` — mixed
-  > Reply with one of the above."
-
-  Resolve the response to a list of URLs. If `all`, no filter is needed. Otherwise build a comma-separated URL list and pass it via `--include-urls "<url1>,<url2>,..."` on the next invocation, together with `--reuse-crawl` to skip re-crawling and `--confirm-page-list` to clear the gate.
-
-In **unattended mode**, the page-list gate auto-confirms; you only need to handle ABORT pages by accepting the default (skip) and noting it in `EXECUTION.md`.
+If the user asks to refine the page subset, print the discovered page list as a numbered list (`1. /path  (slug, depth N)`) and ask them to pick `all`, comma-separated indices, or ranges. Resolve the response to a list of URLs. If `all`, no filter is needed. Otherwise build a comma-separated URL list and pass it via `--include-urls "<url1>,<url2>,..."` on the next invocation, together with `--reuse-crawl` to skip re-crawling.
 
 ### 3. Re-run with confirmation flags
 
@@ -78,7 +67,6 @@ tsx ${PLUGIN_DIR}/lib/discover.ts \
   --target "${TARGET_DIR}" --run "${RUN_DIR}" \
   --reuse-crawl \
   --include-urls "https://x.com/,https://x.com/about"  \  # only when user picked a subset
-  --confirm-page-list \
   --confirm-aborts        # only if user said skip ABORT pages
 ```
 
@@ -98,5 +86,4 @@ If `loadCrawl` or `loadProbe` returns `valid: false`, the lib raises `Unrepairab
 
 - Modify SITE.md
 - Write to any `phase-N-*` other than phase-1-discover
-- Skip the page-list gate in attended mode without user input
 - Invoke any other phase

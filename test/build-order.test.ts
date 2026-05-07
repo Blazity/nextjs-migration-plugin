@@ -57,7 +57,6 @@ describe("buildOrder", () => {
       layouts: baseLayouts,
       components: baseComponents,
       routes: baseRoutes,
-      goal: "wireframe",
     });
     const kinds = items.map(i => i.kind);
     expect(kinds.filter(k => k === "layout")).toHaveLength(1);
@@ -71,7 +70,6 @@ describe("buildOrder", () => {
       layouts: baseLayouts,
       components: baseComponents,
       routes: baseRoutes,
-      goal: "wireframe",
     });
     const componentNames = items.filter(i => i.kind === "component").map(i => i.name);
     expect(componentNames).toEqual(["CaseStudyCard", "Hero"]);
@@ -82,7 +80,6 @@ describe("buildOrder", () => {
       layouts: baseLayouts,
       components: baseComponents,
       routes: baseRoutes,
-      goal: "wireframe",
     });
     const firstPageIdx = items.findIndex(i => i.kind === "page");
     let lastNonPageIdx = -1;
@@ -98,7 +95,6 @@ describe("buildOrder", () => {
       layouts: baseLayouts,
       components: baseComponents,
       routes: baseRoutes,
-      goal: "wireframe",
     });
     const allFoundationIds = new Set(
       items.filter(i => i.kind === "layout" || i.kind === "component").map(i => i.id),
@@ -111,24 +107,11 @@ describe("buildOrder", () => {
     }
   });
 
-  it("emits one polish entry per page when goal is pixel-perfect", () => {
+  it("does not emit goal-driven polish entries", () => {
     const items = buildOrder({
       layouts: baseLayouts,
       components: baseComponents,
       routes: baseRoutes,
-      goal: "pixel-perfect",
-    });
-    const polish = items.filter(i => i.kind === "polish");
-    expect(polish).toHaveLength(2);
-    expect(polish[0].dependsOn).toContain("https://example.com/");
-  });
-
-  it("emits no polish entries when goal is wireframe", () => {
-    const items = buildOrder({
-      layouts: baseLayouts,
-      components: baseComponents,
-      routes: baseRoutes,
-      goal: "wireframe",
     });
     expect(items.filter(i => i.kind === "polish")).toHaveLength(0);
   });
@@ -139,7 +122,6 @@ describe("buildOrder", () => {
       layouts,
       components: baseComponents,
       routes: baseRoutes,
-      goal: "wireframe",
     });
     expect(items.filter(i => i.kind === "layout")).toHaveLength(0);
   });
@@ -151,7 +133,6 @@ describe("detectCycles", () => {
       layouts: baseLayouts,
       components: baseComponents,
       routes: baseRoutes,
-      goal: "wireframe",
     });
     expect(detectCycles(items)).toEqual([]);
   });

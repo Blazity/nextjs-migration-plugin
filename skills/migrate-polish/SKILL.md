@@ -15,7 +15,7 @@ Read `.migration/SITE.md` and the latest run with `phase-5-build/VERIFICATION.md
 
 Hard-require Playwright MCP-style live browser capability before starting. Open a blank page with the available browser/MCP tool and close it. If browser/MCP tooling is unavailable, stop:
 
-> Phase 6 Visual polish requires Playwright MCP-style live browser access. No script-only fallback is allowed for pixel-perfect polish.
+> Phase 6 Visual polish requires Playwright MCP-style live browser access. No script-only fallback is allowed for visual polish.
 
 ## Step 2 — Resolve Scope
 
@@ -62,6 +62,6 @@ On failure, surface failed page/section/viewport details from `verification.json
 
 ## You MUST NOT
 
-- Claim the whole pixel-perfect workflow is complete.
+- Claim the whole migration workflow is complete.
 - Claim animations or performance are complete.
 - Use a script-only fallback when browser/MCP capability is unavailable.

@@ -34,7 +34,7 @@ afterAll(() => new Promise<void>(r => server.close(() => r())));
 
 const baseSite = (sourceUrl: string) => ({
   sourceUrl, target: "./",
-  mode: "unattended" as const, goal: "wireframe" as const, inputMode: "url-only" as const,
+  inputMode: "url-only" as const,
   maxParallelPages: 4, maxParallelSections: 4,
 });
 
@@ -50,6 +50,7 @@ describe("runDiscover", () => {
       targetDir: root,
       runDir: "001-initial",
       probeOne: allMatched,
+      confirmPageList: true,
     });
     const phaseDir = join(root, ".migration/runs/001-initial/phase-1-discover");
     expect(existsSync(join(phaseDir, "discovery/crawl.json"))).toBe(true);
@@ -107,13 +108,9 @@ describe("runDiscover", () => {
     expect(existsSync(join(phaseDir, "VERIFICATION.md"))).toBe(true);
   }, 60_000);
 
-  it("does NOT emit VERIFICATION.md when the user has not confirmed the page list", async () => {
-    // Switch site to attended so the page-list gate is gated on the flag
+  it("emits VERIFICATION.md without a separate page-list confirmation in the guided flow", async () => {
     const root = mkdtempSync(join(tmpdir(), "discover-"));
-    await bootstrapMigration({
-      targetDir: root,
-      site: { ...baseSite(baseUrl + "/"), mode: "attended" },
-    });
+    await bootstrapMigration({ targetDir: root, site: baseSite(baseUrl + "/") });
     const matched = async (url: string) => ({
       url, matchedAdapters: ["static-html"], recommendation: "DIRECT_EXTRACTION",
       detectedCMP: null, spaAnalysis: { isSPA: false },
@@ -123,9 +120,9 @@ describe("runDiscover", () => {
       probeOne: matched, confirmPageList: false,
     });
     const phaseDir = join(root, ".migration/runs/001-initial/phase-1-discover");
-    expect(existsSync(join(phaseDir, "VERIFICATION.md"))).toBe(false);
+    expect(existsSync(join(phaseDir, "VERIFICATION.md"))).toBe(true);
     const v = JSON.parse(readFileSync(join(phaseDir, "verification.json"), "utf8"));
-    expect(v.criteria.find((c: { name: string }) => c.name.includes("page list")).passed).toBe(false);
+    expect(v.criteria.find((c: { name: string }) => c.name.includes("page list"))).toBeUndefined();
   }, 60_000);
 
   it("filters crawl.json to includeUrls subset and reuses crawl when reuseCrawl is set", async () => {

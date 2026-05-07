@@ -9,8 +9,6 @@ import { runVisualPolish, resolvePolishScope, VISUAL_POLISH_VIEWPORTS } from "..
 const site = {
   sourceUrl: "https://example.com",
   target: "./",
-  mode: "unattended" as const,
-  goal: "pixel-perfect" as const,
   inputMode: "url-only" as const,
   maxParallelPages: 4,
   maxParallelSections: 2,

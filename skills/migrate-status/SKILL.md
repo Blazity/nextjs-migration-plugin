@@ -23,7 +23,7 @@ If `initialized: true`: print:
 
 ```
 Migration: [sourceUrl]
-Mode: [mode] | Goal: [goal] | Input: [inputMode]
+Input: [inputMode]
 Active run: [activeRun]
 Completed phases: [completedPhases.join(", ") or "none yet"]
 ```

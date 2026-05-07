@@ -42,7 +42,7 @@ export async function resumeMigration(
 
   const next = isPolishRun(runDir)
     ? firstIncompletePolishPhase(runDir)
-    : firstIncompletePhase(runDir, { goal: siteResult.site.goal });
+    : firstIncompletePhase(runDir);
   if (next === null) return { kind: "all-done" };
 
   const dispatcher = args.dispatchers?.[next];
@@ -87,9 +87,6 @@ export function defaultDispatchers(): Record<string, PhaseDispatcher> {
     },
     "phase-5-build": async ({ targetDir, runDir }) => {
       await runBuild({ targetDir, runDir });
-    },
-    "phase-6-visual": async ({ targetDir }) => {
-      await runVisualPolish({ targetDir, scope: "all", mcpAvailable: false });
     },
   };
 }
