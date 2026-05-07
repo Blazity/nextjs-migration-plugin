@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { ApprovedInventoryEntry } from "../schemas/approved-inventory.ts";
 import { scheduleMigration } from "./migration-scheduler.ts";
+import { runComponentBatch } from "./run-component-batch.ts";
 
 export type ComponentBatchDispatcher = (args: {
   targetDir: string;
@@ -140,7 +141,11 @@ export async function resumeMigration(
 }
 
 export function defaultDispatchers(): ResumeArgs["dispatchers"] {
-  return {};
+  return {
+    implementComponentBatch: async ({ targetDir, artifactVersion, batch }) => {
+      await runComponentBatch({ targetDir, artifactVersion, batch });
+    },
+  };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

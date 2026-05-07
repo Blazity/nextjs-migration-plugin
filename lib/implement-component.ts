@@ -1,8 +1,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
+  renderComponentModule,
   renderComponentStories,
-  transformOrWrap,
   validateApprovedName,
 } from "./component-tsx-emitter.ts";
 import { migrationPaths } from "./migration-paths.ts";
@@ -52,7 +52,13 @@ export function implementComponent(args: ImplementComponentArgs): ImplementCompo
   mkdirSync(dirname(componentPath), { recursive: true });
   writeFileSync(
     componentPath,
-    transformOrWrap(sectionSources[0].tsx, entry.implementationName),
+    renderComponentModule(sectionSources.map((source, index) => ({
+      raw: source.tsx,
+      name: index === 0
+        ? entry.implementationName
+        : `${entry.implementationName}Variant${index + 1}`,
+      exportKind: index === 0 ? "default" : "named",
+    }))),
   );
   writeFileSync(
     storyPath,

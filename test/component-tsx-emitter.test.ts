@@ -19,7 +19,7 @@ describe("sanitizeComponentName", () => {
 
 describe("validateApprovedName", () => {
   it("rejects ID-like, generic, empty, or non-PascalCase names", () => {
-    for (const name of ["Component3", "p0-s0", "Section1", "", "pricingCard"]) {
+    for (const name of ["Component3", "p0-s0", "P0S0", "P12S3", "Section1", "", "pricingCard"]) {
       expect(validateApprovedName(name)).toEqual({
         ok: false,
         reason: "implementation name must be semantic PascalCase",

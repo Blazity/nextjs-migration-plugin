@@ -8,7 +8,8 @@ export const ApprovedInventoryEntrySchema = DraftInventoryEntrySchema.extend({
     .refine(
       name =>
         !/^Component\d+$/.test(name) &&
-        !/p\d+-s\d+/.test(name) &&
+        !/p\d+-s\d+/i.test(name) &&
+        !/^P\d+S\d+$/.test(name) &&
         !/^Section\d+$/.test(name),
       "implementation name must be semantic, not generic or ID-like"
     ),

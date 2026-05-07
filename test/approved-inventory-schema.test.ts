@@ -32,7 +32,7 @@ describe("ApprovedInventorySchema", () => {
     expect(ApprovedInventorySchema.safeParse(approvedInventory).success).toBe(true);
   });
 
-  it.each(["Component3", "p0-s0", "Section1"])("rejects generic or ID-like implementation name %s", implementationName => {
+  it.each(["Component3", "p0-s0", "P0S0", "P12S3", "Section1"])("rejects generic or ID-like implementation name %s", implementationName => {
     const approvedInventory = {
       ...validApprovedInventory,
       entries: [

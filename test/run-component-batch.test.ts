@@ -22,7 +22,26 @@ describe("runComponentBatch", () => {
       status: "FAIL" as const,
       ratios: { 390: 0.004, 768: 0.02, 1440: 0.003 },
       failingViewports: [768 as const],
-      results: [],
+      results: [
+        {
+          viewport: 390 as const,
+          status: "PASS" as const,
+          ratio: 0.004,
+          referencePath: join(targetDir, ".migration/references/components/p0-s1-390.png"),
+          storyUrl: "http://127.0.0.1:6006/?path=/story/migrated-components-hero--hero",
+          diffPath: join(targetDir, ".migration/reports/component-batches/abcdefabcdef1234-diffs/Hero-390.diff.png"),
+          diagnostics: [],
+        },
+        {
+          viewport: 768 as const,
+          status: "FAIL" as const,
+          ratio: 0.02,
+          referencePath: join(targetDir, ".migration/references/components/p0-s1-768.png"),
+          storyUrl: "http://127.0.0.1:6006/?path=/story/migrated-components-hero--hero",
+          diffPath: join(targetDir, ".migration/reports/component-batches/abcdefabcdef1234-diffs/Hero-768.diff.png"),
+          diagnostics: [],
+        },
+      ],
     }));
 
     const result = await runComponentBatch({
@@ -57,6 +76,7 @@ describe("runComponentBatch", () => {
             storyUrl: "http://127.0.0.1:6006/?path=/story/migrated-components-hero--hero",
           },
         ],
+        diffOutputDir: join(targetDir, ".migration/reports/component-batches/abcdefabcdef1234-diffs"),
       }),
     );
     expect(result.reportPath).toBe(
@@ -76,7 +96,9 @@ describe("runComponentBatch", () => {
           verification: "skipped-by-design",
           storybookUrls: [],
           referencePaths: [],
+          diffPaths: [],
           failingViewports: [],
+          error: null,
         },
         {
           componentGroupId: "group-hero",
@@ -93,12 +115,46 @@ describe("runComponentBatch", () => {
             join(targetDir, ".migration/references/components/p0-s1-768.png"),
             join(targetDir, ".migration/references/components/p0-s1-1440.png"),
           ],
+          diffPaths: [
+            join(targetDir, ".migration/reports/component-batches/abcdefabcdef1234-diffs/Hero-390.diff.png"),
+            join(targetDir, ".migration/reports/component-batches/abcdefabcdef1234-diffs/Hero-768.diff.png"),
+          ],
           failingViewports: [768],
+          error: null,
         },
       ],
     });
     expect(existsSync(migrationPaths(targetDir).componentApproval("group-hero"))).toBe(false);
     expect(existsSync(migrationPaths(targetDir).componentApproval("group-header"))).toBe(false);
+  });
+
+  it("writes a failed report entry when component verification throws", async () => {
+    const targetDir = mkdtempSync(join(tmpdir(), "component-batch-"));
+    writeJson(migrationPaths(targetDir).rawDiscovery, rawDiscovery());
+
+    const result = await runComponentBatch({
+      targetDir,
+      artifactVersion: "abcdefabcdef1234",
+      batch: [contentEntry()],
+      now: () => now,
+      implementComponent: async ({ entry }) => ({
+        componentPath: join(targetDir, entry.filePath),
+        storyPath: join(targetDir, `src/components/${entry.implementationName}.stories.tsx`),
+        sectionInstanceIds: entry.sectionInstanceIds,
+      }),
+      verifyComponent: async () => {
+        throw new Error("storybook navigation timed out");
+      },
+    });
+
+    expect(JSON.parse(readFileSync(result.reportPath, "utf8")).components).toEqual([
+      expect.objectContaining({
+        componentGroupId: "group-hero",
+        verification: "FAIL",
+        failingViewports: [390, 768, 1440],
+        error: "storybook navigation timed out",
+      }),
+    ]);
   });
 });
 

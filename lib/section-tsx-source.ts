@@ -40,8 +40,9 @@ export function pickSectionTsxForMember(args: {
   const tsxFiles = readdirSync(args.generatedDir)
     .filter(file => file.endsWith(".tsx") || file.endsWith(".generated.jsx"))
     .sort();
-  const matchIndex = Number(args.sectionId.split("-s")[1] ?? "0");
-  const file = tsxFiles[matchIndex] ?? tsxFiles[0];
+  const matchIndex = Number(args.sectionId.split("-s")[1]);
+  if (!Number.isInteger(matchIndex) || matchIndex < 0) return null;
+  const file = tsxFiles[matchIndex];
   if (!file) return null;
   const path = join(args.generatedDir, file);
   return {

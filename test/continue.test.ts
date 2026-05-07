@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { hashArtifact } from "../lib/artifact-hash.ts";
-import { resumeMigration } from "../lib/continue.ts";
+import { defaultDispatchers, resumeMigration } from "../lib/continue.ts";
 import { migrationPaths } from "../lib/migration-paths.ts";
 import type { ApprovedInventory } from "../schemas/approved-inventory.ts";
 import type { DraftInventory } from "../schemas/draft-inventory.ts";
@@ -11,6 +11,10 @@ import type { DraftInventory } from "../schemas/draft-inventory.ts";
 const now = "2026-05-07T12:00:00.000Z";
 
 describe("resumeMigration", () => {
+  it("wires a default component-batch dispatcher for guided continue", () => {
+    expect(defaultDispatchers()?.implementComponentBatch).toBeTypeOf("function");
+  });
+
   it("returns not-initialized when there is no .migration directory", async () => {
     const targetDir = mkdtempSync(join(tmpdir(), "cont-"));
 

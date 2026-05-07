@@ -13,7 +13,8 @@ export function validateApprovedName(name: string): ApprovedNameValidation {
   if (
     !/^[A-Z][A-Za-z0-9]*$/.test(name) ||
     /^(?:Component\d+|Section\d+)$/.test(name) ||
-    /p\d+-s\d+/.test(name)
+    /p\d+-s\d+/i.test(name) ||
+    /^P\d+S\d+$/.test(name)
   ) {
     return {
       ok: false,
@@ -57,21 +58,52 @@ ${indentLines(escaped, 6)}
 `;
 }
 
+export function renderComponentModule(sources: Array<{
+  raw: string;
+  name: string;
+  exportKind: "default" | "named";
+}>): string {
+  const imports = new Set<string>();
+  const functions: string[] = [];
+  for (const source of sources) {
+    const rendered = transformOrWrap(source.raw, source.name);
+    const extracted = extractLeadingImports(rendered);
+    for (const line of extracted.imports) imports.add(line);
+    const body = source.exportKind === "default"
+      ? extracted.body
+      : extracted.body.replace("export default function", "export function");
+    functions.push(body.trimEnd());
+  }
+
+  const importBlock = [...imports].join("\n");
+  return `${importBlock}${importBlock ? "\n\n" : ""}${functions.join("\n\n")}\n`;
+}
+
 export function renderComponentStories(args: {
   implementationName: string;
   sectionInstanceIds: string[];
 }): string {
   const componentImport = `${args.implementationName}Component`;
+  const variantNames = args.sectionInstanceIds.slice(1)
+    .map((_, index) => `${args.implementationName}Variant${index + 2}`);
+  const namedImports = variantNames.length > 0
+    ? `, { ${variantNames.map(name => `${name} as ${name}Component`).join(", ")} }`
+    : "";
   const stories = args.sectionInstanceIds.map((sectionInstanceId, index) => {
     const storyName = index === 0
       ? args.implementationName
       : `${args.implementationName}Variant${index + 1}`;
+    const storyComponent = index === 0
+      ? componentImport
+      : `${storyName}Component`;
     return `// Section instance: ${sectionInstanceId}
-export const ${storyName}: Story = {};`;
+export const ${storyName}: Story = {
+  render: () => <${storyComponent} />,
+};`;
   });
 
   return `import type { Meta, StoryObj } from "@storybook/react";
-import ${componentImport} from "./${args.implementationName}";
+import ${componentImport}${namedImports} from "./${args.implementationName}";
 
 const meta = {
   title: "Migrated Components/${args.implementationName}",
@@ -88,6 +120,19 @@ ${stories.join("\n\n")}
 function indentLines(s: string, spaces: number): string {
   const pad = " ".repeat(spaces);
   return s.split("\n").map(line => (line.length > 0 ? pad + line : line)).join("\n");
+}
+
+function extractLeadingImports(source: string): { imports: string[]; body: string } {
+  const imports: string[] = [];
+  let body = source;
+  while (body.startsWith("import ")) {
+    const newlineIndex = body.indexOf("\n");
+    if (newlineIndex < 0) break;
+    imports.push(body.slice(0, newlineIndex));
+    body = body.slice(newlineIndex + 1);
+    if (body.startsWith("\n")) body = body.slice(1);
+  }
+  return { imports, body };
 }
 
 export interface ComponentInput {

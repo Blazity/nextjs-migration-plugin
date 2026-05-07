@@ -44,14 +44,39 @@ describe("verifyComponent", () => {
         references: [
           reference(390, "http://storybook/Hero?viewport=390"),
           reference(768, "http://storybook/Hero?viewport=768"),
+          reference(1440, "http://storybook/Hero?viewport=1440"),
         ],
       },
-      deps(fakePage(), [0.003, 0.02]),
+      deps(fakePage(), [0.003, 0.02, 0.001]),
     );
 
     expect(result.status).toBe("FAIL");
     expect(result.failingViewports).toEqual([768]);
-    expect(result.results.map(viewport => viewport.status)).toEqual(["PASS", "FAIL"]);
+    expect(result.results.map(viewport => viewport.status)).toEqual(["PASS", "FAIL", "PASS"]);
+  });
+
+  it("fails when any required viewport reference is missing", async () => {
+    const result = await verifyComponent(
+      {
+        name: "Hero",
+        references: [
+          reference(390, "http://storybook/Hero?viewport=390"),
+          reference(1440, "http://storybook/Hero?viewport=1440"),
+        ],
+      },
+      deps(fakePage(), [0, 0]),
+    );
+
+    expect(result.status).toBe("FAIL");
+    expect(result.failingViewports).toEqual([768]);
+    expect(result.results.at(-1)).toEqual({
+      viewport: 768,
+      status: "FAIL",
+      ratio: 1,
+      referencePath: "",
+      storyUrl: "",
+      diagnostics: ["missing reference for viewport 768"],
+    });
   });
 });
 

@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
 import { implementComponent as defaultImplementComponent, type ImplementComponentResult } from "./implement-component.ts";
 import { migrationPaths } from "./migration-paths.ts";
-import type { ComponentReference, VerifyComponentInput, VerifyComponentResult } from "./verify-component.ts";
+import { verifyComponent as defaultVerifyComponent, type ComponentReference, type ComponentVerifyViewport, type VerifyComponentInput, type VerifyComponentResult } from "./verify-component.ts";
 import { ApprovedInventoryEntrySchema, type ApprovedInventoryEntry } from "../schemas/approved-inventory.ts";
 import { RawDiscoveryEvidenceSchema, type RawDiscoveryEvidence } from "../schemas/raw-discovery.ts";
 
@@ -15,7 +15,9 @@ export interface ComponentBatchReportEntry {
   verification: "PASS" | "FAIL" | "skipped-by-design";
   storybookUrls: string[];
   referencePaths: string[];
-  failingViewports: Array<390 | 768 | 1440>;
+  diffPaths: string[];
+  failingViewports: ComponentVerifyViewport[];
+  error: string | null;
 }
 
 export interface ComponentBatchReport {
@@ -51,7 +53,13 @@ export async function runComponentBatch(
     JSON.parse(readFileSync(paths.rawDiscovery, "utf8")),
   );
   const implement = args.implementComponent ?? defaultImplementComponent;
+  const verify = args.verifyComponent ?? (input => defaultVerifyComponent(input));
   const components: ComponentBatchReportEntry[] = [];
+  const diffOutputDir = join(
+    args.targetDir,
+    ".migration/reports/component-batches",
+    `${args.artifactVersion}-diffs`,
+  );
 
   for (const rawEntry of args.batch) {
     const entry = ApprovedInventoryEntrySchema.parse(rawEntry);
@@ -70,13 +78,11 @@ export async function runComponentBatch(
         verification: "skipped-by-design",
         storybookUrls: [],
         referencePaths: [],
+        diffPaths: [],
         failingViewports: [],
+        error: null,
       });
       continue;
-    }
-
-    if (!args.verifyComponent) {
-      throw new Error("verifyComponent dependency is required for content component batches");
     }
 
     const references = componentReferences({
@@ -85,9 +91,13 @@ export async function runComponentBatch(
       entry,
       storybookBaseUrl: args.storybookBaseUrl ?? "http://127.0.0.1:6006",
     });
-    const verification = await args.verifyComponent({
-      name: entry.implementationName,
-      references,
+    const verification = await verifyComponentSafely({
+      verify,
+      input: {
+        name: entry.implementationName,
+        references,
+        diffOutputDir,
+      },
     });
 
     components.push({
@@ -99,7 +109,11 @@ export async function runComponentBatch(
       verification: verification.status,
       storybookUrls: unique(references.map(reference => reference.storyUrl)),
       referencePaths: references.map(reference => reference.referencePath),
+      diffPaths: verification.results
+        .map(result => result.diffPath)
+        .filter((path): path is string => Boolean(path)),
       failingViewports: verification.failingViewports,
+      error: verification.error,
     });
   }
 
@@ -118,6 +132,24 @@ export async function runComponentBatch(
   writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
 
   return { reportPath, report };
+}
+
+async function verifyComponentSafely(args: {
+  verify: (input: VerifyComponentInput) => Promise<VerifyComponentResult>;
+  input: VerifyComponentInput;
+}): Promise<VerifyComponentResult & { error: string | null }> {
+  try {
+    const result = await args.verify(args.input);
+    return { ...result, error: null };
+  } catch (error) {
+    return {
+      status: "FAIL",
+      ratios: {},
+      failingViewports: [390, 768, 1440],
+      results: [],
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
 }
 
 function componentReferences(args: {

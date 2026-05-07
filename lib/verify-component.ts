@@ -9,6 +9,7 @@ import {
 } from "../scripts/lib/visual-verify-core.ts";
 
 export type ComponentVerifyViewport = 390 | 768 | 1440;
+const REQUIRED_VIEWPORTS = [390, 768, 1440] as const satisfies readonly ComponentVerifyViewport[];
 
 export interface ComponentReference {
   viewport: ComponentVerifyViewport;
@@ -57,13 +58,15 @@ export interface VerifyComponentResult {
 
 export async function verifyComponent(
   input: VerifyComponentInput,
-  deps: VerifyComponentDeps,
+  deps: VerifyComponentDeps = { pageFactory: defaultPageFactory },
 ): Promise<VerifyComponentResult> {
   const results: VerifyComponentViewportResult[] = [];
   const ratios: Partial<Record<ComponentVerifyViewport, number>> = {};
   const failingViewports: ComponentVerifyViewport[] = [];
+  const seenViewports = new Set<ComponentVerifyViewport>();
 
   for (const reference of input.references) {
+    seenViewports.add(reference.viewport);
     const page = await deps.pageFactory();
     try {
       await page.setViewportSize({ width: reference.viewport, height: 900 });
@@ -93,7 +96,7 @@ export async function verifyComponent(
 
       ratios[reference.viewport] = assessment.ratio;
       if (assessment.status === "FAIL") {
-        failingViewports.push(reference.viewport);
+        pushUnique(failingViewports, reference.viewport);
       }
       results.push({
         viewport: reference.viewport,
@@ -109,12 +112,50 @@ export async function verifyComponent(
     }
   }
 
+  for (const viewport of REQUIRED_VIEWPORTS) {
+    if (seenViewports.has(viewport)) continue;
+    pushUnique(failingViewports, viewport);
+    results.push({
+      viewport,
+      status: "FAIL",
+      ratio: 1,
+      referencePath: "",
+      storyUrl: "",
+      diagnostics: [`missing reference for viewport ${viewport}`],
+    });
+  }
+
   return {
     status: failingViewports.length === 0 ? "PASS" : "FAIL",
     ratios,
     failingViewports,
     results,
   };
+}
+
+async function defaultPageFactory(): Promise<VerifyComponentPage> {
+  const { chromium } = await import("@playwright/test");
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+  return {
+    async setViewportSize(size) {
+      await page.setViewportSize(size);
+    },
+    async goto(url, options) {
+      await page.goto(url, options);
+    },
+    async screenshot(options) {
+      return page.screenshot(options);
+    },
+    async close() {
+      await page.close();
+      await browser.close();
+    },
+  };
+}
+
+function pushUnique<T>(values: T[], value: T): void {
+  if (!values.includes(value)) values.push(value);
 }
 
 function maybeWriteDiff(args: {
