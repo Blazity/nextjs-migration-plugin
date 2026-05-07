@@ -589,6 +589,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 11.2 — `/migrate:status` reflects approval state
 
+- **Status:** Done.
 - **Files to modify:** [skills/migrate-status/SKILL.md](../../skills/migrate-status/SKILL.md), [lib/status.ts](../../lib/status.ts), [test/status.test.ts](../../test/status.test.ts)
 - **Failing test first:**
   - `getStatus` returns `{ initialized, sourceUrl, draftInventory: { revision, hash, blockingNames }, approvals: { inventory: "approved" | "draft" | "stale", components: [...], pages: [...] }, queueConcurrency }` — explicitly no `mode`/`goal`.
