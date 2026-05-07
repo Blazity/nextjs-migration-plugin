@@ -1,8 +1,8 @@
 # Implementation Plan — Guided Component-First Migration Flow
 
 **Date:** 2026-05-07
-**Spec:** [docs/specs/2026-05-07-guided-component-first-flow.md](../../specs/2026-05-07-guided-component-first-flow.md)
-**Language:** [CONTEXT.md](../../../CONTEXT.md)
+**Spec:** [docs/specs/2026-05-07-guided-component-first-flow.md](../../docs/specs/2026-05-07-guided-component-first-flow.md)
+**Language:** [CONTEXT.md](../../CONTEXT.md)
 **Status:** Draft, ready for execution
 
 ---
@@ -26,17 +26,17 @@ This plan walks the codebase from the current state to the target state in TDD-f
 
 ## Critical existing files this plan touches or reuses
 
-- [schemas/site.ts](../../../schemas/site.ts) — drops `mode` and `goal` (Phase 1, Phase 2)
-- [lib/new-migration.ts](../../../lib/new-migration.ts) — strips mode/goal flags (Phase 1)
-- [lib/bootstrap.ts](../../../lib/bootstrap.ts) — stops writing Goal/Mode lines (Phase 1)
-- [lib/phase-status.ts](../../../lib/phase-status.ts) — replace `knownPhases` array with v2 step list (Phase 2)
-- [lib/continue.ts](../../../lib/continue.ts) — rewrite `resumeMigration` against approval state (Phase 6)
-- [lib/discover.ts](../../../lib/discover.ts) — drop attended/unattended branch (Phase 1) and keep as recovery-only entry (Phase 12)
-- [lib/component-tsx-emitter.ts](../../../lib/component-tsx-emitter.ts) — already keeps tracking IDs out of filenames; we add an approval-time validator (Phase 5)
-- [lib/section-signature.ts](../../../lib/section-signature.ts) — reuse `signatureDigest` for artifact hashing (Phase 2)
-- [scripts/lib/visual-verify-core.ts](../../../scripts/lib/visual-verify-core.ts) — reuse `diffNormalizedPngs`, `assessDiffResult` with caller-passed `maxDiffRatio` (Phase 7, Phase 9, Phase 10)
-- [commands/migrate-config.md](../../../commands/migrate-config.md), [skills/migrate-config/](../../../skills/migrate-config/) — deleted from user surface (Phase 11)
-- [commands/migrate-discover.md](../../../commands/migrate-discover.md), `migrate-analyze`, `migrate-plan`, `migrate-extract`, `migrate-build`, `migrate-polish`, `migrate-verify` — moved to recovery-only docs in Phase 11 / Phase 12
+- [schemas/site.ts](../../schemas/site.ts) — drops `mode` and `goal` (Phase 1, Phase 2)
+- [lib/new-migration.ts](../../lib/new-migration.ts) — strips mode/goal flags (Phase 1)
+- [lib/bootstrap.ts](../../lib/bootstrap.ts) — stops writing Goal/Mode lines (Phase 1)
+- [lib/phase-status.ts](../../lib/phase-status.ts) — replace `knownPhases` array with v2 step list (Phase 2)
+- [lib/continue.ts](../../lib/continue.ts) — rewrite `resumeMigration` against approval state (Phase 6)
+- [lib/discover.ts](../../lib/discover.ts) — drop attended/unattended branch (Phase 1) and keep as recovery-only entry (Phase 12)
+- [lib/component-tsx-emitter.ts](../../lib/component-tsx-emitter.ts) — already keeps tracking IDs out of filenames; we add an approval-time validator (Phase 5)
+- [lib/section-signature.ts](../../lib/section-signature.ts) — reuse `signatureDigest` for artifact hashing (Phase 2)
+- [scripts/lib/visual-verify-core.ts](../../scripts/lib/visual-verify-core.ts) — reuse `diffNormalizedPngs`, `assessDiffResult` with caller-passed `maxDiffRatio` (Phase 7, Phase 9, Phase 10)
+- [commands/migrate-config.md](../../commands/migrate-config.md), [skills/migrate-config/](../../skills/migrate-config/) — deleted from user surface (Phase 11)
+- [commands/migrate-discover.md](../../commands/migrate-discover.md), `migrate-analyze`, `migrate-plan`, `migrate-extract`, `migrate-build`, `migrate-polish`, `migrate-verify` — moved to recovery-only docs in Phase 11 / Phase 12
 
 ---
 
@@ -61,7 +61,7 @@ This plan walks the codebase from the current state to the target state in TDD-f
 
 ### Task 1.1 — `SiteFrontmatterSchema` drops `mode` and `goal`
 
-- **Files to modify:** [schemas/site.ts](../../../schemas/site.ts), [test/site-schema.test.ts](../../../test/site-schema.test.ts), [test/load-site.test.ts](../../../test/load-site.test.ts)
+- **Files to modify:** [schemas/site.ts](../../schemas/site.ts), [test/site-schema.test.ts](../../test/site-schema.test.ts), [test/load-site.test.ts](../../test/load-site.test.ts)
 - **Failing test first** (`test/site-schema.test.ts`):
   - Add: `it("rejects unknown legacy keys 'mode' and 'goal'", ...)` asserting `SiteFrontmatterSchema.safeParse({ ..., mode: "attended", goal: "wireframe" })` is `success: false` because the schema is strict.
   - Add: `it("parses a minimal site with only sourceUrl, target, inputMode, initialPageSelection, maxParallel*", ...)` asserting `mode` and `goal` are absent from the inferred type.
@@ -74,7 +74,7 @@ This plan walks the codebase from the current state to the target state in TDD-f
 
 ### Task 1.2 — `runNewMigration` and `new-migration` CLI shed mode/goal flags
 
-- **Files to modify:** [lib/new-migration.ts](../../../lib/new-migration.ts), [test/new-migration.test.ts](../../../test/new-migration.test.ts)
+- **Files to modify:** [lib/new-migration.ts](../../lib/new-migration.ts), [test/new-migration.test.ts](../../test/new-migration.test.ts)
 - **Failing test first:**
   - Add: `it("ignores --mode and --goal flags if passed (no-op, deprecated)", ...)` asserting the parsed args do not contain those keys.
   - Update existing tests to drop mode/goal from inputs.
@@ -87,7 +87,7 @@ This plan walks the codebase from the current state to the target state in TDD-f
 
 ### Task 1.3 — `bootstrapMigration` stops writing Goal/Mode lines
 
-- **Files to modify:** [lib/bootstrap.ts](../../../lib/bootstrap.ts), [test/bootstrap.test.ts](../../../test/bootstrap.test.ts)
+- **Files to modify:** [lib/bootstrap.ts](../../lib/bootstrap.ts), [test/bootstrap.test.ts](../../test/bootstrap.test.ts)
 - **Failing test first:**
   - Update bootstrap tests to assert that the generated `RUN.md` does **not** contain the strings `Goal:` or `Mode:`.
   - Assert `SITE.md` frontmatter does not contain `mode:` or `goal:` keys.
@@ -100,7 +100,7 @@ This plan walks the codebase from the current state to the target state in TDD-f
 
 ### Task 1.4 — `/migrate:new` skill drops the goal and mode questions
 
-- **Files to modify:** [skills/migrate-new/SKILL.md](../../../skills/migrate-new/SKILL.md), [test/migration-skill-contracts.test.ts](../../../test/migration-skill-contracts.test.ts)
+- **Files to modify:** [skills/migrate-new/SKILL.md](../../skills/migrate-new/SKILL.md), [test/migration-skill-contracts.test.ts](../../test/migration-skill-contracts.test.ts)
 - **Failing test first:**
   - In the skill-contracts test, assert that `skills/migrate-new/SKILL.md` content does **not** contain the substrings `wireframe`, `pixel-perfect`, `attended`, `unattended`, or `Mode:`/`Goal:` question headers.
 - **Run:** `pnpm test -- migration-skill-contracts`. Expect failure.
@@ -112,7 +112,7 @@ This plan walks the codebase from the current state to the target state in TDD-f
 
 ### Task 1.5 — Compile-fix all `site.mode` / `site.goal` reads
 
-- **Files to modify (read-fix or remove):** [lib/discover.ts](../../../lib/discover.ts), [lib/continue.ts](../../../lib/continue.ts), [lib/phase-status.ts](../../../lib/phase-status.ts), [lib/plan.ts](../../../lib/plan.ts), [lib/polish.ts](../../../lib/polish.ts), [lib/load-roadmap.ts](../../../lib/load-roadmap.ts), [skills/migrate-status/SKILL.md](../../../skills/migrate-status/SKILL.md), [skills/migrate-help/SKILL.md](../../../skills/migrate-help/SKILL.md). Tests under `test/continue-*.integration.test.ts`, `test/discover.test.ts`, `test/plan*.test.ts`, `test/polish.test.ts`, `test/status.test.ts`.
+- **Files to modify (read-fix or remove):** [lib/discover.ts](../../lib/discover.ts), [lib/continue.ts](../../lib/continue.ts), [lib/phase-status.ts](../../lib/phase-status.ts), [lib/plan.ts](../../lib/plan.ts), [lib/polish.ts](../../lib/polish.ts), [lib/load-roadmap.ts](../../lib/load-roadmap.ts), [skills/migrate-status/SKILL.md](../../skills/migrate-status/SKILL.md), [skills/migrate-help/SKILL.md](../../skills/migrate-help/SKILL.md). Tests under `test/continue-*.integration.test.ts`, `test/discover.test.ts`, `test/plan*.test.ts`, `test/polish.test.ts`, `test/status.test.ts`.
 - **Failing tests first:**
   - For each integration test still passing `mode: "attended"` or `goal: "pixel-perfect"`, change the input to a v2 site (no mode/goal). Adjust the assertion for any user-prompt branches (collapse the two paths into the single guided path).
   - In `test/status.test.ts`, assert that the status summary string no longer mentions Mode/Goal.
@@ -129,7 +129,7 @@ This plan walks the codebase from the current state to the target state in TDD-f
 
 ### Task 1.6 — Delete `/migrate:config` from the user surface (soft delete now, hard delete in Phase 11)
 
-- **Files to modify:** [skills/migrate-help/SKILL.md](../../../skills/migrate-help/SKILL.md), [test/migrate-help-skill.test.ts](../../../test/migrate-help-skill.test.ts), [test/migration-skill-contracts.test.ts](../../../test/migration-skill-contracts.test.ts)
+- **Files to modify:** [skills/migrate-help/SKILL.md](../../skills/migrate-help/SKILL.md), [test/migrate-help-skill.test.ts](../../test/migrate-help-skill.test.ts), [test/migration-skill-contracts.test.ts](../../test/migration-skill-contracts.test.ts)
 - **Failing test first:**
   - Assert the rendered help text does not mention `/migrate:config`, `mode `, or `goal `.
 - **Run:** `pnpm test -- migrate-help-skill`. Expect failure.
@@ -156,7 +156,7 @@ This plan walks the codebase from the current state to the target state in TDD-f
   - `RawDiscoveryEvidenceSchema = z.object({ probedAt: z.string().datetime(), pages: z.array(PageSectionsSchema), referenceScreenshots: z.object({ components: z.array(ComponentReferenceSchema), pages: z.array(PageReferenceSchema) }), source: z.object({ sourceUrl: z.string().url(), capturedAt: z.string().datetime() }) }).strict()`.
   - `ComponentReferenceSchema = z.object({ sectionInstanceId: z.string().min(1), url: z.string().url(), viewport: z.union([z.literal(390), z.literal(768), z.literal(1440)]), path: z.string().min(1), sha256: z.string().regex(/^[0-9a-f]{16,64}$/) }).strict()`.
   - `PageReferenceSchema` parallels but keys on `slug` and `viewport`.
-  - Reuse [schemas/sections.ts](../../../schemas/sections.ts) `PageSectionsSchema` for `pages`.
+  - Reuse [schemas/sections.ts](../../schemas/sections.ts) `PageSectionsSchema` for `pages`.
 - **Run:** `pnpm test -- raw-discovery-schema && pnpm typecheck`.
 - **Commit:** `feat(schemas): add raw-discovery evidence schema`.
 
@@ -204,7 +204,7 @@ This plan walks the codebase from the current state to the target state in TDD-f
   - Two records that differ in one field produce different hashes.
   - Hash is order-insensitive for object keys (canonicalised before hashing).
 - **Implementation:**
-  - Reuse the digest pattern from [lib/section-signature.ts](../../../lib/section-signature.ts) `signatureDigest` (Node `crypto`).
+  - Reuse the digest pattern from [lib/section-signature.ts](../../lib/section-signature.ts) `signatureDigest` (Node `crypto`).
   - Export `hashArtifact(value: unknown): string` that returns the first 16 hex chars of SHA256 over a stable JSON stringify (sorted keys).
 - **Commit:** `feat(state): artifact hashing helper for approval staleness checks`.
 
@@ -295,7 +295,7 @@ This plan walks the codebase from the current state to the target state in TDD-f
 
 ### Task 3.6 — `/migrate:new` skill invokes `migration-start`
 
-- **Files to modify:** [skills/migrate-new/SKILL.md](../../../skills/migrate-new/SKILL.md), [lib/new-migration.ts](../../../lib/new-migration.ts), [test/new-migration.test.ts](../../../test/new-migration.test.ts), [test/migration-skill-contracts.test.ts](../../../test/migration-skill-contracts.test.ts)
+- **Files to modify:** [skills/migrate-new/SKILL.md](../../skills/migrate-new/SKILL.md), [lib/new-migration.ts](../../lib/new-migration.ts), [test/new-migration.test.ts](../../test/new-migration.test.ts), [test/migration-skill-contracts.test.ts](../../test/migration-skill-contracts.test.ts)
 - **Failing test first:**
   - End-to-end test (with stubbed runners): calling `runNewMigration(...)` returns the same `OutcomeReadyForReview` shape and the SKILL.md final step references the review HTML, not `/migrate:continue`.
 - **Implementation:**
@@ -389,7 +389,7 @@ This plan walks the codebase from the current state to the target state in TDD-f
 
 ### Task 5.6 — Chat-driven correction wiring
 
-- **Files to modify:** [skills/migrate-continue/SKILL.md](../../../skills/migrate-continue/SKILL.md), `lib/continue.ts` (rewritten in Phase 6 — see 6.1), and a new `agents/inventory-corrector.md`.
+- **Files to modify:** [skills/migrate-continue/SKILL.md](../../skills/migrate-continue/SKILL.md), `lib/continue.ts` (rewritten in Phase 6 — see 6.1), and a new `agents/inventory-corrector.md`.
 - **Failing test first:** in `test/migration-skill-contracts.test.ts`, assert that `skills/migrate-continue/SKILL.md` references natural-language corrections, not slash commands. Specifically, it must contain "describe changes in chat" and must not instruct the user to run `/migrate:discover` or `/migrate:plan` for corrections.
 - **Implementation:** SKILL.md rewrite anticipated in Phase 6; for now, add the `inventory-corrector` agent prompt that takes a free-text user description and emits an `InventoryCorrection[]`.
 - **Commit:** `feat(agents): inventory-corrector translates chat to correction operations`.
@@ -414,7 +414,7 @@ This plan walks the codebase from the current state to the target state in TDD-f
 
 ### Task 6.2 — Rewrite `lib/continue.ts`
 
-- **Files to replace:** [lib/continue.ts](../../../lib/continue.ts), [test/continue.test.ts](../../../test/continue.test.ts), [test/continue-discover.integration.test.ts](../../../test/continue-discover.integration.test.ts) (refactor into `test/continue-inventory.integration.test.ts` for the v2 path; keep the legacy test under `test/recovery/continue-legacy.integration.test.ts` flagged as recovery in Phase 12).
+- **Files to replace:** [lib/continue.ts](../../lib/continue.ts), [test/continue.test.ts](../../test/continue.test.ts), [test/continue-discover.integration.test.ts](../../test/continue-discover.integration.test.ts) (refactor into `test/continue-inventory.integration.test.ts` for the v2 path; keep the legacy test under `test/recovery/continue-legacy.integration.test.ts` flagged as recovery in Phase 12).
 - **Failing test first:**
   - Given a target with no `.migration/`, `resumeMigration` returns `{ kind: "not-initialized" }`.
   - Given a target stopped at the inventory review, `resumeMigration` returns `{ kind: "awaiting-approval", approval: "component-inventory", reviewHtmlPath }`.
@@ -425,7 +425,7 @@ This plan walks the codebase from the current state to the target state in TDD-f
 
 ### Task 6.3 — Update `/migrate:continue` skill
 
-- **Files to modify:** [skills/migrate-continue/SKILL.md](../../../skills/migrate-continue/SKILL.md), [test/migration-skill-contracts.test.ts](../../../test/migration-skill-contracts.test.ts)
+- **Files to modify:** [skills/migrate-continue/SKILL.md](../../skills/migrate-continue/SKILL.md), [test/migration-skill-contracts.test.ts](../../test/migration-skill-contracts.test.ts)
 - **Failing test first:** assert SKILL.md does not mention "phase-2-analyze", "phase-3-plan", "phase-4-extract", "phase-5-build", "phase-6-visual"; instead mentions "Component Inventory Review", "Component Batch Approval", and "Page Layout Approval".
 - **Implementation:** rewrite the skill body around the four scheduler outcomes.
 - **Commit:** `docs(skills): rewrite /migrate:continue around approval-driven scheduling`.
@@ -438,7 +438,7 @@ This plan walks the codebase from the current state to the target state in TDD-f
 
 ### Task 7.1 — Reuse `sanitizeComponentName` and add an approval-time validator
 
-- **Files to modify:** [lib/component-tsx-emitter.ts](../../../lib/component-tsx-emitter.ts), [test/component-tsx-emitter.test.ts](../../../test/component-tsx-emitter.test.ts)
+- **Files to modify:** [lib/component-tsx-emitter.ts](../../lib/component-tsx-emitter.ts), [test/component-tsx-emitter.test.ts](../../test/component-tsx-emitter.test.ts)
 - **Failing test first:**
   - `it("rejects ID-like or generic names at validateApprovedName", ...)` — asserts a new exported `validateApprovedName(name)` returns `{ ok: false, reason }` for `Component3`, `p0-s0`, `Section1`, ``, `pricingCard` (lower-case), and `{ ok: true }` for `Hero`, `PricingCard`.
   - Existing `sanitizeComponentName` tests continue to pass — the function does not change behaviour.
@@ -463,7 +463,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 - **Files to create:** `lib/verify-component.ts`, `test/verify-component.test.ts`
 - **Failing test first:**
   - Given a Storybook server stub and matching reference screenshots, `verifyComponent({ name, references })` returns `{ status: "PASS", ratios: { 390: <=0.01, 768: <=0.01, 1440: <=0.01 } }` when all viewports match; `{ status: "FAIL", failingViewports }` otherwise.
-  - Reuse [scripts/lib/visual-verify-core.ts](../../../scripts/lib/visual-verify-core.ts) `diffNormalizedPngs` and `assessDiffResult({ ..., maxDiffRatio: 0.01 })` exactly. No fork.
+  - Reuse [scripts/lib/visual-verify-core.ts](../../scripts/lib/visual-verify-core.ts) `diffNormalizedPngs` and `assessDiffResult({ ..., maxDiffRatio: 0.01 })` exactly. No fork.
   - The test stubs Playwright by injecting a `pageFactory` so we don't actually launch a browser in unit tests.
 - **Implementation:** Playwright-driven story renderer, screenshot capture per viewport, pixel-diff against the matching reference, queue-aware (Phase 8).
 - **Commit:** `feat(verify): per-component visual verification at 1% threshold`.
@@ -550,7 +550,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 10.2 — Page-assembly runner
 
-- **Files to create:** `lib/run-page-assembly.ts`, `test/run-page-assembly.test.ts`. Reuse [lib/page-assembler.ts](../../../lib/page-assembler.ts) where possible.
+- **Files to create:** `lib/run-page-assembly.ts`, `test/run-page-assembly.test.ts`. Reuse [lib/page-assembler.ts](../../lib/page-assembler.ts) where possible.
 - **Failing test first:**
   - For a page with three approved components, the runner: (a) writes `target/src/app/<slug>/page.tsx` composing the three components, (b) builds the project (assert this is queued behind the existing build runner), (c) captures a full-page screenshot per viewport via the browser queue, (d) calls `assessDiffResult({ maxDiffRatio: 0.02, ... })` against the source page reference, (e) writes a per-page report (no approval).
   - Shared shells appearing in the page are validated **in context** — the page-level diff is the only check; isolated shell verification is skipped (per spec §3.2).
@@ -572,8 +572,8 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 11.1 — Delete user-visible legacy commands
 
-- **Files to delete:** [commands/migrate-config.md](../../../commands/migrate-config.md), [commands/migrate-discover.md](../../../commands/migrate-discover.md), [commands/migrate-analyze.md](../../../commands/migrate-analyze.md), [commands/migrate-plan.md](../../../commands/migrate-plan.md), [commands/migrate-extract.md](../../../commands/migrate-extract.md), [commands/migrate-build.md](../../../commands/migrate-build.md), [commands/migrate-polish.md](../../../commands/migrate-polish.md), [commands/migrate-verify.md](../../../commands/migrate-verify.md). Skill directories under [skills/](../../../skills/) follow the same fate **except** for `migrate-status`, `migrate-help`, `migrate-new`, `migrate-continue`.
-- **Files to modify:** [plugin.json](../../../plugin.json) so its `commands` and `skills` references list only the four user-visible names.
+- **Files to delete:** [commands/migrate-config.md](../../commands/migrate-config.md), [commands/migrate-discover.md](../../commands/migrate-discover.md), [commands/migrate-analyze.md](../../commands/migrate-analyze.md), [commands/migrate-plan.md](../../commands/migrate-plan.md), [commands/migrate-extract.md](../../commands/migrate-extract.md), [commands/migrate-build.md](../../commands/migrate-build.md), [commands/migrate-polish.md](../../commands/migrate-polish.md), [commands/migrate-verify.md](../../commands/migrate-verify.md). Skill directories under [skills/](../../skills/) follow the same fate **except** for `migrate-status`, `migrate-help`, `migrate-new`, `migrate-continue`.
+- **Files to modify:** [plugin.json](../../plugin.json) so its `commands` and `skills` references list only the four user-visible names.
 - **Failing test first:**
   - In `test/migration-skill-contracts.test.ts`, list the only allowed user-visible command files and assert the `commands/` directory contains exactly that set.
   - Add a test that `plugin.json`'s registered commands list contains exactly the four allowed names.
@@ -582,7 +582,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 11.2 — `/migrate:status` reflects approval state
 
-- **Files to modify:** [skills/migrate-status/SKILL.md](../../../skills/migrate-status/SKILL.md), [lib/status.ts](../../../lib/status.ts), [test/status.test.ts](../../../test/status.test.ts)
+- **Files to modify:** [skills/migrate-status/SKILL.md](../../skills/migrate-status/SKILL.md), [lib/status.ts](../../lib/status.ts), [test/status.test.ts](../../test/status.test.ts)
 - **Failing test first:**
   - `getStatus` returns `{ initialized, sourceUrl, draftInventory: { revision, hash, blockingNames }, approvals: { inventory: "approved" | "draft" | "stale", components: [...], pages: [...] }, queueConcurrency }` — explicitly no `mode`/`goal`.
 - **Implementation:** rewrite `getStatus`; remove dead `completedPhases` field. Update SKILL.md to print the new shape, including the optional concurrency line.
@@ -590,7 +590,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 11.3 — `/migrate:help` rewrite
 
-- **Files to modify:** [skills/migrate-help/SKILL.md](../../../skills/migrate-help/SKILL.md), [test/migrate-help-skill.test.ts](../../../test/migrate-help-skill.test.ts)
+- **Files to modify:** [skills/migrate-help/SKILL.md](../../skills/migrate-help/SKILL.md), [test/migrate-help-skill.test.ts](../../test/migrate-help-skill.test.ts)
 - **Failing test first:**
   - Help text contains exactly the four user-visible commands and a single-paragraph workflow summary; does not mention any explicit phase command.
   - A "Recovery" section exists at the bottom and clearly states that lower-level scripts are advanced/recovery tools and not part of the normal flow.
