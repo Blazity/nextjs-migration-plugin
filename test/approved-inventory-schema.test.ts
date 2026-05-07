@@ -69,4 +69,11 @@ describe("ApprovedInventorySchema", () => {
       expect(result.error.issues.some(issue => issue.path.join(".") === "entries.0.filePath")).toBe(true);
     }
   });
+
+  it("accepts staleSince after an approved inventory becomes stale", () => {
+    expect(ApprovedInventorySchema.safeParse({
+      ...validApprovedInventory,
+      staleSince: "2026-05-07T13:00:00.000Z",
+    }).success).toBe(true);
+  });
 });

@@ -89,6 +89,24 @@ describe("migration skill contracts", () => {
     expect(skill).toContain("Do not mark Phase 5 complete when `verify-build-baseline` fails");
   });
 
+  it("routes inventory corrections through natural-language chat", () => {
+    const skill = readSkill("migrate-continue");
+
+    expect(skill).toContain("describe changes in chat");
+    expect(skill).not.toContain("Run `/migrate:discover`");
+    expect(skill).not.toContain("Run `/migrate:plan`");
+  });
+
+  it("defines a JSON-only inventory correction agent", () => {
+    const agent = readRepoFile("agents/inventory-corrector.md");
+
+    expect(agent).toContain("InventoryCorrection[]");
+    expect(agent).toContain("free-text user description");
+    expect(agent).toContain("Output JSON only");
+    expect(agent).toContain("no prose");
+    expectNoStaleGuidedFlowTerms(agent, "inventory-corrector");
+  });
+
   it("recovery phase skills no longer document removed mode or roadmap-approval flow", () => {
     const discover = readSkill("migrate-discover");
     const plan = readSkill("migrate-plan");

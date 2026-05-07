@@ -16,6 +16,12 @@ If every phase has `VERIFICATION.md` → print: "All phases complete for run [ru
 
 Do not invoke `lib/continue.ts` during this step; that script dispatches work. This step is read-only phase detection. Inspect the run directory directly, or use `/migrate:status` for a summary before deciding the route.
 
+## Component Inventory Review corrections
+
+When the active migration is waiting at the Component Inventory Review and the user wants inventory changes, tell them to describe changes in chat. Do not route inventory corrections through recovery phase commands.
+
+For free-text correction requests, invoke the `inventory-corrector` agent with the user's requested changes and the current draft inventory context. Apply the returned `InventoryCorrection[]` to draft inventory state only, then regenerate the review artifact so the user can inspect the updated grouping and names.
+
 ## Step 2 — Route to the right runner
 
 Phase routing depends on whether the phase needs LLM refinement:

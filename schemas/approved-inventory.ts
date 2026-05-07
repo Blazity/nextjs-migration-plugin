@@ -27,6 +27,7 @@ export const ApprovedInventoryEntrySchema = DraftInventoryEntrySchema.extend({
 export const ApprovedInventorySchema = z.object({
   approvedAt: z.string().datetime(),
   artifactVersion: z.string().regex(/^[0-9a-f]{16}$/),
+  staleSince: z.string().datetime().optional(),
   entries: z.array(ApprovedInventoryEntrySchema),
 }).strict();
 
