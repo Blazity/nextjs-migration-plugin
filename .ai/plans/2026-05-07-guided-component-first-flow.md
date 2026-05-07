@@ -554,6 +554,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 10.2 — Page-assembly runner
 
+- **Status:** Done.
 - **Files to create:** `lib/run-page-assembly.ts`, `test/run-page-assembly.test.ts`. Reuse [lib/page-assembler.ts](../../lib/page-assembler.ts) where possible.
 - **Failing test first:**
   - For a page with three approved components, the runner: (a) writes `target/src/app/<slug>/page.tsx` composing the three components, (b) builds the project (assert this is queued behind the existing build runner), (c) captures a full-page screenshot per viewport via the browser queue, (d) calls `assessDiffResult({ maxDiffRatio: 0.02, ... })` against the source page reference, (e) writes a per-page report (no approval).
