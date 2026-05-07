@@ -5,3 +5,4 @@ coverage/
 *.log
 .migration/
 .claude/settings.local.json
+.claude/worktrees/
