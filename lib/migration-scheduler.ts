@@ -99,7 +99,12 @@ export function scheduleMigration(targetDir: string): MigrationSchedule {
     };
   }
   const nextPage = rawDiscovery
-    ? firstPageWithoutCleanApproval(targetDir, approvedInventory.entries, rawDiscovery)
+    ? firstPageWithoutCleanApproval(
+      targetDir,
+      approvedInventory.entries,
+      approvedInventory.artifactVersion,
+      rawDiscovery,
+    )
     : undefined;
   if (nextPage) {
     return {
@@ -148,6 +153,7 @@ function hasCleanComponentApproval(
 function firstPageWithoutCleanApproval(
   targetDir: string,
   components: ApprovedInventoryEntry[],
+  artifactVersion: string,
   rawDiscovery: RawDiscoveryEvidence,
 ): { slug: string; componentGroupIds: string[] } | undefined {
   const pageReferences = new Map(
@@ -157,14 +163,24 @@ function firstPageWithoutCleanApproval(
     ]),
   );
 
-  for (const page of rawDiscovery.pages) {
+  const pageReferenceVersion = hashArtifact(rawDiscovery.referenceScreenshots.pages);
+  for (const [pageIndex, page] of rawDiscovery.pages.entries()) {
     const slug = pageReferences.get(page.url) ?? slugFromUrl(page.url);
     const componentGroupIds = componentsForPage(
       components,
-      new Set(page.sections.map(section => section.id)),
+      new Set(page.sections.flatMap((section, sectionIndex) => [
+        section.id,
+        `p${pageIndex}-s${sectionIndex}`,
+      ])),
     );
     if (componentGroupIds.length === 0) continue;
-    if (!hasCleanPageApproval(targetDir, slug, componentGroupIds)) {
+    if (!hasCleanPageApproval(
+      targetDir,
+      slug,
+      componentGroupIds,
+      artifactVersion,
+      pageReferenceVersion,
+    )) {
       return { slug, componentGroupIds };
     }
   }
@@ -187,12 +203,16 @@ function hasCleanPageApproval(
   targetDir: string,
   slug: string,
   componentGroupIds: string[],
+  artifactVersion: string,
+  pageReferenceVersion: string,
 ): boolean {
   const path = migrationPaths(targetDir).pageApproval(slug);
   if (!existsSync(path)) return false;
 
   const approval = PageLayoutApprovalSchema.parse(readJson(path));
   return !approval.staleSince &&
+    approval.artifactVersion === artifactVersion &&
+    approval.pageReferenceVersion === pageReferenceVersion &&
     approval.slug === slug &&
     sameStringSet(approval.componentGroupIds, componentGroupIds);
 }

@@ -60,7 +60,7 @@ describe("runPageAssembly", () => {
       writePng: vi.fn(),
     });
 
-    const pagePath = join(targetDir, "src/app/home/page.tsx");
+    const pagePath = join(targetDir, "src/app/page.tsx");
     expect(readFileSync(pagePath, "utf8")).toContain('import SiteHeader from "@/components/SiteHeader";');
     expect(readFileSync(pagePath, "utf8")).toContain('import Hero from "@/components/Hero";');
     expect(readFileSync(pagePath, "utf8")).toMatch(/<SiteHeader \/>\s+<Hero \/>/);
@@ -93,6 +93,42 @@ describe("runPageAssembly", () => {
       ],
     });
     expect(existsSync(paths.pageApproval("home"))).toBe(false);
+  });
+
+  it("captures the homepage at the root URL instead of /home", async () => {
+    const targetDir = mkdtempSync(join(tmpdir(), "page-assembly-"));
+    const paths = migrationPaths(targetDir);
+    const pageUrls: string[] = [];
+    writeJson(paths.approvedInventory, approvedInventory());
+    writeJson(paths.rawDiscovery, rawDiscovery());
+
+    await runPageAssembly({
+      targetDir,
+      slug: "home",
+      componentGroupIds: ["group-header", "group-hero"],
+      buildProject: async () => ({ exitCode: 0 as const, stdout: "", stderr: "", packageManager: "pnpm" as const }),
+      screenshotCapturer: async ({ pageUrl, outputPath }) => {
+        pageUrls.push(pageUrl);
+        mkdirSync(dirname(outputPath), { recursive: true });
+        writeFileSync(outputPath, "page");
+      },
+      readPng: () => new PNG({ width: 10, height: 10 }),
+      diffPngs: (reference, local) => ({
+        width: 10,
+        height: 10,
+        mismatch: 0,
+        ratio: 0,
+        diff: reference.width === local.width ? reference : local,
+      }),
+    });
+
+    expect(pageUrls).toEqual([
+      "http://127.0.0.1:3000/",
+      "http://127.0.0.1:3000/",
+      "http://127.0.0.1:3000/",
+    ]);
+    expect(existsSync(join(targetDir, "src/app/page.tsx"))).toBe(true);
+    expect(existsSync(join(targetDir, "src/app/home/page.tsx"))).toBe(false);
   });
 });
 

@@ -73,12 +73,16 @@ describe("runMigrationStart", () => {
     expect(existsSync(paths.draftInventory)).toBe(true);
     expect(existsSync(paths.reviewHtml)).toBe(true);
     expect(existsSync(join(targetDir, ".storybook/main.ts"))).toBe(true);
+    expect(existsSync(join(targetDir, ".migration/pages/home/generated/01-section.tsx"))).toBe(true);
     expect(existsSync(paths.approvedInventory)).toBe(false);
     expect(existsSync(join(targetDir, ".migration/runs/001-initial/phase-1-discover"))).toBe(false);
     expect(existsSync(join(targetDir, "storybook-static"))).toBe(false);
 
     const draftInventory = JSON.parse(readFileSync(paths.draftInventory, "utf8"));
+    const generatedSection = readFileSync(join(targetDir, ".migration/pages/home/generated/01-section.tsx"), "utf8");
     const reviewHtml = readFileSync(paths.reviewHtml, "utf8");
+    expect(generatedSection).toContain("Hero");
+    expect(generatedSection).not.toContain("data-migration-section");
     expect(reviewHtml).toContain(draftInventory.entries[0].proposedName);
     expect(outcome).toEqual({
       kind: "ready-for-review",

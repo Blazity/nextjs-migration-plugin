@@ -7,7 +7,7 @@ import { ApprovedInventorySchema, type ApprovedInventory } from "../schemas/appr
 import { PageAssemblyReportSchema, type PageAssemblyReport } from "../schemas/page-assembly-report.ts";
 import { BrowserWorkQueue, type BrowserWorkQueueLike } from "./browser-work-queue.ts";
 import { migrationPaths } from "./migration-paths.ts";
-import { capturePageScreenshot, type PageScreenshotCapturerArgs } from "./run-page-assembly.ts";
+import { capturePageScreenshot, localPageUrlForSlug, type PageScreenshotCapturerArgs } from "./run-page-assembly.ts";
 import type { ComponentVerifyViewport } from "./verify-component.ts";
 
 const BASELINE_VIEWPORTS = [390, 768, 1440] as const satisfies readonly ComponentVerifyViewport[];
@@ -70,7 +70,6 @@ export async function approvePageLayout(
     pageReferenceVersion: report.pageReferenceVersion,
   });
   const approvalPath = paths.pageApproval(report.slug);
-  writeJson(approvalPath, approval);
 
   const browserQueue = args.browserQueue ?? BrowserWorkQueue.from({ targetDir: args.targetDir });
   const screenshotCapturer = args.screenshotCapturer ?? capturePageScreenshot;
@@ -92,6 +91,7 @@ export async function approvePageLayout(
     slugOrName: report.slug,
   });
   writeJson(baselinePath, baseline);
+  writeJson(approvalPath, approval);
 
   return {
     ok: true,
@@ -118,7 +118,7 @@ async function captureBaselineScreenshots(args: {
     });
     await args.browserQueue.enqueue(() =>
       args.screenshotCapturer({
-        pageUrl: `${args.localBaseUrl.replace(/\/$/, "")}/${args.slug}`,
+        pageUrl: localPageUrlForSlug(args.localBaseUrl, args.slug),
         viewport,
         outputPath,
       })

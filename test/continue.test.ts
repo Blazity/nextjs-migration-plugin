@@ -15,6 +15,10 @@ describe("resumeMigration", () => {
     expect(defaultDispatchers()?.implementComponentBatch).toBeTypeOf("function");
   });
 
+  it("wires a default page-assembly dispatcher for guided continue", () => {
+    expect(defaultDispatchers()?.assemblePage).toBeTypeOf("function");
+  });
+
   it("returns not-initialized when there is no .migration directory", async () => {
     const targetDir = mkdtempSync(join(tmpdir(), "cont-"));
 

@@ -55,8 +55,10 @@ function findSectionInstance(
   evidence: RawDiscoveryEvidence,
   sectionInstanceId: string,
 ): { url: string } | null {
-  for (const page of evidence.pages) {
-    if (page.sections.some(section => section.id === sectionInstanceId)) {
+  for (const [pageIndex, page] of evidence.pages.entries()) {
+    if (page.sections.some((section, sectionIndex) =>
+      section.id === sectionInstanceId || `p${pageIndex}-s${sectionIndex}` === sectionInstanceId
+    )) {
       return { url: page.url };
     }
   }

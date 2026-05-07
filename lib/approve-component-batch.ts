@@ -76,13 +76,6 @@ export async function approveComponentBatch(
     implementationNames: report.components.map(component => component.implementationName),
   });
 
-  const approvalPaths = report.components.map(component =>
-    paths.componentApproval(component.componentGroupId)
-  );
-  for (const approvalPath of approvalPaths) {
-    writeJson(approvalPath, approval);
-  }
-
   const baselines = [];
   for (const component of report.components) {
     const baselinePath = paths.approvedBaselineManifest({
@@ -108,6 +101,12 @@ export async function approveComponentBatch(
       path: baselinePath,
       baseline,
     });
+  }
+  const approvalPaths = report.components.map(component =>
+    paths.componentApproval(component.componentGroupId)
+  );
+  for (const approvalPath of approvalPaths) {
+    writeJson(approvalPath, approval);
   }
 
   return {

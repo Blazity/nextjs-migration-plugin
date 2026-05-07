@@ -90,7 +90,65 @@ describe("scheduleMigration", () => {
     writeJson(paths.pageApproval("home"), {
       kind: "page-layout",
       approvedAt: now,
-      artifactVersion: "abcdefabcdef1234",
+      artifactVersion: approved.artifactVersion,
+      slug: "home",
+      componentGroupIds: ["group-header", "group-hero"],
+      pageReferenceVersion: hashArtifact(rawDiscovery().referenceScreenshots.pages),
+    });
+
+    const result = scheduleMigration(targetDir);
+
+    expect(result).toEqual({ next: "all-done" });
+  });
+
+  it("treats page approvals for an older inventory artifact as pending", () => {
+    const targetDir = mkdtempSync(join(tmpdir(), "scheduler-"));
+    const draft = draftInventory();
+    const approved = approvedInventory(draft);
+    const paths = migrationPaths(targetDir);
+    writeJson(paths.draftInventory, draft);
+    writeJson(paths.approvedInventory, approved);
+    writeJson(paths.rawDiscovery, rawDiscovery());
+    for (const component of approved.entries) {
+      writeComponentApproval(targetDir, component.componentGroupId, component.implementationName, {
+        artifactVersion: approved.artifactVersion,
+      });
+    }
+    writeJson(paths.pageApproval("home"), {
+      kind: "page-layout",
+      approvedAt: now,
+      artifactVersion: "1234567890abcdef",
+      slug: "home",
+      componentGroupIds: ["group-header", "group-hero"],
+      pageReferenceVersion: hashArtifact(rawDiscovery().referenceScreenshots.pages),
+    });
+
+    const result = scheduleMigration(targetDir);
+
+    expect(result).toEqual({
+      next: "assemble-page",
+      slug: "home",
+      componentGroupIds: ["group-header", "group-hero"],
+    });
+  });
+
+  it("treats page approvals for older page references as pending", () => {
+    const targetDir = mkdtempSync(join(tmpdir(), "scheduler-"));
+    const draft = draftInventory();
+    const approved = approvedInventory(draft);
+    const paths = migrationPaths(targetDir);
+    writeJson(paths.draftInventory, draft);
+    writeJson(paths.approvedInventory, approved);
+    writeJson(paths.rawDiscovery, rawDiscovery());
+    for (const component of approved.entries) {
+      writeComponentApproval(targetDir, component.componentGroupId, component.implementationName, {
+        artifactVersion: approved.artifactVersion,
+      });
+    }
+    writeJson(paths.pageApproval("home"), {
+      kind: "page-layout",
+      approvedAt: now,
+      artifactVersion: approved.artifactVersion,
       slug: "home",
       componentGroupIds: ["group-header", "group-hero"],
       pageReferenceVersion: "1234567890abcdef",
@@ -98,7 +156,11 @@ describe("scheduleMigration", () => {
 
     const result = scheduleMigration(targetDir);
 
-    expect(result).toEqual({ next: "all-done" });
+    expect(result).toEqual({
+      next: "assemble-page",
+      slug: "home",
+      componentGroupIds: ["group-header", "group-hero"],
+    });
   });
 
   it("returns review-inventory when the approved inventory artifact version no longer matches the draft", () => {

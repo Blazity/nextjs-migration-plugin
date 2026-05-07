@@ -39,7 +39,7 @@ describe("approvePageLayout", () => {
 
     expect(result.ok).toBe(true);
     expect(captured).toEqual([390, 768, 1440].map(viewport => ({
-      pageUrl: "http://127.0.0.1:3000/home",
+      pageUrl: "http://127.0.0.1:3000/",
       viewport,
       outputPath: paths.approvedBaseline({ kind: "page", slugOrName: "home", viewport }),
     })));
@@ -98,6 +98,31 @@ describe("approvePageLayout", () => {
     });
     expect(screenshotCapturer).not.toHaveBeenCalled();
     expect(existsSync(paths.pageApproval("home"))).toBe(false);
+  });
+
+  it("does not persist page approval when baseline capture fails", async () => {
+    const targetDir = mkdtempSync(join(tmpdir(), "approve-page-layout-"));
+    const paths = migrationPaths(targetDir);
+    const reportPath = join(targetDir, ".migration/reports/page-assembly/home.json");
+    writeJson(paths.approvedInventory, approvedInventory());
+    writeComponentApproval(targetDir, "group-header", "SiteHeader");
+    writeComponentApproval(targetDir, "group-hero", "Hero");
+    writeJson(reportPath, pageReport(targetDir));
+
+    await expect(approvePageLayout({
+      targetDir,
+      reportPath,
+      approvedAt,
+      screenshotCapturer: async () => {
+        throw new Error("next server unavailable");
+      },
+    })).rejects.toThrow("next server unavailable");
+
+    expect(existsSync(paths.pageApproval("home"))).toBe(false);
+    expect(existsSync(paths.approvedBaselineManifest({
+      kind: "page",
+      slugOrName: "home",
+    }))).toBe(false);
   });
 });
 

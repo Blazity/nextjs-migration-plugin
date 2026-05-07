@@ -119,12 +119,12 @@ function writePageFile(args: {
   sourceUrl: string;
   componentNames: string[];
 }): string {
-  const routeDir = join(args.targetDir, "src/app", args.slug);
+  const routeDir = join(args.targetDir, "src/app", appRouteSegment(args.slug));
   mkdirSync(routeDir, { recursive: true });
   const pagePath = join(routeDir, "page.tsx");
   writeFileSync(pagePath, assemblePageTsx({
     group: {
-      nextRoute: `/${args.slug}`,
+      nextRoute: pagePathnameForSlug(args.slug),
       kind: "static",
       entries: [{ sourceUrl: args.sourceUrl, params: {} }],
     },
@@ -167,7 +167,7 @@ async function verifyPageScreenshots(args: {
     const screenshotPath = join(args.targetDir, ".migration/reports/page-assembly", `${args.slug}-${viewport}.png`);
     await args.browserQueue.enqueue(() =>
       args.screenshotCapturer({
-        pageUrl: `${args.localBaseUrl.replace(/\/$/, "")}/${args.slug}`,
+        pageUrl: localPageUrlForSlug(args.localBaseUrl, args.slug),
         viewport,
         outputPath: screenshotPath,
       })
@@ -234,6 +234,18 @@ export async function capturePageScreenshot(args: PageScreenshotCapturerArgs): P
   } finally {
     await browser.close();
   }
+}
+
+export function localPageUrlForSlug(baseUrl: string, slug: string): string {
+  return `${baseUrl.replace(/\/$/, "")}${pagePathnameForSlug(slug)}`;
+}
+
+export function pagePathnameForSlug(slug: string): string {
+  return slug === "home" ? "/" : `/${slug}`;
+}
+
+function appRouteSegment(slug: string): string {
+  return slug === "home" ? "" : slug;
 }
 
 function maybeWriteDiff(args: {

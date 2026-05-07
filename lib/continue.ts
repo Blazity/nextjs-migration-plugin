@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { ApprovedInventoryEntry } from "../schemas/approved-inventory.ts";
 import { scheduleMigration } from "./migration-scheduler.ts";
 import { runComponentBatch } from "./run-component-batch.ts";
+import { runPageAssembly } from "./run-page-assembly.ts";
 
 export type ComponentBatchDispatcher = (args: {
   targetDir: string;
@@ -144,6 +145,9 @@ export function defaultDispatchers(): ResumeArgs["dispatchers"] {
   return {
     implementComponentBatch: async ({ targetDir, artifactVersion, batch }) => {
       await runComponentBatch({ targetDir, artifactVersion, batch });
+    },
+    assemblePage: async ({ targetDir, slug, componentGroupIds }) => {
+      await runPageAssembly({ targetDir, slug, componentGroupIds });
     },
   };
 }

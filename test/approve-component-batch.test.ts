@@ -107,6 +107,29 @@ describe("approveComponentBatch", () => {
     expect(screenshotCapturer).not.toHaveBeenCalled();
     expect(existsSync(paths.componentApproval("group-hero"))).toBe(false);
   });
+
+  it("does not persist component approval when baseline capture fails", async () => {
+    const targetDir = mkdtempSync(join(tmpdir(), "approve-component-batch-"));
+    const paths = migrationPaths(targetDir);
+    const reportPath = join(targetDir, ".migration/reports/component-batches", `${artifactVersion}.json`);
+    writeJson(paths.approvedInventory, approvedInventory());
+    writeJson(reportPath, componentBatchReport());
+
+    await expect(approveComponentBatch({
+      targetDir,
+      reportPath,
+      approvedAt,
+      screenshotCapturer: async () => {
+        throw new Error("storybook unavailable");
+      },
+    })).rejects.toThrow("storybook unavailable");
+
+    expect(existsSync(paths.componentApproval("group-hero"))).toBe(false);
+    expect(existsSync(paths.approvedBaselineManifest({
+      kind: "component",
+      slugOrName: "Hero",
+    }))).toBe(false);
+  });
 });
 
 function approvedInventory() {

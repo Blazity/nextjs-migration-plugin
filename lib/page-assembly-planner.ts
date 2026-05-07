@@ -44,10 +44,13 @@ export function planPageAssembly(args: PlanPageAssemblyArgs): PageAssemblyPlan {
   const pages: PageAssemblyPagePlan[] = [];
   const pendingApproval: PendingPageAssemblyApproval[] = [];
 
-  for (const page of rawDiscovery.pages) {
+  for (const [pageIndex, page] of rawDiscovery.pages.entries()) {
     const components = componentsForPage({
       entries: approvedInventory.entries,
-      sectionIds: page.sections.map(section => section.id),
+      sectionIds: page.sections.flatMap((section, sectionIndex) => [
+        section.id,
+        `p${pageIndex}-s${sectionIndex}`,
+      ]),
     });
     if (components.length === 0) continue;
 

@@ -1,5 +1,5 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { SiteFrontmatterSchema, type SiteFrontmatterInput } from "../schemas/site.ts";
 import type { RawDiscoveryEvidence } from "../schemas/raw-discovery.ts";
 import { hashArtifact } from "./artifact-hash.ts";
@@ -9,6 +9,7 @@ import { buildDraftInventory } from "./inventory-builder.ts";
 import { renderInventoryReviewHtml } from "./inventory-review-html.ts";
 import { migrationPaths } from "./migration-paths.ts";
 import { ensureStorybookScaffold } from "./storybook-scaffold.ts";
+import { urlToSlug } from "./slug.ts";
 
 export interface RunMigrationStartArgs {
   targetDir: string;
@@ -51,6 +52,7 @@ export async function runMigrationStart(
     initialPageSelection: args.initialPageSelection,
   });
   const evidence = discovery.evidence satisfies RawDiscoveryEvidence;
+  writeGeneratedSectionSources(args.targetDir, evidence);
   const draftInventory = buildDraftInventory(evidence, {
     generatedAt: args.generatedAt?.(),
   });
@@ -66,4 +68,49 @@ export async function runMigrationStart(
     reviewHtmlPath: paths.reviewHtml,
     artifactVersion: hashArtifact(draftInventory),
   };
+}
+
+function writeGeneratedSectionSources(targetDir: string, evidence: RawDiscoveryEvidence): void {
+  const slugByUrl = new Map(
+    evidence.referenceScreenshots.pages.map(reference => [reference.url, reference.slug]),
+  );
+  for (const [pageIndex, page] of evidence.pages.entries()) {
+    const slug = slugByUrl.get(page.url) ?? urlToSlug(page.url);
+    const generatedDir = join(targetDir, ".migration/pages", slug, "generated");
+    mkdirSync(generatedDir, { recursive: true });
+    page.sections.forEach((section, index) => {
+      const sectionInstanceId = `p${pageIndex}-s${index}`;
+      const fileName = `${String(index + 1).padStart(2, "0")}-section.tsx`;
+      writeFileSync(join(generatedDir, fileName), renderGeneratedSectionSource({
+        sectionInstanceId,
+        tagSkeleton: section.tagSkeleton,
+        sampleText: section.sampleText,
+      }));
+    });
+  }
+}
+
+function renderGeneratedSectionSource(args: {
+  sectionInstanceId: string;
+  tagSkeleton: string;
+  sampleText: string;
+}): string {
+  const Tag = /^header\b/i.test(args.tagSkeleton)
+    ? "header"
+    : /^footer\b/i.test(args.tagSkeleton)
+      ? "footer"
+      : /^nav\b/i.test(args.tagSkeleton)
+        ? "nav"
+        : "section";
+  return `export default function GeneratedSection() {
+  return (
+    <>
+      {/* Source section: ${args.sectionInstanceId} */}
+      <${Tag}>
+        <p>{${JSON.stringify(args.sampleText)}}</p>
+      </${Tag}>
+    </>
+  );
+}
+`;
 }
