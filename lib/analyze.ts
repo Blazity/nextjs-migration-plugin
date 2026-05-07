@@ -248,7 +248,7 @@ export async function runAnalyzeRefineOnly(args: {
 // Match agents/layout-extractor.md rule: shell qualifies at >= 80% page coverage.
 // Use distinct page count (memberIds may exceed totalPages when a cluster
 // captures multiple matching elements per page).
-const LAYOUT_COVERAGE_THRESHOLD = 0.8;
+const LAYOUT_COVERAGE_THRESHOLD = 0.9;
 
 function extractLayouts(
   clusters: ReturnType<typeof clusterSections>["clusters"],
@@ -256,12 +256,15 @@ function extractLayouts(
 ): Layouts {
   const totalPages = sections.pages.length;
   const minPages = Math.ceil(totalPages * LAYOUT_COVERAGE_THRESHOLD);
+  const homeUrl = sections.pages[0]?.url;
 
-  const findShell = (prefix: string): LayoutShell | null => {
+  const findShell = (slot: "header" | "footer" | "nav"): LayoutShell | null => {
     let best: { cluster: typeof clusters[number]; pageCount: number } | null = null;
     for (const c of clusters) {
-      if (!c.representative.tagSkeleton.startsWith(prefix)) continue;
-      const distinctPages = new Set(c.memberIds.map(id => id.split("#")[0])).size;
+      if (!isLayoutSkeleton(c.representative.tagSkeleton, slot)) continue;
+      const distinctPageSet = new Set(c.memberIds.map(id => id.slice(0, id.lastIndexOf("#"))));
+      if (homeUrl && !distinctPageSet.has(homeUrl)) continue;
+      const distinctPages = distinctPageSet.size;
       if (distinctPages < minPages) continue;
       if (!best || distinctPages > best.pageCount) {
         best = { cluster: c, pageCount: distinctPages };
@@ -271,7 +274,8 @@ function extractLayouts(
     return {
       id: best.cluster.id,
       signature: best.cluster.id.replace(/^cluster-/, ""),
-      appearsOn: dedupeUrls(best.cluster.memberIds.map(id => id.split("#")[0])),
+      appearsOn: dedupeUrls(best.cluster.memberIds.map(id => id.slice(0, id.lastIndexOf("#")))),
+      memberIds: best.cluster.memberIds,
       tagSkeleton: best.cluster.representative.tagSkeleton,
     };
   };
@@ -281,6 +285,11 @@ function extractLayouts(
     nav: findShell("nav"),
     updatedAt: new Date().toISOString(),
   };
+}
+
+function isLayoutSkeleton(tagSkeleton: string, slot: "header" | "footer" | "nav"): boolean {
+  if (slot === "nav") return /(^|[>,])nav\b/.test(tagSkeleton);
+  return tagSkeleton.startsWith(slot);
 }
 
 // Body-direct children whose root tag is one of these are not visual content

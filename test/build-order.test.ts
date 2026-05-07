@@ -12,6 +12,7 @@ const baseLayouts: Layouts = {
     id: "cluster-footer-1",
     signature: "footer-1",
     appearsOn: ["https://example.com/"],
+    memberIds: ["https://example.com/#p0-s2"],
     tagSkeleton: "footer>div",
   },
   nav: null,

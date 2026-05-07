@@ -160,6 +160,32 @@ describe("runDiscover", () => {
     expect(probePages[0].url).toBe(seedUrl);
   }, 60_000);
 
+  it("honors initial page selection from SITE.md during phase-1 discover", async () => {
+    const root = mkdtempSync(join(tmpdir(), "discover-"));
+    await bootstrapMigration({
+      targetDir: root,
+      site: { ...baseSite(baseUrl + "/"), initialPageSelection: ["/about"] } as ReturnType<typeof baseSite> & { initialPageSelection: string[] },
+    });
+    const matched = async (url: string) => ({
+      url, matchedAdapters: ["static-html"], recommendation: "DIRECT_EXTRACTION",
+      detectedCMP: null, spaAnalysis: { isSPA: false },
+    });
+
+    await runDiscover({
+      targetDir: root,
+      runDir: "001-initial",
+      probeOne: matched,
+      confirmPageList: true,
+    });
+
+    const phaseDir = join(root, ".migration/runs/001-initial/phase-1-discover");
+    const crawlPages = JSON.parse(readFileSync(join(phaseDir, "discovery/crawl.json"), "utf8")).pages;
+    expect(crawlPages.map((p: { url: string }) => p.url)).toEqual([`${baseUrl}/about`]);
+
+    const probePages = JSON.parse(readFileSync(join(phaseDir, "discovery/probe.json"), "utf8")).pages;
+    expect(probePages.map((p: { url: string }) => p.url)).toEqual([`${baseUrl}/about`]);
+  }, 60_000);
+
   it("overrides SPA_FLOW_EXTRACTION → DIRECT_EXTRACTION when isSPA is false (issue 001)", async () => {
     const root = mkdtempSync(join(tmpdir(), "discover-"));
     await bootstrapMigration({ targetDir: root, site: baseSite(baseUrl + "/") });

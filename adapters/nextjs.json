@@ -127,7 +127,7 @@
     }
   },
   "localSite": {
-    "sectionSelector": "body > header, body > nav, main > *, body > footer",
+    "sectionSelector": "body > header, body > nav, body > div:has(nav):not(:has(main)):not(:has(footer)), main > *, body > footer",
     "devToolsHideScript": "document.querySelectorAll('nextjs-portal, [data-nextjs-toast], button[data-nextjs-dev-tools-button]').forEach(el => el.style.display = 'none')"
   }
 }

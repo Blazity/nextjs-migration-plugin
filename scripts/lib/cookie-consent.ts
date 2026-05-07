@@ -29,7 +29,7 @@ interface CookieConsentDB {
 }
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-// Plugin layout: scripts/lib/ → ../../adapters/. Old repo used .ai/adapters.
+// Plugin layout: scripts/lib/ → ../../adapters/.
 const DB_PATH = join(__dirname, "../../adapters/cookie-consent.json")
 
 let cached: CookieConsentDB | null = null

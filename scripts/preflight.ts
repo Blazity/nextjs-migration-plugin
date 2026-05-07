@@ -77,7 +77,7 @@ async function main() {
 
   // Check 4: Adapter loading
   results.push(await runCheck("adapter-loading", async () => {
-    const adapterPath = ".ai/adapters/webflow.json"
+    const adapterPath = "adapters/webflow.json"
     if (!existsSync(adapterPath)) throw new Error("webflow.json adapter not found")
     const adapter = loadAdapters([adapterPath])
     if (!adapter.platforms.includes("webflow")) throw new Error("adapter parse failed")

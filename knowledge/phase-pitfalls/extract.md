@@ -8,7 +8,7 @@ If a vendored script is buggy, fix it in the source repo first, then re-vendor. 
 
 ## CLI quirks the wrapper handles
 
-- **`extract-images.ts` writes to `public/images/<domain>/<page>/` relative to CWD** (binaries) and `docs/specs/<page>/` (JSON). The wrapper invokes it with `cwd` set to a per-page `_staging` dir, then moves the JSON output into `pages/[slug]/spec/images.json`. Binaries stay in the staging dir for now; Phase 5 copies them into `<target>/public/`.
+- **`extract-images.ts` writes binaries under `public/images/` relative to CWD** and `docs/specs/<page>/image-manifest.json` for JSON. The wrapper invokes it with `cwd` set to a per-page `_staging` dir, then moves the manifest into `pages/[slug]/spec/image-manifest.json`. Binaries stay in the staging dir for now; Phase 5 copies them into `<target>/public/`.
 - **`extract-styles.ts` accepts viewports.** The wrapper passes `[1440]` by default. Pixel-perfect goal will need multi-viewport extraction in Phase 6 polish; v1 Phase 4 sticks to 1440px (matches `verify-build-baseline` viewport).
 - **All three scripts accept `--adapter <path>`.** The wrapper resolves the adapter from `discovery/probe.json[].matchedAdapters[0]` per page. If a page has no matched adapter, that page is skipped (extraction failure logged in `failures.json`).
 
@@ -17,14 +17,14 @@ If a vendored script is buggy, fix it in the source repo first, then re-vendor. 
 The runner does NOT throw on individual step failures. Each step's outcome is recorded in `pages/[slug]/manifest.json.errors[]`. The orchestrator decides whether the gate passes based on cross-step state (e.g., styles must succeed; images can fail with degraded output; animations failure is non-fatal in `wireframe` goal).
 
 - **Styles failure → page is unusable.** The orchestrator marks the page as failed in `extraction/failures.json` and the page-coverage gate criterion fails.
-- **Images failure → degraded.** Phase 5 falls back to placeholder images; visual diff in Phase 6 will catch the gap.
+- **Images failure → degraded only when a manifest exists.** `image-manifest.json` records `failedDownloads[]` and Phase 5 can still emit backed local paths for successful assets. If an image manifest is missing or a source URL cannot be mapped, Phase 5 codegen fails loudly; it must not emit placeholder `/images/homepage/*` paths.
 - **Animations failure → non-fatal.** v1 wireframe ignores; pixel-perfect retries in Phase 7.
 
 ## Known failure patterns from lessons.md
 
 - **`__name is not defined` in `page.evaluate()` callbacks** (lessons.md #28). Caused by tsx/esbuild's `keepNames` injecting a host-side helper that doesn't exist in the browser context. Fix is in the script (in-page shim); if a script lacks the shim, surface to user as a plugin bug.
 - **Lazy-loaded images return 0 results** (lessons.md #3). Adapter must specify `images.lazyLoadStrategy`. The script scrolls + waits before extracting.
-- **Webflow CDN 403 on background images** (lessons.md #10). Some `cdn.prod.website-files.com` URLs are blocked. The script keeps the URL in `images.json` but flags it; Phase 5 handles via Playwright screenshot fallback.
+- **Webflow CDN 403 on background images** (lessons.md #10). Some `cdn.prod.website-files.com` URLs are blocked. The script keeps the URL in `image-manifest.json`, records the failed download in `failedDownloads[]`, and the Phase 5 asset gate verifies every emitted local reference resolves under `public/`.
 - **SPA fallback content extracted across pages** (lessons.md #24). All URLs return the same shell. `validate-extraction.ts` catches duplicate spec hashes — fails fast. Do NOT proceed to Phase 5.
 - **Memory leaks from infinite GSAP timelines** (lessons.md #51). Browser contexts accumulate. The orchestrator should run a memory watchdog (32GB threshold on 48GB machine) and kill browser processes if exceeded. Currently NOT implemented in v1; track as a follow-up issue if a real run hits memory pressure.
 

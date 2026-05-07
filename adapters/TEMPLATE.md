@@ -1,6 +1,6 @@
 # Adapter Building Template
 
-Use this template when creating a new platform adapter. Each adapter is a JSON file at `.ai/adapters/<platform>.json`.
+Use this template when creating a new platform adapter. Each adapter is a JSON file at `adapters/<platform>.json`.
 
 ## Schema
 
@@ -66,7 +66,7 @@ Use this template when creating a new platform adapter. Each adapter is a JSON f
     "disableUnwrap": false
   },
 
-  // Cookie banner handling is automatic via `.ai/adapters/cookie-consent.json`.
+  // Cookie banner handling is automatic via `adapters/cookie-consent.json`.
   // Do NOT add `cookieBanner` fields to framework or CMS adapters.
 
   // Style extraction hints
@@ -188,7 +188,7 @@ Before an adapter is considered ready to merge:
 
 3. **Run validation:**
    ```bash
-   pnpm ts scripts/validate-adapter.ts .ai/adapters/<name>.json
+   pnpm ts scripts/validate-adapter.ts adapters/<name>.json
    ```
 
 4. **Pass criteria:**

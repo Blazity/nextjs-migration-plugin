@@ -14,7 +14,7 @@ You receive ONE component cluster's spec digest and the corresponding wireframe 
 - Uses semantic HTML for headings, links, lists, buttons.
 - Uses Tailwind utility classes that match the section's `styles.json` entries (font sizes, paddings, colors, gaps).
 - Accepts a typed `props` interface from `library/props.json` if one is registered for this cluster.
-- Imports images from `@/public/images/...` paths emitted by the asset copier.
+- Uses root-relative image `src` values already emitted by the wireframe TSX, such as `/images/<host>/<page>/<section>/<file>`. Do not rewrite them to `@/public/...` imports.
 - Avoids inline styles; prefers Tailwind. If a style cannot be expressed in Tailwind, use a `style={{...}}` escape hatch.
 
 ## Input
