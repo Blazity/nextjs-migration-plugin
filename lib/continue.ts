@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadSite } from "./load-site.ts";
 import { firstIncompletePhase } from "./phase-status.ts";
@@ -7,6 +7,7 @@ import { runAnalyze } from "./analyze.ts";
 import { runPlan } from "./plan.ts";
 import { runExtract } from "./extract.ts";
 import { runBuild } from "./build.ts";
+import { runVisualPolish } from "./polish.ts";
 import { loadAdapter } from "./load-adapter.ts";
 import { loadProbe } from "./load-probe.ts";
 
@@ -39,7 +40,9 @@ export async function resumeMigration(
   const activeRun = runs[runs.length - 1] ?? "001-initial";
   const runDir = join(migDir, "runs", activeRun);
 
-  const next = firstIncompletePhase(runDir, { goal: siteResult.site.goal });
+  const next = isPolishRun(runDir)
+    ? firstIncompletePolishPhase(runDir)
+    : firstIncompletePhase(runDir, { goal: siteResult.site.goal });
   if (next === null) return { kind: "all-done" };
 
   const dispatcher = args.dispatchers?.[next];
@@ -47,6 +50,19 @@ export async function resumeMigration(
 
   await dispatcher({ targetDir, runDir: activeRun });
   return { kind: "dispatched", phase: next, runDir: activeRun };
+}
+
+function isPolishRun(runDir: string): boolean {
+  const runMd = join(runDir, "RUN.md");
+  if (!existsSync(runMd)) return false;
+  return readFileSync(runMd, "utf8").includes("Run type: polish");
+}
+
+function firstIncompletePolishPhase(runDir: string): string | null {
+  for (const phase of ["phase-6-visual", "phase-7-animate", "phase-8-perf"]) {
+    if (!existsSync(join(runDir, phase, "VERIFICATION.md"))) return phase;
+  }
+  return null;
 }
 
 export function defaultDispatchers(): Record<string, PhaseDispatcher> {
@@ -71,6 +87,9 @@ export function defaultDispatchers(): Record<string, PhaseDispatcher> {
     },
     "phase-5-build": async ({ targetDir, runDir }) => {
       await runBuild({ targetDir, runDir });
+    },
+    "phase-6-visual": async ({ targetDir }) => {
+      await runVisualPolish({ targetDir, scope: "all", mcpAvailable: false });
     },
   };
 }

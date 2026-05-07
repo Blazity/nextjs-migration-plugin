@@ -73,7 +73,7 @@ const BORDER_RADIUS_MAP: Record<string, string> = {
   "24px": "rounded-3xl", "10000px": "rounded-full", "9999px": "rounded-full",
 }
 
-function splitTailwindClasses(str: string): string[] {
+export function splitTailwindClasses(str: string): string[] {
   let normalized = ""
   let depth = 0
   for (const ch of str) {
@@ -84,6 +84,8 @@ function splitTailwindClasses(str: string): string[] {
   }
   return normalized.split(" ").filter(Boolean)
 }
+
+const STRUCTURAL_TAGS = new Set(["section", "header", "footer", "main", "nav", "article", "aside"])
 
 export class TailwindMapper {
   private tokens: TokenMap
@@ -164,7 +166,12 @@ export class TailwindMapper {
       const c = this.mapColor(styles.backgroundColor, "bg")
       if (c) classes.push(c)
     }
-    if (styles.borderColor) {
+    // Only emit border-color when there is an actual border. Webflow leaves
+    // borderColor on every element via `* { border-color: ... }`, which would
+    // otherwise spam every node with a `border-[rgb(...)]` class that paints
+    // nothing but pollutes className strings and confuses refinement passes.
+    const hasBorder = styles.borderWidth && styles.borderWidth !== "0px"
+    if (hasBorder && styles.borderColor) {
       const c = this.mapColor(styles.borderColor, "border")
       if (c) classes.push(c)
     }
@@ -243,6 +250,18 @@ export class TailwindMapper {
     if (styles.position === "fixed") classes.push("fixed")
     if (styles.position === "sticky") classes.push("sticky")
 
+    // Background-overlay pattern: position:absolute with no explicit
+    // top/right/bottom/left typically means "fill parent". extract-styles
+    // strips zero/auto values, so the absence of these properties in the
+    // styles map is exactly the "should fill" signal. Emit inset-0 so the
+    // overlay actually covers the parent instead of collapsing to 0×0.
+    if (
+      styles.position === "absolute"
+      && !styles.top && !styles.right && !styles.bottom && !styles.left
+    ) {
+      classes.push("inset-0")
+    }
+
     if (styles.zIndex && styles.zIndex !== "auto") classes.push(`z-[${styles.zIndex}]`)
 
     if (styles.overflow === "hidden") classes.push("overflow-hidden")
@@ -263,6 +282,8 @@ export class TailwindMapper {
     const isPixelWidth = (cls: string) => /^(\w+:)*w-\[\d/.test(cls)
     const isPixelHeight = (cls: string) => /^(\w+:)*h-\[\d/.test(cls)
 
+    const isStructural = STRUCTURAL_TAGS.has(el.tag)
+
     return splitTailwindClasses(classes)
       .filter(cls => {
         // Strip inherited border color (comes from body)
@@ -272,6 +293,17 @@ export class TailwindMapper {
         // Strip pixel width/height on non-media elements
         if (!isMedia && isPixelWidth(cls)) return false
         if (!isMedia && isPixelHeight(cls) && !el.className.includes("spacer")) return false
+        // Structural landmark tags should not be absolutely positioned in the
+        // migrated tree. Webflow often wraps them in a `position: relative`
+        // ancestor with explicit dimensions; that anchor doesn't survive
+        // re-rendering, so absolute on a <section>/<header>/etc. collapses
+        // siblings out of normal flow. Drop position + inset utilities for
+        // these tags. Refinement may add them back when truly necessary.
+        if (isStructural) {
+          if (cls === "absolute" || cls === "fixed") return false
+          if (cls === "inset-0") return false
+          if (/^(top|right|bottom|left)-/.test(cls)) return false
+        }
         return true
       })
       .join(" ")

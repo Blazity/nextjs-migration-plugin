@@ -64,6 +64,28 @@ describe("phase-state", () => {
     expect(existsSync(join(phaseDir, "verification.json"))).toBe(true);
   });
 
+  it("removes stale VERIFICATION.md when a later verification fails", async () => {
+    const phaseDir = tempPhaseDir();
+    await writeVerification(phaseDir, {
+      phase: "phase-1-discover",
+      passed: true,
+      checkedAt: "2026-04-29T12:00:00.000Z",
+      criteria: [{ name: "x", passed: true }],
+    });
+    expect(existsSync(join(phaseDir, "VERIFICATION.md"))).toBe(true);
+
+    await writeVerification(phaseDir, {
+      phase: "phase-1-discover",
+      passed: false,
+      checkedAt: "2026-04-29T12:01:00.000Z",
+      criteria: [{ name: "x", passed: false, detail: "regressed" }],
+    });
+
+    expect(existsSync(join(phaseDir, "VERIFICATION.md"))).toBe(false);
+    const json = JSON.parse(readFileSync(join(phaseDir, "verification.json"), "utf8"));
+    expect(json.passed).toBe(false);
+  });
+
   it("readVerification round-trips the JSON sidecar", async () => {
     const phaseDir = tempPhaseDir();
     const v = {

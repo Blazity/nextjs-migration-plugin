@@ -6,14 +6,14 @@ Point it at a URL, answer a few wizard questions, get a production-ready Next.js
 
 ## Status
 
-**Pre-release.** Foundation only — commands `migrate:new`, `migrate:status`, `migrate:config` work. Phases are not yet implemented (see `docs/superpowers/plans/` for the implementation roadmap).
+**Pre-release.** The repository contains the plugin foundation plus phase work through build-oriented workflows. See `.ai/plans/` for executed implementation plans and `docs/specs/` for canonical design docs.
 
 ## Prerequisites
 
 - Claude Code CLI installed
 - `superpowers` plugin installed (hard dependency)
 - Node.js ≥22 and pnpm on your machine (scripts shell out to `tsx`)
-- Playwright MCP configured (needed once phases land — not required for this release)
+- Playwright/browser tooling available for extraction and verification phases.
 
 ## Install
 
@@ -29,7 +29,7 @@ claude plugin install github:blazity/nextjs-migration-plugin
 
 Session start will fail with a clear message if `superpowers` is missing.
 
-## Usage (foundation)
+## Usage
 
 ```bash
 cd ~/dev/my-new-site
@@ -57,7 +57,9 @@ pnpm typecheck
 
 ## Architecture
 
-See the design spec at `docs/superpowers/specs/2026-04-21-migration-plugin-design.md`.
+See the design spec at `docs/specs/2026-04-21-migration-plugin-design.md`.
+
+AI-facing maintainer documentation uses the [`Blazity/ai-harness`](https://github.com/Blazity/ai-harness) scaffold. It lives in `.ai/`; implementation plans are in `.ai/plans/`, research artifacts in `.ai/research/`, and durable project memory in `.ai/memory/`.
 
 ## License
 

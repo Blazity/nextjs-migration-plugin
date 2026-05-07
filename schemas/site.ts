@@ -7,8 +7,10 @@ export const SiteFrontmatterSchema = z.object({
   goal: z.enum(["wireframe", "pixel-perfect"]),
   inputMode: z.enum(["url-only", "url-plus-repo"]),
   sourceRepo: z.string().optional(),
+  initialPageSelection: z.array(z.string().min(1)).default(["all"]),
   maxParallelPages: z.number().int().positive().default(4),
   maxParallelSections: z.number().int().positive().default(4),
 });
 
 export type SiteFrontmatter = z.infer<typeof SiteFrontmatterSchema>;
+export type SiteFrontmatterInput = z.input<typeof SiteFrontmatterSchema>;

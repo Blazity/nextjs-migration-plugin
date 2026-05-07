@@ -4,3 +4,4 @@ coverage/
 .DS_Store
 *.log
 .migration/
+.claude/settings.local.json

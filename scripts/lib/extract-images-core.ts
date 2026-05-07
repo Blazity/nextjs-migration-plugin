@@ -224,6 +224,17 @@ export interface ImageExtractionResult {
   sections: SectionImages[]
   shellSections: ShellSectionEntry[]
   totalImages: number
+  failedDownloads?: FailedImageDownload[]
+}
+
+export interface FailedImageDownload {
+  url: string
+  localPath: string
+  error: string
+}
+
+export interface WriteImageOutputDeps {
+  downloadFile?: (url: string, dest: string) => Promise<void>
 }
 
 export function resolveImageUrl(input: { src: string | null; currentSrc: string | null }): string | null {
@@ -698,6 +709,13 @@ function deriveFilename(url: string, alt: string) {
   return `${prefix}-${hash}${ext}`
 }
 
+export function extractCssUrl(cssUrl: string): string | null {
+  const match = cssUrl.trim().match(/^url\((.*)\)$/)
+  if (!match) return null
+  const unquoted = match[1].trim().replace(/^["']|["']$/g, "")
+  return /^https?:\/\//.test(unquoted) ? unquoted : null
+}
+
 function downloadFile(url: string, dest: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const dir = join(dest, "..")
@@ -711,6 +729,7 @@ function downloadFile(url: string, dest: string): Promise<void> {
           return
         }
         if (res.statusCode && res.statusCode >= 400) {
+          res.resume()
           reject(new Error(`HTTP ${res.statusCode} for ${url}`))
           return
         }
@@ -840,12 +859,14 @@ export async function extractImagesFromPage(
         const cs = window.getComputedStyle(child)
         const bgImage = cs.backgroundImage
         if (!bgImage || bgImage === "none") continue
-        const match = bgImage.match(/url\(["']?(https?:\/\/[^"')]+)["']?\)/)
+        const match = bgImage.trim().match(/^url\((.*)\)$/)
         if (!match) continue
+        const url = match[1].trim().replace(/^["']|["']$/g, "")
+        if (!/^https?:\/\//.test(url)) continue
         const rect = child.getBoundingClientRect()
         if (rect.width < 5 || rect.height < 5) continue
         results.push({
-          url: match[1],
+          url,
           bounds: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
           className: (child as HTMLElement).className?.toString?.() || "",
         })
@@ -1369,22 +1390,29 @@ export async function extractImagesFromPage(
 export async function writeImageOutput(
   result: ImageExtractionResult,
   imageBaseDir: string,
-  manifestDir: string
+  manifestDir: string,
+  deps: WriteImageOutputDeps = {}
 ): Promise<void> {
+  const failedDownloads: FailedImageDownload[] = [...(result.failedDownloads ?? [])]
+  const download = deps.downloadFile ?? downloadFile
+
   for (const section of result.sections) {
     for (const img of section.images) {
-      const fullLocalPath = join(imageBaseDir, ...img.localPath.split("/").slice(1))
+      const fullLocalPath = resolveLocalAssetPath(imageBaseDir, img.localPath)
       try {
         if (!existsSync(fullLocalPath)) {
-          await downloadFile(img.originalUrl, fullLocalPath)
+          mkdirSync(join(fullLocalPath, ".."), { recursive: true })
+          await download(img.originalUrl, fullLocalPath)
         }
       } catch (err) {
-        console.error(`    Failed to download ${img.originalUrl}: ${err}`)
+        const failure = { url: img.originalUrl, localPath: img.localPath, error: String(err) }
+        failedDownloads.push(failure)
+        console.error(`    Failed to download ${img.originalUrl}: ${failure.error}`)
       }
     }
 
     for (const svg of section.inlineSvgs) {
-      const fullLocalPath = join(imageBaseDir, ...svg.localPath.split("/").slice(1))
+      const fullLocalPath = resolveLocalAssetPath(imageBaseDir, svg.localPath)
       const dir = join(fullLocalPath, "..")
       mkdirSync(dir, { recursive: true })
       writeFileSync(fullLocalPath, normalizeStandaloneSvg(svg.outerHTML))
@@ -1399,6 +1427,7 @@ export async function writeImageOutput(
         url: result.url,
         extractedAt: new Date().toISOString(),
         totalImages: result.totalImages,
+        failedDownloads,
         sections: result.sections,
       },
       null,
@@ -1410,4 +1439,22 @@ export async function writeImageOutput(
     join(manifestDir, "shell-summary.json"),
     JSON.stringify(deriveShellSummary(result), null, 2)
   )
+}
+
+function resolveLocalAssetPath(imageBaseDir: string, localPath: string): string {
+  const localParts = localPath.split(/[\\/]/).filter(Boolean)
+  const relativeParts = localParts[0] === "images" ? localParts.slice(1) : localParts
+  const baseParts = imageBaseDir.split(/[\\/]/).filter(Boolean)
+
+  let overlap = 0
+  for (let size = Math.min(baseParts.length, relativeParts.length); size > 0; size--) {
+    const baseTail = baseParts.slice(-size).join("/")
+    const relativeHead = relativeParts.slice(0, size).join("/")
+    if (baseTail === relativeHead) {
+      overlap = size
+      break
+    }
+  }
+
+  return join(imageBaseDir, ...relativeParts.slice(overlap))
 }

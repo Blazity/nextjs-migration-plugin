@@ -1,5 +1,7 @@
-import { readFileSync, writeFileSync, readdirSync, mkdirSync } from "fs"
+import { existsSync, readFileSync, writeFileSync, readdirSync, mkdirSync } from "fs"
 import { join } from "path"
+import { fileURLToPath } from "url"
+import { splitTailwindClasses } from "./lib/tailwind-mapper.ts"
 
 const SPECS_DIR = process.argv[2] || "docs/specs/homepage"
 const OUTPUT_DIR = process.argv[3] || "docs/generated/homepage"
@@ -37,7 +39,11 @@ function parseStructureTree(md: string): TreeNode | null {
       attrs[attrMatch[1]] = attrMatch[2]
     }
 
-    const textMatch = content.match(/"([^"]+)"/)
+    // Extract the text node — but skip past attribute values like
+    // `[href="#contact"]`, otherwise the first quoted string the regex sees
+    // is the href and the link renders with `#contact` as its label.
+    const contentSansAttrs = content.replace(/\[[^\]]*\]/g, "")
+    const textMatch = contentSansAttrs.match(/"([^"]+)"/)
     const text = textMatch ? textMatch[1] : ""
 
     const dimMatch = content.match(/\((\d+)x(\d+)\)/)
@@ -111,7 +117,7 @@ function escapeJsxText(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\{/g, "&#123;").replace(/\}/g, "&#125;")
 }
 
-function renderJsx(node: TreeNode, styles: StyleEntry[], indent: number = 0, usedStyles: Set<number> = new Set()): string {
+function renderJsx(node: TreeNode, styles: StyleEntry[], indent: number = 0, usedStyles: Set<number> = new Set(), specsDir: string = SPECS_DIR): string {
   const pad = "  ".repeat(indent)
   const tag = node.tag
   const styleEntry = findStyles(styles, tag, node.className, node.text)
@@ -131,15 +137,19 @@ function renderJsx(node: TreeNode, styles: StyleEntry[], indent: number = 0, use
     const alt = node.attrs.alt || ""
     const width = node.attrs._width || "0"
     const height = node.attrs._height || "0"
-    const localSrc = mapToLocalImage(src, alt)
+    const localSrc = mapToLocalImage(src, alt, specsDir)
     return `${pad}<Image src="${localSrc}" alt="${alt}" width={${width}} height={${height}}${classes ? ` className="${classes}"` : ""} />\n`
   }
 
   // Handle links
   if (tag === "a") {
     const href = node.attrs.href || "#"
+    // Hover classes can contain spaces inside `[rgb(...)]`; a naïve `.split(" ")`
+    // here turns `bg-[rgb(168, 226, 112)]` into three tokens which then get
+    // each prefixed with `hover:` (the dreaded `hover:bg-[rgb(168, hover:226,
+    // hover:112)]`). Use the bracket-aware splitter so RGB values stay intact.
     const hoverClasses = styleEntry?.hoverClasses
-      ? " " + styleEntry.hoverClasses.split(" ").map(c => `hover:${c}`).join(" ") + " transition-all duration-[275ms]"
+      ? " " + splitTailwindClasses(styleEntry.hoverClasses).map(c => `hover:${c}`).join(" ") + " transition-all duration-[275ms]"
       : ""
     const allClasses = (classes + hoverClasses).trim()
 
@@ -152,7 +162,7 @@ function renderJsx(node: TreeNode, styles: StyleEntry[], indent: number = 0, use
       jsx += `${pad}  ${escapeJsxText(node.text)}\n`
     }
     for (const child of node.children) {
-      jsx += renderJsx(child, styles, indent + 1, usedStyles)
+      jsx += renderJsx(child, styles, indent + 1, usedStyles, specsDir)
     }
     jsx += `${pad}</a>\n`
     return jsx
@@ -179,41 +189,58 @@ function renderJsx(node: TreeNode, styles: StyleEntry[], indent: number = 0, use
   // Container element
   let jsx = `${pad}<${jsxTag}${classes ? ` className="${classes}"` : ""}>\n`
   for (const child of node.children) {
-    jsx += renderJsx(child, styles, indent + 1, usedStyles)
+    jsx += renderJsx(child, styles, indent + 1, usedStyles, specsDir)
   }
   jsx += `${pad}</${jsxTag}>\n`
   return jsx
 }
 
-function mapToLocalImage(cdnUrl: string, alt: string): string {
-  const manifestPath = join(SPECS_DIR, "image-manifest.json")
-  try {
-    const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"))
-    for (const section of manifest.sections) {
-      for (const img of section.images) {
-        if (img.originalUrl === cdnUrl || img.alt === alt) {
-          return "/" + img.localPath
-        }
+export function mapToLocalImage(cdnUrl: string, alt: string, specsDir: string = SPECS_DIR): string {
+  const manifestPath = existsSync(join(specsDir, "image-manifest.json"))
+    ? join(specsDir, "image-manifest.json")
+    : existsSync(join(specsDir, "images.json"))
+      ? join(specsDir, "images.json")
+      : null
+  if (!manifestPath) {
+    throw new Error(`Missing image manifest in ${specsDir}; cannot map ${cdnUrl}`)
+  }
+
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"))
+  if (!Array.isArray(manifest.sections)) {
+    throw new Error(`Invalid image manifest in ${manifestPath}; expected sections[]`)
+  }
+
+  for (const section of manifest.sections) {
+    for (const img of section.images ?? []) {
+      if (img.originalUrl === cdnUrl || (alt && img.alt === alt)) {
+        return "/" + img.localPath
       }
     }
-  } catch {}
-  const filename = cdnUrl.split("/").pop()?.split("?")[0] || "unknown.png"
-  return `/images/homepage/${filename}`
+  }
+
+  // Fallback: image is referenced in structure but missing from manifest
+  // (e.g. inactive Webflow tab content filtered out by visibility check during
+  // image extraction). Return the original CDN URL so next/image can fetch it
+  // remotely; consumer must whitelist the host in next.config remotePatterns.
+  console.warn(`[generate-jsx] No local mapping for ${cdnUrl} — falling back to CDN URL`)
+  return cdnUrl
 }
 
 // --- Main ---
 
-function main() {
-  mkdirSync(OUTPUT_DIR, { recursive: true })
+export function generateJsx(args: { specsDir?: string; outputDir?: string } = {}) {
+  const specsDir = args.specsDir ?? SPECS_DIR
+  const outputDir = args.outputDir ?? OUTPUT_DIR
+  mkdirSync(outputDir, { recursive: true })
 
-  const files = readdirSync(SPECS_DIR).filter(f => f.endsWith(".structure.md")).sort()
-  console.log(`Generating JSX for ${files.length} sections from ${SPECS_DIR}\n`)
+  const files = readdirSync(specsDir).filter(f => f.endsWith(".structure.md")).sort()
+  console.log(`Generating JSX for ${files.length} sections from ${specsDir}\n`)
 
   for (const structureFile of files) {
     const label = structureFile.replace(".structure.md", "")
     const stylesFile = `${label}.styles.json`
 
-    const structureMd = readFileSync(join(SPECS_DIR, structureFile), "utf-8")
+    const structureMd = readFileSync(join(specsDir, structureFile), "utf-8")
     const tree = parseStructureTree(structureMd)
     if (!tree) {
       console.log(`  [${label}] SKIP — no tree parsed`)
@@ -222,21 +249,27 @@ function main() {
 
     let styles: StyleEntry[] = []
     try {
-      styles = loadStyles(join(SPECS_DIR, stylesFile))
+      styles = loadStyles(join(specsDir, stylesFile))
     } catch {
       console.log(`  [${label}] WARN — no styles file, generating structure only`)
     }
 
-    const jsx = renderJsx(tree, styles)
+    const jsx = renderJsx(tree, styles, 0, new Set(), specsDir)
 
     const outputFile = `${label}.generated.jsx`
     const output = `{/* Auto-generated from blazity.com — do not edit classes manually */}\n{/* Source: ${structureFile} + ${stylesFile} */}\n\n${jsx}`
 
-    writeFileSync(join(OUTPUT_DIR, outputFile), output)
+    writeFileSync(join(outputDir, outputFile), output)
     console.log(`  [${label}] → ${outputFile}`)
   }
 
-  console.log(`\nDone! Generated JSX in ${OUTPUT_DIR}/`)
+  console.log(`\nDone! Generated JSX in ${outputDir}/`)
 }
 
-main()
+function main() {
+  generateJsx({ specsDir: SPECS_DIR, outputDir: OUTPUT_DIR })
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  main()
+}

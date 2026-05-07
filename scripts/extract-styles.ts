@@ -1,6 +1,6 @@
 import { chromium } from "@playwright/test"
 import { loadAdaptersFromArgs } from "./lib/adapter-loader.ts"
-import { dismissCookieBanner } from "./lib/cookie-consent.ts"
+import { freezeDynamicContent } from "./lib/freeze.ts"
 import { extractSectionsAtViewport, assembleMultiViewportOutput, writeStyleOutput } from "./lib/extract-styles-core.ts"
 import { installNameShim } from "./lib/playwright-eval-shim.ts"
 
@@ -30,8 +30,9 @@ async function main() {
     await installNameShim(context)
     const page = await context.newPage()
     await page.goto(TARGET_URL, { waitUntil: "domcontentloaded", timeout: 5000 })
-    await dismissCookieBanner(page)
-    await page.waitForTimeout(1000)
+    // See extract-images.ts: freezeDynamicContent activates first tab on tab
+    // widgets so structure and image extraction agree on which tab pane is live.
+    await freezeDynamicContent(page, { localSite: ADAPTER?.localSite, extractionSafe: true })
 
     const result = await extractSectionsAtViewport(page, vw, ADAPTER, {
       customSelector: CUSTOM_SELECTOR,

@@ -80,6 +80,20 @@ function writePhases1to4(targetDir: string, urls: string[]) {
     mkdirSync(specDir, { recursive: true });
     writeFileSync(join(specDir, "01-section.styles.json"), "[]");
     writeFileSync(join(specDir, "01-section.structure.md"), "# section\n\n## Element Tree\n\n- div\n");
+    writeFileSync(join(specDir, "00-globals.json"), JSON.stringify({
+      body: {
+        fontSize: "14px",
+        lineHeight: "20px",
+        fontWeight: "400",
+        color: "rgb(62, 68, 76)",
+        fontFamily: "Arial, sans-serif",
+        backgroundColor: "rgb(255, 255, 255)",
+      },
+      container: {},
+      sectionPadding: {},
+      spacers: {},
+      resets: {},
+    }));
     writeFileSync(
       join(targetDir, ".migration/pages", slug, "manifest.json"),
       JSON.stringify({
@@ -105,6 +119,26 @@ function writeTargetScaffold(targetDir: string) {
   mkdirSync(join(targetDir, "src/app"), { recursive: true });
   writeFileSync(join(targetDir, "package.json"), JSON.stringify({ name: "t", scripts: { build: "next build" } }));
   writeFileSync(join(targetDir, "src/app/layout.tsx"), "export default function L({ children }: { children: React.ReactNode }) { return <html><body>{children}</body></html>; }");
+  writeFileSync(join(targetDir, "src/app/globals.css"), `@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+`);
 }
 
 describe("runBuild", () => {
@@ -137,6 +171,68 @@ describe("runBuild", () => {
     expect(existsSync(join(root, "src/app/about/page.tsx"))).toBe(true);
     const v = JSON.parse(readFileSync(join(phaseDir, "verification.json"), "utf8"));
     expect(v.passed).toBe(true);
+
+    const execution = readFileSync(join(phaseDir, "EXECUTION.md"), "utf8");
+    expect(execution).toContain("Per-page section components");
+
+    const sessionLog = readFileSync(join(root, ".migration/SESSION_LOG.md"), "utf8");
+    expect(sessionLog).toContain("Phase 5 build");
+    expect(sessionLog).toContain("Generated 2 components, 2 page entries");
+    expect(existsSync(join(root, "SESSION-LOG.md"))).toBe(false);
+  });
+
+  it("runs baseline verification through a fresh Next server wrapper when provided", async () => {
+    const root = mkdtempSync(join(tmpdir(), "build-"));
+    await bootstrapMigration({ targetDir: root, site: baseSite("https://example.com/") });
+    writePhases1to4(root, ["https://example.com/"]);
+    writeTargetScaffold(root);
+
+    let serverStarted = false;
+    let verifiedLocalUrl = "";
+    await runBuild({
+      targetDir: root,
+      runDir: "001-initial",
+      runJsxGenerator: async ({ outputDir }) => {
+        mkdirSync(outputDir, { recursive: true });
+        writeFileSync(join(outputDir, "01-section.tsx"), "export default function S(){ return <section/>; }");
+      },
+      runNextBuild: async () => ({ exitCode: 0, stdout: "ok", stderr: "", packageManager: "npm" }),
+      runWithNextServer: async ({ verify }) => {
+        serverStarted = true;
+        return verify("http://127.0.0.1:4567/");
+      },
+      runVerifyBuildBaseline: async (args) => {
+        verifiedLocalUrl = args.localUrl;
+        return { passed: true };
+      },
+    });
+
+    expect(serverStarted).toBe(true);
+    expect(verifiedLocalUrl).toBe("http://127.0.0.1:4567/");
+    expect(existsSync(join(root, ".migration/runs/001-initial/phase-5-build/VERIFICATION.md"))).toBe(true);
+  });
+
+  it("applies extracted global body colors instead of preserving scaffold dark-mode defaults", async () => {
+    const root = mkdtempSync(join(tmpdir(), "build-"));
+    await bootstrapMigration({ targetDir: root, site: baseSite("https://example.com/") });
+    writePhases1to4(root, ["https://example.com/"]);
+    writeTargetScaffold(root);
+
+    await runBuild({
+      targetDir: root,
+      runDir: "001-initial",
+      runJsxGenerator: async ({ outputDir }) => {
+        mkdirSync(outputDir, { recursive: true });
+        writeFileSync(join(outputDir, "01-section.generated.jsx"), '<section className="page">Hello</section>');
+      },
+      runNextBuild: async () => ({ exitCode: 0, stdout: "ok", stderr: "", packageManager: "npm" }),
+      runVerifyBuildBaseline: async () => ({ passed: true }),
+    });
+
+    const globalsCss = readFileSync(join(root, "src/app/globals.css"), "utf8");
+    expect(globalsCss).toContain("--background: rgb(255, 255, 255);");
+    expect(globalsCss).toContain("--foreground: rgb(62, 68, 76);");
+    expect(globalsCss).not.toContain("prefers-color-scheme");
   });
 
   it("does NOT emit VERIFICATION.md when next build fails", async () => {
@@ -163,6 +259,34 @@ describe("runBuild", () => {
     expect(v.criteria.find((c: { name: string }) => c.name.includes("next build")).passed).toBe(false);
   });
 
+  it("does NOT emit VERIFICATION.md when emitted asset references are missing from public", async () => {
+    const root = mkdtempSync(join(tmpdir(), "build-"));
+    await bootstrapMigration({ targetDir: root, site: baseSite("https://example.com/") });
+    writePhases1to4(root, ["https://example.com/"]);
+    writeTargetScaffold(root);
+
+    await runBuild({
+      targetDir: root,
+      runDir: "001-initial",
+      runJsxGenerator: async ({ outputDir }) => {
+        mkdirSync(outputDir, { recursive: true });
+        writeFileSync(
+          join(outputDir, "01-section.generated.jsx"),
+          '<section><Image src="/images/example.com/home/hero.png" alt="Hero" width={10} height={10} /></section>',
+        );
+      },
+      runNextBuild: async () => ({ exitCode: 0, stdout: "", stderr: "", packageManager: "npm" }),
+      runVerifyBuildBaseline: async () => ({ passed: true }),
+    });
+
+    const phaseDir = join(root, ".migration/runs/001-initial/phase-5-build");
+    expect(existsSync(join(phaseDir, "VERIFICATION.md"))).toBe(false);
+    const v = JSON.parse(readFileSync(join(phaseDir, "verification.json"), "utf8"));
+    const assetCriterion = v.criteria.find((c: { name: string }) => c.name === "every emitted asset reference resolves to a file in public/");
+    expect(assetCriterion.passed).toBe(false);
+    expect(assetCriterion.detail).toContain("/images/example.com/home/hero.png");
+  });
+
   it("does NOT emit VERIFICATION.md when scaffold check fails", async () => {
     const root = mkdtempSync(join(tmpdir(), "build-"));
     await bootstrapMigration({ targetDir: root, site: baseSite("https://example.com/") });
@@ -186,6 +310,8 @@ describe("runBuild", () => {
     await bootstrapMigration({ targetDir: root, site: baseSite("https://example.com/") });
     writePhases1to4(root, ["https://example.com/"]);
     writeTargetScaffold(root);
+    mkdirSync(join(root, "public"), { recursive: true });
+    writeFileSync(join(root, "public/x.png"), "PNG");
 
     // Stub matches production format: .generated.jsx extension, raw JSX
     // fragment with a leading expression-comment header, references <Image>
@@ -260,5 +386,68 @@ describe("runBuild", () => {
     // Globals CSS import is required for Tailwind to compile into the route
     // bundle. Without it the served page is unstyled. See issue 011.
     expect(layoutTsx).toContain('import "./globals.css"');
+  });
+
+  it("resolves layout shell source sections from memberIds before representative tagSkeleton", async () => {
+    const root = mkdtempSync(join(tmpdir(), "build-"));
+    await bootstrapMigration({ targetDir: root, site: baseSite("https://example.com/") });
+    writePhases1to4(root, ["https://example.com/"]);
+    writeTargetScaffold(root);
+    const sectionsPath = join(root, ".migration/runs/001-initial/phase-2-analyze/analysis/sections.json");
+    writeFileSync(sectionsPath, JSON.stringify({
+      probedAt: new Date().toISOString(),
+      pages: [{
+        url: "https://example.com/",
+        sections: [
+          {
+            id: "p0-s0",
+            selector: "body > header",
+            tagSkeleton: "header>actual",
+            pathShingles: ["body>header"],
+            sampleText: "",
+            boundingBox: { x: 0, y: 0, width: 1440, height: 80 },
+          },
+          {
+            id: "p0-s1",
+            selector: "body > section",
+            tagSkeleton: "section",
+            pathShingles: ["body>section"],
+            sampleText: "",
+            boundingBox: { x: 0, y: 80, width: 1440, height: 600 },
+          },
+        ],
+      }],
+    }));
+
+    const lib = join(root, ".migration/library");
+    const now = new Date().toISOString();
+    writeFileSync(join(lib, "layouts.json"), JSON.stringify({
+      header: {
+        id: "cluster-header",
+        signature: "header-sig",
+        appearsOn: ["https://example.com/"],
+        memberIds: ["https://example.com/#p0-s0"],
+        tagSkeleton: "header>representative-that-does-not-exactly-match",
+      },
+      footer: null, nav: null, updatedAt: now,
+    }));
+
+    await runBuild({
+      targetDir: root,
+      runDir: "001-initial",
+      runJsxGenerator: async ({ outputDir }) => {
+        mkdirSync(outputDir, { recursive: true });
+        writeFileSync(join(outputDir, "01-header.generated.jsx"), '<header className="site-nav"><a href="/">Home</a></header>');
+        writeFileSync(join(outputDir, "02-section.generated.jsx"), '<section>Body</section>');
+      },
+      runNextBuild: async () => ({ exitCode: 0, stdout: "", stderr: "", packageManager: "npm" }),
+      runVerifyBuildBaseline: async () => ({ passed: true }),
+    });
+
+    const headerPath = join(root, "src/components/Header.tsx");
+    expect(existsSync(headerPath)).toBe(true);
+    expect(readFileSync(headerPath, "utf8")).toContain('<header className="site-nav">');
+    const v = JSON.parse(readFileSync(join(root, ".migration/runs/001-initial/phase-5-build/verification.json"), "utf8"));
+    expect(v.passed).toBe(true);
   });
 });

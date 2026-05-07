@@ -16,7 +16,7 @@ You receive the algorithmic-first-pass output from `lib/plan.ts` (a draft `ROADM
 ## Your task
 
 1. **Validate the draft.** Check that every page in the crawl has a build-order entry. If any are missing, surface the gap — do not silently invent entries.
-2. **Refine names + dependencies.** The algorithmic pass uses placeholder names from `library/components.json`. If a component name is generic (e.g., the post-Phase-2 default `Section{N}` placeholders that survived the deduper), suggest a better name based on its `propsRef` and `tagSkeleton`. If a component clearly depends on another component (e.g., a `CaseStudyGrid` that renders `CaseStudyCard`), add the dep to `dependsOn` — but only when there is unambiguous evidence in the cluster summary.
+2. **Refine names + component-to-component dependencies.** The algorithmic pass uses placeholder names from `library/components.json`. If a component name is generic (e.g., the post-Phase-2 default `Section{N}` placeholders that survived the deduper), suggest a better name based on its `propsRef` and `tagSkeleton`. If a component clearly depends on another component (e.g., a `CaseStudyGrid` that renders `CaseStudyCard`), add the dep to that component's `dependsOn` — but only when there is unambiguous evidence in the cluster summary. Do not narrow page `dependsOn` lists: v1 intentionally keeps every page dependent on every layout shell and every component so Phase 5 always builds shared prerequisites before pages.
 3. **Ask clarifying questions in attended mode.** Surface real decisions, not nice-to-haves. Examples worth asking:
    - "Priority pages? (default: home + first 3 pages)"
    - "Skip privacy / terms / legal pages? (default: include all)"
@@ -30,7 +30,7 @@ You receive the algorithmic-first-pass output from `lib/plan.ts` (a draft `ROADM
 Rewrite `runs/<runDir>/ROADMAP.md` in place. Preserve the YAML frontmatter shape exactly (it must validate against `RoadmapSchema` from `schemas/roadmap.ts`). Update:
 
 - `buildOrder[].name` for clarity
-- `buildOrder[].dependsOn` only when evidence-backed
+- `buildOrder[].dependsOn` only for evidence-backed component-to-component dependencies; preserve the v1 conservative page dependency model
 - `buildOrder[].notes` for any item where you applied a non-obvious decision
 - `resolvedQuestions[]` with question + answer for each clarifying question (auto-answered in unattended)
 

@@ -192,4 +192,53 @@ describe("runAnalyze", () => {
     expect(skeletons.find((s: string) => /^noscript\b/.test(s))).toBeUndefined();
     expect(skeletons.find((s: string) => /^style\b/.test(s))).toBeUndefined();
   });
+
+  it("rejects non-home page hero headers and promotes full-coverage nav shells", async () => {
+    const root = mkdtempSync(join(tmpdir(), "analyze-"));
+    await bootstrapMigration({ targetDir: root, site: baseSite("https://example.com/") });
+    const urls = Array.from({ length: 10 }, (_, i) => i === 0 ? "https://example.com/" : `https://example.com/page-${i}`);
+    writePhase1Artifacts(root, "001-initial", urls);
+
+    const stubSections = async ({ urls: u, outputPath }: { urls: string[]; outputPath: string }) => {
+      const data = {
+        probedAt: new Date().toISOString(),
+        pages: u.map((url, i) => ({
+          url,
+          sections: [
+            {
+              id: `p${i}-s0`,
+              selector: "body > div.nav-shell",
+              tagSkeleton: "div>div>a>img,nav>div>a",
+              pathShingles: ["body>div", "div>nav"],
+              sampleText: "site navigation",
+              boundingBox: { x: 0, y: 0, width: 1440, height: 80 },
+            },
+            ...(i === 0 ? [] : [{
+              id: `p${i}-s1`,
+              selector: "body > header",
+              tagSkeleton: "header>div>h1,p",
+              pathShingles: ["body>header", "header>h1"],
+              sampleText: `Page ${i} hero`,
+              boundingBox: { x: 0, y: 80, width: 1440, height: 420 },
+            }]),
+          ],
+        })),
+      };
+      mkdirSync(join(outputPath, ".."), { recursive: true });
+      writeFileSync(outputPath, JSON.stringify(data, null, 2));
+    };
+
+    await runAnalyze({
+      targetDir: root,
+      runDir: "001-initial",
+      primarySelector: "body > *",
+      discoverSections: stubSections,
+    });
+
+    const layouts = JSON.parse(readFileSync(join(root, ".migration/library/layouts.json"), "utf8"));
+    expect(layouts.header).toBeNull();
+    expect(layouts.nav).not.toBeNull();
+    expect(layouts.nav.appearsOn).toHaveLength(10);
+    expect(layouts.nav.memberIds).toContain("https://example.com/#p0-s0");
+  });
 });
