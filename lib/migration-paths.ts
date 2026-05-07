@@ -18,6 +18,7 @@ export function migrationPaths(targetDir: string) {
 
   return Object.freeze({
     rawDiscovery: join(migrationDir, "discovery", "sections.json"),
+    queueConfig: join(migrationDir, "config", "queue.json"),
     draftInventory: join(migrationDir, "inventory", "component-inventory.json"),
     reviewHtml: join(migrationDir, "inventory", "inventory-review.html"),
     approvedInventory: join(migrationDir, "approvals", "component-inventory.json"),
