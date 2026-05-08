@@ -11,3 +11,7 @@ Visual polish follows the old `nextjs-migration-agent` live-inspection loop: com
 ## Do not copy unsafe computed layout values
 
 Never copy computed `width`, `height`, `gridTemplate*`, `position`, `top`, `right`, `bottom`, or `left` values from the reference. These were known to break migrated layouts. Fix layout intent with React/Tailwind structure and verify visually.
+
+## Verify behavior states before final visual polish
+
+Do not treat a static screenshot match as completion for interactive components. First classify components as `static`, `css-state`, `client-state`, `form-integration`, or `motion`. Menus, drawers, tabs, accordions, dialogs, carousels, forms, marquees, reveal effects, and autoplaying media need representative browser checks for their real states before final visual parity refinement.

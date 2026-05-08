@@ -5,6 +5,7 @@ Specs are standalone canonical product/design documentation. They describe inten
 ## Current Specs
 
 - [`2026-04-21-migration-plugin-design.md`](2026-04-21-migration-plugin-design.md) — approved v1 design for the multi-page Next.js migration plugin.
+- [`2026-05-07-guided-component-first-flow.md`](2026-05-07-guided-component-first-flow.md) — current user-facing guided flow, superseding the older phase-chain execution model.
 
 ## Rules
 

@@ -28,4 +28,4 @@ The plugin installs into Claude Code and exposes `/migrate:*` commands backed by
 - GUI or web dashboard.
 - Multi-site parallel migrations.
 - Automated telemetry submission to plugin maintainers.
-- Goal presets beyond `wireframe` and `pixel-perfect`.
+- User-facing `wireframe` / `pixel-perfect` goal presets; v1 has one guided production-quality flow.

@@ -21,6 +21,14 @@ Migration work is organized into ordered phases. Each phase should have:
 
 Phase identifiers and artifact paths must stay synchronized across those surfaces.
 
+## Guided Production Order
+
+The current guided flow should build a source-derived design system foundation before component implementation. Tokens, real fonts, body defaults, containers, spacing, colors, and radii come first; component/page implementation consumes those named values; behavior and site infrastructure come after the static build; visual parity refinement is last.
+
+Raw pixel diffs are diagnostics, not the long-term readiness definition. The visual gate should move toward perceptual or DOM-aware similarity once validated against live runs.
+
+Every component should receive an interaction class before final review: `static`, `css-state`, `client-state`, `form-integration`, or `motion`. Components in the last three classes require a behavior implementation or an explicit unresolved behavior item before final visual parity refinement. Browser verification should exercise representative states instead of checking only static screenshots.
+
 ## State And Schema Rules
 
 - `.migration/` belongs to the user's target project and is gitignored by default.

@@ -17,6 +17,33 @@ v1 has one guided production-quality flow.
 - Keep visual thresholds as internal verification settings, not onboarding choices.
 - Remove user approval of an abstract `ROADMAP.md`; use concrete visual checkpoints instead.
 
+## 2.1 Production Order
+
+The default production path is:
+
+1. **Design system foundation.** Extract source-derived global tokens before component implementation: fonts, font variables, Tailwind `@theme` values, colors, radii, spacing, section padding, containers, and body defaults. Common styling must be represented as named tokens wherever practical; arbitrary Tailwind values are reserved for one-off source measurements.
+2. **Static migration build.** Implement components and pages using the design system foundation, extracted assets, approved inventory, and source structure. The first build should be clean and maintainable, not a pixel-chasing pass.
+3. **Content, behavior, and site infrastructure.** Complete functional content, routing, metadata, forms, navigation behavior, interactive widgets, and source-observed motion that the site needs to be usable.
+4. **Visual parity refinement.** Run final visual refinement only after the previous steps. Pixelmatch output is a diagnostic artifact; the intended primary signal is a perceptual or DOM-aware similarity metric that can tolerate harmless vertical offsets while still surfacing real structural differences.
+
+The initial target band for the late visual refinement signal is roughly `0.92-0.95` structural/perceptual similarity, subject to validation against real migration runs. Raw pixel percentages may still be reported for debugging, but they are not the product definition of "ready."
+
+## 2.2 Interactive Behavior Pass
+
+Before final visual parity refinement, the plugin must classify each approved component into one interaction class:
+
+- `static` — no behavior beyond normal navigation links.
+- `css-state` — behavior is representable with CSS states such as hover, focus, active, pressed, or open states.
+- `client-state` — behavior requires React/browser state such as menus, drawers, tabs, accordions, dialogs, carousels, filters, or pagination.
+- `form-integration` — behavior requires validation, submission, server actions, API calls, or third-party services.
+- `motion` — behavior requires source-observed animation or time/scroll behavior such as marquees, reveal effects, autoplaying media, or animation timelines.
+
+Classification should be evidence-based. Source evidence can come from DOM shape, form fields, controls, links, ARIA/state attributes, Webflow IX2 data, event-like classes, screenshots at different states, extracted animation data, and browser probing.
+
+For `client-state`, `form-integration`, and `motion` components, the plugin must either implement the behavior or record an explicit unresolved behavior item before final approval. The behavior gate verifies representative states with browser automation: open/closed menus, carousel next/previous/dots, form validation or submission path, hover/focus/active styles, and animation start/end or steady-state frames where relevant.
+
+`css-state` behavior can remain CSS-only, but the verification harness should still capture representative hover/focus states when they materially affect the visual result.
+
 ## 3. User-visible checkpoints
 
 ### 3.1 Component Inventory Review
@@ -68,8 +95,9 @@ For regular content components:
 - generate semantic TSX component files,
 - generate Storybook stories for approved variants,
 - render stories across `390`, `768`, and `1440`,
-- compare story screenshots against component reference screenshots,
-- target a trial `1%` pixel-diff threshold,
+- compare story renders against component reference evidence,
+- report pixel-diff artifacts as diagnostics,
+- prefer perceptual or DOM-aware similarity as the readiness signal once the metric is available,
 - send Storybook/reference/diff links to the user for explicit approval.
 
 Passing automated verification means ready for human review, not approved.
@@ -82,7 +110,7 @@ Page layout assembly begins for a page only after every component required by th
 
 The plugin assembles the page from approved components, compares the full page against source page reference screenshots at `390`, `768`, and `1440`, and asks the user for approval.
 
-Initial page-level threshold: `2%` pixel diff.
+Initial page-level verification reports pixel diff as a diagnostic. The late visual refinement target should move to the same perceptual or DOM-aware similarity signal used for component review once that metric is available.
 
 ## 4. Reference artifacts
 

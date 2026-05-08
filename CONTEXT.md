@@ -112,8 +112,36 @@ _Avoid_: command-first approval flow
 The expected production-quality visual match between the migrated output and the source reference.
 _Avoid_: pixel-perfect goal, wireframe goal
 
+**Design System Foundation**:
+The generated target project's named styling foundation: source-derived colors, radii, spacing, typography, fonts, and global CSS tokens applied before component implementation.
+_Avoid_: component-by-component arbitrary Tailwind guessing
+
+**Static Migration Build**:
+The component and page implementation pass that uses the Design System Foundation, extracted assets, and source structure to create clean migrated output before behavior, motion, and visual refinement.
+_Avoid_: visual polish pass, pixel-perfect pass
+
+**Visual Parity Refinement**:
+The late refinement pass that improves source fidelity after the Design System Foundation, Static Migration Build, functional content, and required behavior are in place.
+_Avoid_: first implementation pass, arbitrary pixel chasing
+
+**Perceptual Verification Metric**:
+A similarity signal such as SSIM, perceptual hash, or DOM-aware element comparison that better reflects human visual closeness than raw pixel mismatch.
+_Avoid_: primary pixelmatch gate
+
+**Pixel Diff Diagnostic**:
+A pixelmatch-style screenshot diff used to locate or illustrate visual differences, not the primary readiness metric for the guided flow.
+_Avoid_: visual fidelity target
+
+**Interactive Behavior Pass**:
+A late pass that classifies and implements source behavior for interactive components, including form submission, carousels, menus, accordions, hover states, pressed/open states, and animations.
+_Avoid_: static screenshot parity
+
+**Interaction Class**:
+The behavior category assigned to an approved component before final review: `static`, `css-state`, `client-state`, `form-integration`, or `motion`.
+_Avoid_: boolean interactive/non-interactive
+
 **Verification Threshold**:
-The maximum acceptable visual difference used by the plugin to decide whether a component or page is ready for user review.
+The maximum acceptable readiness value used by the plugin to decide whether a component or page is ready for user review.
 _Avoid_: pixel-perfect config pick
 
 **Regression Threshold**:
@@ -138,7 +166,17 @@ _Avoid_: reusing source-fidelity thresholds
 - **Component Inventory Review** approval is blocked while any **Implementation Component Name** is generic or ID-like.
 - Each approved component variant produces a **Component Story** before page assembly.
 - A **Shared Shell Component** may have **Component Stories** for implementation and manual inspection, but it does not require isolated visual-diff verification.
-- **Component Visual Verification** must pass a trial 1% pixel-diff **Verification Threshold** before the component is treated as ready for page layout assembly.
+- A **Guided Migration Flow** establishes a **Design System Foundation** before the main component implementation pass.
+- A **Static Migration Build** should use named tokens from the **Design System Foundation** rather than generating repeated arbitrary Tailwind values for common colors, radii, spacing, and fonts.
+- **Visual Parity Refinement** happens after the **Design System Foundation**, **Static Migration Build**, required site content, and required behavior are in place.
+- **Component Visual Verification** uses a **Perceptual Verification Metric** as the primary readiness signal once available; **Pixel Diff Diagnostic** output remains useful for debugging and review.
+- Every approved component receives an **Interaction Class** before final review.
+- `static` components have no source-observed behavior beyond navigation.
+- `css-state` components rely on CSS states such as hover, focus, active, pressed, or open states that do not require client-side state.
+- `client-state` components require local React state or browser effects, such as menus, carousels, tabs, accordions, filters, dialogs, or drawers.
+- `form-integration` components require submit behavior, validation, server actions, API calls, or third-party service integration.
+- `motion` components require time-based or scroll-triggered source behavior, such as marquees, reveal animations, autoplaying media, or source animation timelines.
+- The **Interactive Behavior Pass** verifies representative behavior states with browser automation before final **Visual Parity Refinement**.
 - **Component Visual Verification** is **Browser-Bound Verification** and must not assume unlimited parallel execution.
 - **Browser-Bound Verification** runs through a **Browser Work Queue**, defaulting to one concurrent browser job.
 - **Component Batches** are ordered by migration leverage: shared layout components, high-reuse components, then unique or low-reuse components.
@@ -153,13 +191,14 @@ _Avoid_: reusing source-fidelity thresholds
 - A rejected or corrected **Component Batch** invalidates dependent **Pending Component Batches** while preserving independent pending work.
 - A **Page Reference Screenshot** is captured during **Migration Start** but used later for layout refinement.
 - **Page Layout Assembly** begins for a page only after all components required by that page have **Component Approval**.
-- **Page Layout Assembly** starts with a 2% full-page **Verification Threshold** against **Page Reference Screenshots** across the **Reference Viewport Set**.
+- **Page Layout Assembly** reports full-page pixel diffs as diagnostics against **Page Reference Screenshots** across the **Reference Viewport Set** while the readiness gate moves toward a **Perceptual Verification Metric**.
 - **Shared Shell Components** are visually validated in context during **Page Layout Assembly**, not through isolated placeholder comparisons.
 - A **Reference Viewport Set** applies to both **Component Reference Screenshots** and **Page Reference Screenshots**.
 - A **Chat-Driven Correction** updates the **Component Inventory Review** without requiring editable UI state.
 - A **Natural-Language Approval Action** is the primary control surface for corrections and approvals; slash commands are fallback or recovery tools.
 - A **Recovery Tool** may exist for advanced manual repair, but it should not add confusion to the normal command list.
-- A **Visual Fidelity Target** is evaluated against a **Verification Threshold**.
+- A **Visual Fidelity Target** is evaluated late through **Visual Parity Refinement**, not by forcing the first build to chase a raw pixel threshold.
+- An **Interactive Behavior Pass** must happen before final **Visual Parity Refinement** when any component is classified as `client-state`, `form-integration`, or `motion`.
 
 ## Example Dialogue
 
@@ -177,3 +216,5 @@ _Avoid_: reusing source-fidelity thresholds
 - "move groups around" previously implied an editable review UI; resolved: v1 uses **Chat-Driven Correction** against a read-only **Component Inventory Review**.
 - "component id" could mean either tracking metadata or implementation naming; resolved: IDs stay in metadata and may appear in comments, but not in generated component symbols or file names.
 - Generic generated names such as `Component1` are not acceptable approved **Implementation Component Names**.
+- "visual verification" previously implied a raw pixelmatch gate; resolved: raw pixel diffs are diagnostics, while the target readiness model should move to perceptual or DOM-aware similarity.
+- "interactive component" should not be a boolean; resolved: classify components as `static`, `css-state`, `client-state`, `form-integration`, or `motion`, then verify required states before final visual refinement.
