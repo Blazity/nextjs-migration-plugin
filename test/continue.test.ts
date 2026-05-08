@@ -1,120 +1,142 @@
-import { describe, it, expect, vi } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { describe, expect, it, vi } from "vitest";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { resumeMigration } from "../lib/continue.ts";
-import { bootstrapMigration } from "../lib/bootstrap.ts";
+import { dirname, join } from "node:path";
+import { hashArtifact } from "../lib/artifact-hash.ts";
+import { defaultDispatchers, resumeMigration } from "../lib/continue.ts";
+import { migrationPaths } from "../lib/migration-paths.ts";
+import type { ApprovedInventory } from "../schemas/approved-inventory.ts";
+import type { DraftInventory } from "../schemas/draft-inventory.ts";
 
-const baseSite = {
-  sourceUrl: "https://example.com",
-  target: "./",
-  mode: "unattended" as const,
-  goal: "wireframe" as const,
-  inputMode: "url-only" as const,
-  maxParallelPages: 4,
-  maxParallelSections: 4,
-};
-
-const pixelPerfectSite = {
-  ...baseSite,
-  goal: "pixel-perfect" as const,
-};
+const now = "2026-05-07T12:00:00.000Z";
 
 describe("resumeMigration", () => {
-  it("returns { kind: 'not-initialized' } when there is no .migration/", async () => {
-    const target = mkdtempSync(join(tmpdir(), "cont-"));
-    const result = await resumeMigration(target, {});
-    expect(result.kind).toBe("not-initialized");
+  it("wires a default component-batch dispatcher for guided continue", () => {
+    expect(defaultDispatchers()?.implementComponentBatch).toBeTypeOf("function");
   });
 
-  it("dispatches phase-1-discover on a fresh bootstrap", async () => {
-    const target = mkdtempSync(join(tmpdir(), "cont-"));
-    await bootstrapMigration({ targetDir: target, site: baseSite });
-    const dispatched: string[] = [];
-    const dispatchers = {
-      "phase-1-discover": vi.fn(async () => { dispatched.push("phase-1-discover"); }),
-    };
-    const result = await resumeMigration(target, { dispatchers });
-    expect(result.kind).toBe("dispatched");
-    if (result.kind === "dispatched") expect(result.phase).toBe("phase-1-discover");
-    expect(dispatched).toEqual(["phase-1-discover"]);
+  it("wires a default page-assembly dispatcher for guided continue", () => {
+    expect(defaultDispatchers()?.assemblePage).toBeTypeOf("function");
   });
 
-  it("returns { kind: 'all-done' } when wireframe goal phases 1-5 are all verified", async () => {
-    const target = mkdtempSync(join(tmpdir(), "cont-"));
-    await bootstrapMigration({ targetDir: target, site: baseSite });
-    const run = join(target, ".migration/runs/001-initial");
-    for (const p of ["phase-1-discover", "phase-2-analyze", "phase-3-plan",
-                     "phase-4-extract", "phase-5-build"]) {
-      mkdirSync(join(run, p), { recursive: true });
-      writeFileSync(join(run, p, "VERIFICATION.md"), "# verified");
-    }
-    const result = await resumeMigration(target, {});
-    expect(result.kind).toBe("all-done");
+  it("returns not-initialized when there is no .migration directory", async () => {
+    const targetDir = mkdtempSync(join(tmpdir(), "cont-"));
+
+    await expect(resumeMigration(targetDir, {})).resolves.toEqual({
+      kind: "not-initialized",
+    });
   });
 
-  it("dispatches phase-6-visual after Phase 5 when goal is pixel-perfect", async () => {
-    const target = mkdtempSync(join(tmpdir(), "cont-"));
-    await bootstrapMigration({ targetDir: target, site: pixelPerfectSite });
-    const run = join(target, ".migration/runs/001-initial");
-    for (const p of ["phase-1-discover", "phase-2-analyze", "phase-3-plan",
-                     "phase-4-extract", "phase-5-build"]) {
-      mkdirSync(join(run, p), { recursive: true });
-      writeFileSync(join(run, p, "VERIFICATION.md"), "# verified");
-    }
-    const dispatched: string[] = [];
-    const result = await resumeMigration(target, {
-      dispatchers: {
-        "phase-6-visual": vi.fn(async () => { dispatched.push("phase-6-visual"); }),
-      },
+  it("returns awaiting-approval at the component inventory review gate", async () => {
+    const targetDir = mkdtempSync(join(tmpdir(), "cont-"));
+    const draft = draftInventory();
+    writeJson(migrationPaths(targetDir).draftInventory, draft);
+
+    await expect(resumeMigration(targetDir, {})).resolves.toEqual({
+      kind: "awaiting-approval",
+      approval: "component-inventory",
+      artifactVersion: hashArtifact(draft),
+      reviewHtmlPath: migrationPaths(targetDir).reviewHtml,
+    });
+  });
+
+  it("dispatches the next component batch after inventory approval", async () => {
+    const targetDir = mkdtempSync(join(tmpdir(), "cont-"));
+    const draft = draftInventory();
+    const paths = migrationPaths(targetDir);
+    writeJson(paths.draftInventory, draft);
+    writeJson(paths.approvedInventory, approvedInventory(draft));
+    const implementComponentBatch = vi.fn(async () => {});
+
+    const result = await resumeMigration(targetDir, {
+      dispatchers: { implementComponentBatch },
     });
 
-    expect(result.kind).toBe("dispatched");
-    if (result.kind === "dispatched") expect(result.phase).toBe("phase-6-visual");
-    expect(dispatched).toEqual(["phase-6-visual"]);
+    expect(result).toEqual({
+      kind: "dispatched",
+      action: "implement-component-batch",
+      componentGroupIds: ["group-header", "group-hero"],
+    });
+    expect(implementComponentBatch).toHaveBeenCalledWith({
+      targetDir,
+      artifactVersion: hashArtifact(draft),
+      batch: expect.arrayContaining([
+        expect.objectContaining({ componentGroupId: "group-header" }),
+        expect.objectContaining({ componentGroupId: "group-hero" }),
+      ]),
+    });
   });
 
-  it("resumes an active polish run at phase-6-visual instead of phase-1-discover", async () => {
-    const target = mkdtempSync(join(tmpdir(), "cont-"));
-    await bootstrapMigration({ targetDir: target, site: pixelPerfectSite });
-    const polishRun = join(target, ".migration/runs/002-polish-all");
-    mkdirSync(polishRun, { recursive: true });
-    writeFileSync(join(polishRun, "RUN.md"), "# Run 002 — polish all\n\nRun type: polish\nScope key: all\n");
-    const dispatched: string[] = [];
+  it("returns the scheduled component batch when no component implementer is wired", async () => {
+    const targetDir = mkdtempSync(join(tmpdir(), "cont-"));
+    const draft = draftInventory();
+    const paths = migrationPaths(targetDir);
+    writeJson(paths.draftInventory, draft);
+    writeJson(paths.approvedInventory, approvedInventory(draft));
 
-    const result = await resumeMigration(target, {
-      dispatchers: {
-        "phase-6-visual": vi.fn(async () => { dispatched.push("phase-6-visual"); }),
-      },
+    await expect(resumeMigration(targetDir, {})).resolves.toEqual({
+      kind: "no-dispatcher",
+      action: "implement-component-batch",
+      artifactVersion: hashArtifact(draft),
+      componentGroupIds: ["group-header", "group-hero"],
+    });
+  });
+
+  it("returns approval-stale when the component inventory approval is stale", async () => {
+    const targetDir = mkdtempSync(join(tmpdir(), "cont-"));
+    const draft = draftInventory();
+    const paths = migrationPaths(targetDir);
+    writeJson(paths.draftInventory, draft);
+    writeJson(paths.approvedInventory, {
+      ...approvedInventory(draft),
+      artifactVersion: "1234567890abcdef",
+      staleSince: "2026-05-07T13:00:00.000Z",
     });
 
-    expect(result.kind).toBe("dispatched");
-    if (result.kind === "dispatched") expect(result.phase).toBe("phase-6-visual");
-    expect(dispatched).toEqual(["phase-6-visual"]);
-  });
-
-  it("reports phase-7-animate pending after an active polish run verifies Phase 6", async () => {
-    const target = mkdtempSync(join(tmpdir(), "cont-"));
-    await bootstrapMigration({ targetDir: target, site: pixelPerfectSite });
-    const polishRun = join(target, ".migration/runs/002-polish-all");
-    mkdirSync(join(polishRun, "phase-6-visual"), { recursive: true });
-    writeFileSync(join(polishRun, "RUN.md"), "# Run 002 — polish all\n\nRun type: polish\nScope key: all\n");
-    writeFileSync(join(polishRun, "phase-6-visual/VERIFICATION.md"), "# verified");
-
-    const result = await resumeMigration(target, { dispatchers: {} });
-
-    expect(result.kind).toBe("no-dispatcher");
-    if (result.kind === "no-dispatcher") expect(result.phase).toBe("phase-7-animate");
-  });
-
-  it("returns { kind: 'no-dispatcher', phase } when the next phase has no registered dispatcher", async () => {
-    const target = mkdtempSync(join(tmpdir(), "cont-"));
-    await bootstrapMigration({ targetDir: target, site: baseSite });
-    const run = join(target, ".migration/runs/001-initial");
-    mkdirSync(join(run, "phase-1-discover"), { recursive: true });
-    writeFileSync(join(run, "phase-1-discover/VERIFICATION.md"), "# verified");
-    const result = await resumeMigration(target, { dispatchers: {} });
-    expect(result.kind).toBe("no-dispatcher");
-    if (result.kind === "no-dispatcher") expect(result.phase).toBe("phase-2-analyze");
+    await expect(resumeMigration(targetDir, {})).resolves.toEqual({
+      kind: "approval-stale",
+      approval: "component-inventory",
+      reason: "Component Inventory Review changed after approval. Re-review the regenerated inventory before continuing.",
+      reviewHtmlPath: paths.reviewHtml,
+      staleSince: "2026-05-07T13:00:00.000Z",
+    });
   });
 });
+
+function draftInventory(): DraftInventory {
+  return {
+    generatedAt: now,
+    revision: 1,
+    entries: [
+      {
+        componentGroupId: "group-header",
+        proposedName: "SiteHeader",
+        kind: "shell",
+        sectionInstanceIds: ["p0-s0", "p1-s0"],
+      },
+      {
+        componentGroupId: "group-hero",
+        proposedName: "Hero",
+        kind: "content",
+        sectionInstanceIds: ["p0-s1"],
+      },
+    ],
+  };
+}
+
+function approvedInventory(draft: DraftInventory): ApprovedInventory {
+  return {
+    approvedAt: now,
+    artifactVersion: hashArtifact(draft),
+    entries: draft.entries.map(component => ({
+      ...component,
+      implementationName: component.proposedName,
+      filePath: `src/components/${component.proposedName}.tsx`,
+    })),
+  };
+}
+
+function writeJson(path: string, value: unknown): void {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
+}

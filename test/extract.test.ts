@@ -7,7 +7,7 @@ import { bootstrapMigration } from "../lib/bootstrap.ts";
 
 const baseSite = (sourceUrl: string) => ({
   sourceUrl, target: "./",
-  mode: "unattended" as const, goal: "wireframe" as const, inputMode: "url-only" as const,
+  inputMode: "url-only" as const,
   maxParallelPages: 4, maxParallelSections: 4,
 });
 
@@ -86,7 +86,7 @@ function writePhase3Roadmap(targetDir: string) {
   const phase3Dir = join(targetDir, ".migration/runs/001-initial/phase-3-plan");
   mkdirSync(phase3Dir, { recursive: true });
   writeFileSync(join(phase3Dir, "VERIFICATION.md"), "# verified");
-  writeFileSync(join(targetDir, ".migration/runs/001-initial/ROADMAP.md"), "---\ngoal: wireframe\n---\n# Roadmap\n");
+  writeFileSync(join(targetDir, ".migration/runs/001-initial/ROADMAP.md"), "# Roadmap\n");
 }
 
 const stubExtract = async ({ url, slug, pagesDir }: { url: string; slug: string; pagesDir: string }) => {

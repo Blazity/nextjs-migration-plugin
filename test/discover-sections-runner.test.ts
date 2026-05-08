@@ -68,4 +68,51 @@ describe("runDiscoverSections", () => {
     const ids = data.pages[0].sections.map(s => s.id);
     expect(ids.every(id => /^p\d+-s\d+$/.test(id))).toBe(true);
   }, 60_000);
+
+  it("discovers sections inside a single root wrapper and emits section signals", async () => {
+    const out = mkdtempSync(join(tmpdir(), "sections-"));
+    const outPath = join(out, "sections.json");
+    await runDiscoverSections({
+      urls: [baseUrl + "/root-wrapper"],
+      primarySelector: "body > header, body > nav, body > main > *, body > section, body > article, body > aside, body > footer",
+      outputPath: outPath,
+    });
+
+    const data = DiscoveredSectionsSchema.parse(JSON.parse(readFileSync(outPath, "utf8")));
+    const sections = data.pages[0].sections;
+    expect(sections.map(section => section.sampleText)).toEqual([
+      "Wrapped Hero Lead copy.",
+      "First Second Third",
+      "Email Send",
+    ]);
+    expect(sections[0].selector).toContain("body > :not(");
+    expect(sections[0].tagSkeleton).toContain("strong");
+    expect(sections[1].signals).toMatchObject({
+      imgCount: "2-4",
+      liCount: "1-3",
+      textLen: "<50",
+    });
+    expect(sections[2].signals).toMatchObject({
+      formCount: "1+",
+      buttonCount: "1",
+    });
+  }, 60_000);
+
+  it("discovers wrapped main content even when top-level shell sections also match", async () => {
+    const out = mkdtempSync(join(tmpdir(), "sections-"));
+    const outPath = join(out, "sections.json");
+    await runDiscoverSections({
+      urls: [baseUrl + "/mixed-wrapper"],
+      primarySelector: "body > header, body > nav, body > main > *, body > section, body > article, body > aside, body > footer",
+      outputPath: outPath,
+    });
+
+    const data = DiscoveredSectionsSchema.parse(JSON.parse(readFileSync(outPath, "utf8")));
+    expect(data.pages[0].sections.map(section => section.sampleText)).toEqual([
+      "Home",
+      "Mixed Wrapped Hero",
+      "Wrapped CTA Start",
+      "Footer",
+    ]);
+  }, 60_000);
 });

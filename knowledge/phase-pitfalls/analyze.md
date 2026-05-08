@@ -10,7 +10,7 @@ The four sub-agents (`layout-extractor`, `component-deduper`, `prop-classifier`,
 2. Skill dispatches the 4 agents in order, each rewriting its target library JSON in place
 3. `tsx lib/analyze.ts ... --refine-only` — re-runs the gate without re-doing probe/cluster
 
-`/migrate:continue` MUST route phase-2 to the `/migrate:analyze` skill, NOT to `lib/continue.ts`'s `defaultDispatchers["phase-2-analyze"]`. The latter runs only step 1 (algorithmic) and produces placeholder component names. See `skills/migrate-continue/SKILL.md` Step 2 routing table.
+Guided `/migrate:continue` no longer routes this legacy analyze flow. Recovery users who need this path should invoke `/migrate:analyze` directly so the LLM refinement agents run after the algorithmic pass.
 
 **Rule of thumb:** if `library/components.json` has names like `Div`, `Section`, `Header` — only step 1 ran. Re-invoke `/migrate:analyze` to fire the LLM refinement.
 

@@ -1,54 +1,53 @@
 ---
 name: migrate-continue
-description: Resume the active migration at the first phase missing VERIFICATION.md.
+description: Resume the active guided migration from approval-state scheduler output.
 ---
 
 # /migrate:continue
 
-You are the orchestrator. You do NOT do phase work yourself — you find the next phase and delegate.
+You are the guided migration orchestrator. Use the approval-state scheduler to decide the next action; do not inspect run folders to infer progress.
 
-## Step 1 — Resolve next phase
+## Step 1 - Handle chat corrections
 
-First, check which phase is next WITHOUT yet running its dispatcher. Read `.migration/SITE.md` (for `goal`) and the highest-numbered run dir under `.migration/runs/`. Find the first `phase-N-*` subdir lacking `VERIFICATION.md`. The phase id determines routing in Step 2.
+When the active migration is waiting at the Component Inventory Review and the user wants inventory changes, tell them to describe changes in chat.
 
-If `.migration/` does not exist → print: "No migration here. Run `/migrate:new <url>`." and stop.
-If every in-scope phase has `VERIFICATION.md` → print: "All phases complete for run [runDir]. Run `/migrate:ship` for the final report." and stop.
+For free-text correction requests, invoke the `inventory-corrector` agent with the user's requested changes and the current draft inventory context. Apply the returned `InventoryCorrection[]` to draft inventory state only, then regenerate the review artifact so the user can inspect the updated grouping and names.
 
-## Step 2 — Route to the right runner
+When applying corrections, record the raw chat feedback in SESSION_LOG.md and write a structured decision record under `.migration/decisions/`. Tools provide source evidence, repeatable transforms, and gate enforcement; the LLM owns grouping, semantic naming, prop intent, migration decisions, and refinement choices.
 
-Phase routing depends on whether the phase needs LLM refinement:
+## Step 2 - Read scheduler output
 
-| Next phase | Runner | Why |
-|---|---|---|
-| `phase-1-discover` | `tsx ${PLUGIN_DIR}/lib/continue.ts --target "${PWD}"` | Deterministic crawl + probe. No LLM needed. |
-| `phase-2-analyze` | **Invoke `/migrate:analyze` skill instead** | Algorithmic pass plus 4 sub-agent dispatches (`layout-extractor` → `component-deduper` → `prop-classifier` → `route-mapper`). The CLI dispatcher in `lib/continue.ts` runs only the algorithmic half — that produces a passing schema gate but useless layouts/components. The `/migrate:analyze` skill orchestrates the LLM refinement on top. |
-| `phase-3-plan` | **Invoke `/migrate:plan` skill instead** | Algorithmic build-order pass plus 2 sub-agent dispatches (`migration-planner` → `plan-checker`). The CLI dispatcher in `lib/continue.ts` runs only the algorithmic half. In `attended` mode the algorithmic-only path fails the user-approval criterion intentionally; the `/migrate:plan` skill collects approval and re-runs `--refine-only --confirm-roadmap` to close the gate. |
-| `phase-4-extract` | `tsx ${PLUGIN_DIR}/lib/continue.ts --target "${PWD}"` OR `/migrate:extract` skill | Per-page extraction is deterministic; the lib dispatcher's bounded-concurrency loop handles the parallel-by-page work. Invoke the `/migrate:extract` skill only when the site is large or extraction is known-flaky and per-page LLM-side triage is needed. Default: lib dispatcher. |
-| `phase-5-build` | `tsx ${PLUGIN_DIR}/lib/continue.ts --target "${PWD}"` OR `/migrate:build` skill | Codegen is deterministic; the lib dispatcher runs `generate-jsx.ts` per page, assembles routes, runs `next build`, checks emitted asset references, and runs `verify-build-baseline` against the homepage. Invoke the `/migrate:build` skill ONLY if the user passed `--refine` or the gate failed on `verify-build-baseline` and pixel-perfect refinement is wanted. Default: lib dispatcher. |
-| `phase-6-visual` | **Invoke `/migrate:polish --all` skill instead** | Pixel-perfect migrations continue into a dedicated polish run after Phase 5. Phase 6 hard-requires Playwright MCP-style live browser agents; the CLI dispatcher can only fail the MCP precondition and must not be used as a script-only fallback. |
-| `phase-7-animate+` | (Not yet implemented — follow-up plan.) | Report that Phase 7 Animate and Phase 8 Perf remain pending; do not claim full pixel-perfect completion. |
+Run:
 
-For phase-1, run the bash command and read its JSON output:
-- `kind: "dispatched"` — the registered dispatcher ran. Print the result and stop. User runs `/migrate:continue` again to advance.
-- `kind: "no-dispatcher"` — phase has no library-level dispatcher. Surface which phase + ask the user.
+```bash
+tsx ${PLUGIN_DIR}/lib/continue.ts --target "${PWD}"
+```
 
-For phase-2, follow the `/migrate:analyze` skill end to end. Do NOT call `lib/continue.ts` for phase-2; its dispatcher would skip the LLM step.
+Read the JSON result and handle exactly one outcome. Do not auto-loop; after one dispatch or approval message, yield control back to the user.
 
-For phase-3, follow the `/migrate:plan` skill end to end. Do NOT call `lib/continue.ts` for phase-3 in attended mode; its dispatcher would fail the user-approval criterion. In unattended mode the dispatcher's algorithmic pass is sufficient — the user-approval criterion auto-confirms — but the skill still produces better roadmap names because it dispatches `migration-planner`.
+## Scheduler outcomes
 
-For phase-4, the lib dispatcher is the default — extraction is deterministic and parallelism is handled by `lib/extract.ts`'s bounded-concurrency loop. The `/migrate:extract` skill exists for large or flaky sites where per-page LLM-side triage is worth the dispatch cost; in that case follow the skill end to end.
+`kind: "not-initialized"` means there is no guided migration state in this target. Print: "No migration here. Run `/migrate:new <url>`."
 
-For phase-6, follow `/migrate:polish --all` end to end. It creates or reuses a dedicated polish run and runs Phase 6 Visual only. Do NOT call `lib/continue.ts` for Phase 6 unless you are intentionally checking the MCP precondition failure path.
+`kind: "awaiting-approval"` with `approval: "component-inventory"` means the next user gate is the Component Inventory Review. Tell the user to open `reviewHtmlPath`, approve the inventory, or describe name/grouping changes in chat.
 
-## Step 2 — In unattended mode, loop
+`kind: "approval-stale"` means a previously approved artifact changed. Surface `reason`, point the user at `reviewHtmlPath` when present, and stop until the affected approval is refreshed.
 
-If `SITE.md` has `mode: unattended` AND the result was `dispatched`, immediately re-invoke `/migrate:continue` (use the `superpowers:dispatching-parallel-agents` pattern only when the next phase fans out — phase 1 does not). Stop on `all-done`, `no-dispatcher`, or any failed gate.
+`kind: "no-dispatcher"` with `action: "implement-component-batch"` means the scheduler selected the next component batch but this runtime does not yet have a component-batch implementer wired into `lib/continue.ts`. Report that the next internal action is component implementation followed by Component Batch Approval.
 
-In attended mode, do not auto-loop. Print and yield control.
+`kind: "dispatched"` with `action: "implement-component-batch"` means component implementation work was started for the returned component group ids. After the dispatcher finishes, present the generated component artifacts for Component Batch Approval.
+
+`kind: "no-dispatcher"` with `action: "assemble-page"` means all required components are approved and the next internal action is page assembly followed by Page Layout Approval. Report the pending page assembly action.
+
+`kind: "dispatched"` with `action: "assemble-page"` means page assembly work was started. After the dispatcher finishes, present the generated page for Page Layout Approval.
+
+`kind: "blocked"` means required scheduler evidence is missing or inconsistent. Surface `reason` and stop.
+
+`kind: "all-done"` means all required component and page approvals are complete. Print a concise completion summary.
 
 ## You MUST NOT
 
-- Skip the verification gate. If the dispatched phase did not produce `VERIFICATION.md`, the gate failed — read the `verification.json` failed criteria and surface them to the user.
-- Do not mark Phase 5 complete when `verify-build-baseline` fails. A failed baseline can be refined or reported, but it is not a completed gate.
-- Do not claim `pixel-perfect` is fully complete after Phase 6. Phase 7 Animate and Phase 8 Perf remain pending follow-up phases.
 - Mutate `SITE.md`.
+- Route inventory corrections through recovery commands.
+- Invent approvals. Each approval must correspond to the current artifact version.
+- Continue after an `approval-stale` result without re-review.

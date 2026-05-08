@@ -1,3 +1,4 @@
+// RECOVERY USE ONLY: legacy phase entry point retained for maintainer/debug workflows; normal migrations use guided approvals.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { extractPage, type ExtractStep } from "./extract-runner.ts";
@@ -10,6 +11,7 @@ import { loadProbe } from "./load-probe.ts";
 import { loadComponents } from "./load-components.ts";
 import { loadRoutes } from "./load-routes.ts";
 import { loadSections } from "./load-sections.ts";
+import { requireRecoveryTargetArg } from "./recovery-cli.ts";
 import { writePlan, writeExecution, writeVerification } from "./phase-state.ts";
 import type { PageSpecManifest } from "../schemas/page-spec.ts";
 
@@ -205,7 +207,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const i = process.argv.indexOf(flag);
     return i >= 0 ? process.argv[i + 1] : undefined;
   };
-  const targetDir = get("--target") ?? process.cwd();
+  const targetDir = requireRecoveryTargetArg();
   const runDir = get("--run") ?? "001-initial";
   runExtract({ targetDir, runDir })
     .then(() => { console.log(`Extract phase complete for run ${runDir}.`); })

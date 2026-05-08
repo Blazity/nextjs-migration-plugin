@@ -17,6 +17,7 @@ export const CrawlErrorSchema = z.object({
 
 export const CrawlSchema = z.object({
   sourceUrl: z.string().url(),
+  requestedSourceUrl: z.string().url().optional(),
   crawledAt: z.string().datetime(),
   limits: z.object({
     maxPages: z.number().int().positive(),

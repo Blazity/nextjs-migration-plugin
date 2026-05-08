@@ -9,16 +9,16 @@ If a vendored script is buggy, fix it in the source repo first, then re-vendor. 
 ## CLI quirks the wrapper handles
 
 - **`extract-images.ts` writes binaries under `public/images/` relative to CWD** and `docs/specs/<page>/image-manifest.json` for JSON. The wrapper invokes it with `cwd` set to a per-page `_staging` dir, then moves the manifest into `pages/[slug]/spec/image-manifest.json`. Binaries stay in the staging dir for now; Phase 5 copies them into `<target>/public/`.
-- **`extract-styles.ts` accepts viewports.** The wrapper passes `[1440]` by default. Pixel-perfect goal will need multi-viewport extraction in Phase 6 polish; v1 Phase 4 sticks to 1440px (matches `verify-build-baseline` viewport).
+- **`extract-styles.ts` accepts viewports.** The wrapper passes `[1440]` by default. Multi-viewport refinement happens in Phase 6 polish; v1 Phase 4 sticks to 1440px (matches `verify-build-baseline` viewport).
 - **All three scripts accept `--adapter <path>`.** The wrapper resolves the adapter from `discovery/probe.json[].matchedAdapters[0]` per page. If a page has no matched adapter, that page is skipped (extraction failure logged in `failures.json`).
 
 ## Per-step error handling
 
-The runner does NOT throw on individual step failures. Each step's outcome is recorded in `pages/[slug]/manifest.json.errors[]`. The orchestrator decides whether the gate passes based on cross-step state (e.g., styles must succeed; images can fail with degraded output; animations failure is non-fatal in `wireframe` goal).
+The runner does NOT throw on individual step failures. Each step's outcome is recorded in `pages/[slug]/manifest.json.errors[]`. The orchestrator decides whether the gate passes based on cross-step state (for example, styles must succeed; images can fail with degraded output; animation extraction failure is non-fatal for the build gate).
 
 - **Styles failure → page is unusable.** The orchestrator marks the page as failed in `extraction/failures.json` and the page-coverage gate criterion fails.
 - **Images failure → degraded only when a manifest exists.** `image-manifest.json` records `failedDownloads[]` and Phase 5 can still emit backed local paths for successful assets. If an image manifest is missing or a source URL cannot be mapped, Phase 5 codegen fails loudly; it must not emit placeholder `/images/homepage/*` paths.
-- **Animations failure → non-fatal.** v1 wireframe ignores; pixel-perfect retries in Phase 7.
+- **Animations failure → non-fatal.** The build gate can proceed; animation parity is handled by later refinement.
 
 ## Known failure patterns from lessons.md
 
@@ -30,7 +30,7 @@ The runner does NOT throw on individual step failures. Each step's outcome is re
 
 ## Concurrency
 
-`maxParallelPages` defaults to 4 (set in `SITE.md`, configurable via `/migrate:config`). Higher values risk:
+`maxParallelPages` defaults to 4 (set in `SITE.md`). Higher values risk:
 
 - Playwright context exhaustion (each context spawns a Chromium process)
 - Memory leaks compounding (lessons.md #51)

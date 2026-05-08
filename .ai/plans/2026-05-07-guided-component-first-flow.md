@@ -496,6 +496,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 8.2 — Wire the queue through every browser caller
 
+- **Status:** Done.
 - **Files to modify:** `lib/discovery-v2.ts` (Task 3.1), `lib/verify-component.ts` (Task 7.4), and the future page-assembly verifier (Phase 10), plus `lib/run-component-batch.ts`.
 - **Failing test first:**
   - Each caller test asserts the call goes through a queue instance passed by dependency injection. Default queue concurrency is 1.
@@ -519,6 +520,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 9.1 — Approve-component-batch action
 
+- **Status:** Done.
 - **Files to create:** `lib/approve-component-batch.ts`, `test/approve-component-batch.test.ts`
 - **Failing test first:**
   - Given a batch report and a positive user approval, the action: (a) writes `.migration/approvals/components/<componentGroupId>.json` matching `ComponentBatchApprovalSchema`, (b) captures Storybook screenshots for each approved component at 390/768/1440 and writes them to `.migration/baselines/components/<implementationName>-<viewport>.png`, (c) writes the matching `ApprovedBaseline` JSON with `regressionThreshold: 0.001`.
@@ -527,6 +529,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 9.2 — Regression check runner
 
+- **Status:** Done.
 - **Files to create:** `lib/check-component-regression.ts`, `test/check-component-regression.test.ts`
 - **Failing test first:**
   - Given an approved baseline and the current Storybook render, `checkComponentRegression` calls `assessDiffResult({ maxDiffRatio: 0.001, ... })` and returns `{ status: "PASS" | "FAIL", failingViewports }`.
@@ -542,6 +545,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 10.1 — Page-assembly planner
 
+- **Status:** Done.
 - **Files to create:** `lib/page-assembly-planner.ts`, `test/page-assembly-planner.test.ts`
 - **Failing test first:**
   - Given the approved inventory and discovered page sections, the planner outputs an ordered list of components per page slug, marking shells first.
@@ -550,6 +554,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 10.2 — Page-assembly runner
 
+- **Status:** Done.
 - **Files to create:** `lib/run-page-assembly.ts`, `test/run-page-assembly.test.ts`. Reuse [lib/page-assembler.ts](../../lib/page-assembler.ts) where possible.
 - **Failing test first:**
   - For a page with three approved components, the runner: (a) writes `target/src/app/<slug>/page.tsx` composing the three components, (b) builds the project (assert this is queued behind the existing build runner), (c) captures a full-page screenshot per viewport via the browser queue, (d) calls `assessDiffResult({ maxDiffRatio: 0.02, ... })` against the source page reference, (e) writes a per-page report (no approval).
@@ -558,6 +563,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 10.3 — Approve-page-layout action
 
+- **Status:** Done.
 - **Files to create:** `lib/approve-page-layout.ts`, `test/approve-page-layout.test.ts`
 - **Failing test first:**
   - Given a page report and positive approval, the action: (a) writes `.migration/approvals/pages/<slug>.json` per `PageLayoutApprovalSchema`, (b) captures full-page baselines per viewport, (c) writes matching `ApprovedBaseline` JSON.
@@ -572,6 +578,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 11.1 — Delete user-visible legacy commands
 
+- **Status:** Done.
 - **Files to delete:** [commands/migrate-config.md](../../commands/migrate-config.md), [commands/migrate-discover.md](../../commands/migrate-discover.md), [commands/migrate-analyze.md](../../commands/migrate-analyze.md), [commands/migrate-plan.md](../../commands/migrate-plan.md), [commands/migrate-extract.md](../../commands/migrate-extract.md), [commands/migrate-build.md](../../commands/migrate-build.md), [commands/migrate-polish.md](../../commands/migrate-polish.md), [commands/migrate-verify.md](../../commands/migrate-verify.md). Skill directories under [skills/](../../skills/) follow the same fate **except** for `migrate-status`, `migrate-help`, `migrate-new`, `migrate-continue`.
 - **Files to modify:** [plugin.json](../../plugin.json) so its `commands` and `skills` references list only the four user-visible names.
 - **Failing test first:**
@@ -582,6 +589,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 11.2 — `/migrate:status` reflects approval state
 
+- **Status:** Done.
 - **Files to modify:** [skills/migrate-status/SKILL.md](../../skills/migrate-status/SKILL.md), [lib/status.ts](../../lib/status.ts), [test/status.test.ts](../../test/status.test.ts)
 - **Failing test first:**
   - `getStatus` returns `{ initialized, sourceUrl, draftInventory: { revision, hash, blockingNames }, approvals: { inventory: "approved" | "draft" | "stale", components: [...], pages: [...] }, queueConcurrency }` — explicitly no `mode`/`goal`.
@@ -590,6 +598,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 11.3 — `/migrate:help` rewrite
 
+- **Status:** Done.
 - **Files to modify:** [skills/migrate-help/SKILL.md](../../skills/migrate-help/SKILL.md), [test/migrate-help-skill.test.ts](../../test/migrate-help-skill.test.ts)
 - **Failing test first:**
   - Help text contains exactly the four user-visible commands and a single-paragraph workflow summary; does not mention any explicit phase command.
@@ -604,6 +613,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 12.1 — Mark recovery entry points
 
+- **Status:** Done.
 - **Files to modify:** the head comment of each `lib/<phase>.ts`, plus a new doc `docs/recovery/README.md` (note: under `docs/`, but spec & ADRs section already lives in `docs/`; add an ADR if architectural).
 - **Failing test first:**
   - A new `test/recovery-entrypoints.test.ts` asserts that each of `lib/discover.ts`, `lib/analyze.ts`, `lib/plan.ts`, `lib/extract.ts`, `lib/build.ts`, `lib/polish.ts` still exposes a CLI entry (`if (import.meta.url === ...)`) and exits non-zero when called without arguments.
@@ -613,6 +623,7 @@ The scaffold helper is created in Phase 3 so users get a working Storybook from 
 
 ### Task 12.2 — Recovery-flagged integration tests
 
+- **Status:** Done.
 - **Files to modify/move:** integration tests that exercise the legacy phase dispatchers (`test/continue-discover.integration.test.ts`, `test/continue-analyze.integration.test.ts`, etc.) — leave under `test/` but add a top-level `describe.skip` toggle behind `process.env.RECOVERY_TESTS === "1"`. Document the toggle in the recovery README.
 - **Failing test first:** add a test asserting the active-by-default suite finishes faster than the previous baseline (sanity); the recovery suite gets opt-in execution only.
 - **Commit:** `test(recovery): gate legacy phase dispatcher tests behind RECOVERY_TESTS`.

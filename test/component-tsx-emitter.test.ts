@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { sanitizeComponentName, planComponentFiles } from "../lib/component-tsx-emitter.ts";
+import {
+  planComponentFiles,
+  sanitizeComponentName,
+  validateApprovedName,
+} from "../lib/component-tsx-emitter.ts";
 
 describe("sanitizeComponentName", () => {
   it("PascalCases hyphens and strips non-ascii", () => {
@@ -10,6 +14,22 @@ describe("sanitizeComponentName", () => {
   it("falls back to Component<index> when input is empty or all-symbol", () => {
     expect(sanitizeComponentName("", 3)).toBe("Component3");
     expect(sanitizeComponentName("---", 7)).toBe("Component7");
+  });
+});
+
+describe("validateApprovedName", () => {
+  it("rejects ID-like, generic, empty, or non-PascalCase names", () => {
+    for (const name of ["Component3", "p0-s0", "P0S0", "P12S3", "Section1", "", "pricingCard"]) {
+      expect(validateApprovedName(name)).toEqual({
+        ok: false,
+        reason: "implementation name must be semantic PascalCase",
+      });
+    }
+  });
+
+  it("accepts semantic PascalCase component names", () => {
+    expect(validateApprovedName("Hero")).toEqual({ ok: true });
+    expect(validateApprovedName("PricingCard")).toEqual({ ok: true });
   });
 });
 

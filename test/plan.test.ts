@@ -8,7 +8,7 @@ import { RoadmapSchema } from "../schemas/roadmap.ts";
 
 const baseSite = (sourceUrl: string) => ({
   sourceUrl, target: "./",
-  mode: "unattended" as const, goal: "wireframe" as const, inputMode: "url-only" as const,
+  inputMode: "url-only" as const,
   maxParallelPages: 4, maxParallelSections: 4,
 });
 
@@ -106,7 +106,8 @@ describe("runPlan", () => {
     expect(result.valid).toBe(true);
     if (result.valid) {
       RoadmapSchema.parse(result.data);
-      expect(result.data.goal).toBe("wireframe");
+      expect("goal" in result.data).toBe(false);
+      expect("mode" in result.data).toBe(false);
       expect(result.data.buildOrder.length).toBeGreaterThan(0);
     }
   });
@@ -134,12 +135,9 @@ describe("runPlan", () => {
     expect(v.criteria.find((c: { name: string }) => c.name.includes("page in crawl")).passed).toBe(false);
   });
 
-  it("respects mode: attended by NOT auto-confirming the roadmap on first pass", async () => {
+  it("does not require user roadmap approval in the guided flow", async () => {
     const root = mkdtempSync(join(tmpdir(), "plan-"));
-    await bootstrapMigration({
-      targetDir: root,
-      site: { ...baseSite("https://example.com/"), mode: "attended" },
-    });
+    await bootstrapMigration({ targetDir: root, site: baseSite("https://example.com/") });
     const urls = ["https://example.com/"];
     writePhase1(root, "001-initial", urls);
     writePhase2Library(root, urls);
@@ -147,8 +145,8 @@ describe("runPlan", () => {
     await runPlan({ targetDir: root, runDir: "001-initial" });
 
     const phaseDir = join(root, ".migration/runs/001-initial/phase-3-plan");
-    expect(existsSync(join(phaseDir, "VERIFICATION.md"))).toBe(false);
+    expect(existsSync(join(phaseDir, "VERIFICATION.md"))).toBe(true);
     const v = JSON.parse(readFileSync(join(phaseDir, "verification.json"), "utf8"));
-    expect(v.criteria.find((c: { name: string }) => c.name.includes("user approved")).passed).toBe(false);
+    expect(v.criteria.find((c: { name: string }) => c.name.includes("user approved"))).toBeUndefined();
   });
 });

@@ -6,6 +6,14 @@ Entries are reverse-chronological.
 
 ---
 
+## 2026-05-08 - Combine Direct And Wrapped Section Selectors
+
+**Rule:** When adding adaptive root-wrapper discovery, combine direct top-level section selectors with wrapper selectors whenever both match.
+
+**Why:** Many sites have mixed shell/content structure: direct `body > header` / `body > footer` plus app-root-wrapped `<main>` content. Falling back to wrapped selectors only when the direct selector has zero matches preserves the shell but silently drops the wrapped content.
+
+**How to apply:** In discovery, count both selector families first, use a comma-joined effective selector when both are present, and keep tests for direct-only, wrapper-only, and mixed-wrapper fixtures.
+
 ## 2026-05-07 - Keep Vitest Coverage Under Test Directory
 
 **Rule:** Put new Vitest regression tests under `test/**/*.test.ts` unless the test command/config is explicitly changed.

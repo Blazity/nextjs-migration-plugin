@@ -5,6 +5,136 @@ export function sanitizeComponentName(raw: string, fallbackIndex = 0): string {
   return parts.map(p => p[0].toUpperCase() + p.slice(1)).join("");
 }
 
+export type ApprovedNameValidation =
+  | { ok: true }
+  | { ok: false; reason: "implementation name must be semantic PascalCase" };
+
+export function validateApprovedName(name: string): ApprovedNameValidation {
+  if (
+    !/^[A-Z][A-Za-z0-9]*$/.test(name) ||
+    /^(?:Component\d+|Section\d+)$/.test(name) ||
+    /p\d+-s\d+/i.test(name) ||
+    /^P\d+S\d+$/.test(name)
+  ) {
+    return {
+      ok: false,
+      reason: "implementation name must be semantic PascalCase",
+    };
+  }
+  return { ok: true };
+}
+
+const NEXT_IMPORTS: Record<string, string> = {
+  Image: 'import Image from "next/image";',
+  Link: 'import Link from "next/link";',
+  Script: 'import Script from "next/script";',
+};
+
+export function detectNextImports(body: string): string {
+  const lines = Object.entries(NEXT_IMPORTS)
+    .filter(([tag]) => new RegExp(`<${tag}\\b`).test(body))
+    .map(([, line]) => line);
+  return lines.length > 0 ? lines.join("\n") + "\n\n" : "";
+}
+
+export function escapeUnsafeLessThan(jsx: string): string {
+  return jsx.replace(/<(?![a-zA-Z/!?])/g, "&lt;");
+}
+
+export function transformOrWrap(raw: string, name: string): string {
+  if (/export\s+default\s+function\s+\w+/.test(raw)) {
+    return raw.replace(/export\s+default\s+function\s+\w+/, `export default function ${name}`);
+  }
+  const stripped = raw.replace(/^\s*(?:\{\/\*[\s\S]*?\*\/\}\s*)+/g, "").trim();
+  const escaped = escapeUnsafeLessThan(stripped);
+  const imports = detectNextImports(escaped);
+  return `${imports}export default function ${name}() {
+  return (
+    <>
+${indentLines(escaped, 6)}
+    </>
+  );
+}
+`;
+}
+
+export function renderComponentModule(sources: Array<{
+  raw: string;
+  name: string;
+  exportKind: "default" | "named";
+}>): string {
+  const imports = new Set<string>();
+  const functions: string[] = [];
+  for (const source of sources) {
+    const rendered = transformOrWrap(source.raw, source.name);
+    const extracted = extractLeadingImports(rendered);
+    for (const line of extracted.imports) imports.add(line);
+    const body = source.exportKind === "default"
+      ? extracted.body
+      : extracted.body.replace("export default function", "export function");
+    functions.push(body.trimEnd());
+  }
+
+  const importBlock = [...imports].join("\n");
+  return `${importBlock}${importBlock ? "\n\n" : ""}${functions.join("\n\n")}\n`;
+}
+
+export function renderComponentStories(args: {
+  implementationName: string;
+  sectionInstanceIds: string[];
+}): string {
+  const componentImport = `${args.implementationName}Component`;
+  const variantNames = args.sectionInstanceIds.slice(1)
+    .map((_, index) => `${args.implementationName}Variant${index + 2}`);
+  const namedImports = variantNames.length > 0
+    ? `, { ${variantNames.map(name => `${name} as ${name}Component`).join(", ")} }`
+    : "";
+  const stories = args.sectionInstanceIds.map((sectionInstanceId, index) => {
+    const storyName = index === 0
+      ? args.implementationName
+      : `${args.implementationName}Variant${index + 1}`;
+    const storyComponent = index === 0
+      ? componentImport
+      : `${storyName}Component`;
+    return `// Section instance: ${sectionInstanceId}
+export const ${storyName}: Story = {
+  render: () => <${storyComponent} />,
+};`;
+  });
+
+  return `import type { Meta, StoryObj } from "@storybook/react";
+import ${componentImport}${namedImports} from "./${args.implementationName}";
+
+const meta = {
+  title: "Migrated Components/${args.implementationName}",
+  component: ${componentImport},
+} satisfies Meta<typeof ${componentImport}>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+${stories.join("\n\n")}
+`;
+}
+
+function indentLines(s: string, spaces: number): string {
+  const pad = " ".repeat(spaces);
+  return s.split("\n").map(line => (line.length > 0 ? pad + line : line)).join("\n");
+}
+
+function extractLeadingImports(source: string): { imports: string[]; body: string } {
+  const imports: string[] = [];
+  let body = source;
+  while (body.startsWith("import ")) {
+    const newlineIndex = body.indexOf("\n");
+    if (newlineIndex < 0) break;
+    imports.push(body.slice(0, newlineIndex));
+    body = body.slice(newlineIndex + 1);
+    if (body.startsWith("\n")) body = body.slice(1);
+  }
+  return { imports, body };
+}
+
 export interface ComponentInput {
   id: string;
   name: string;

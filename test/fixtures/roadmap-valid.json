@@ -1,6 +1,4 @@
 {
-  "goal": "wireframe",
-  "mode": "unattended",
   "buildOrder": [
     {
       "kind": "layout",

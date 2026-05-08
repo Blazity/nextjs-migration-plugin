@@ -9,21 +9,17 @@ import { SiteFrontmatterSchema } from "../schemas/site.ts";
 const baseSite = {
   sourceUrl: "https://example.com",
   target: "./",
-  mode: "attended" as const,
-  goal: "pixel-perfect" as const,
   inputMode: "url-only" as const,
   maxParallelPages: 4,
   maxParallelSections: 4,
 };
 
 describe("setConfig", () => {
-  it("updates mode from attended to unattended", async () => {
+  it("rejects removed legacy mode and goal keys", async () => {
     const target = mkdtempSync(join(tmpdir(), "config-"));
     await bootstrapMigration({ targetDir: target, site: baseSite });
-    await setConfig(target, "mode", "unattended");
-    const site = readFileSync(join(target, ".migration/SITE.md"), "utf8");
-    expect(site).toContain("mode: unattended");
-    expect(site).not.toContain("mode: attended");
+    await expect(setConfig(target, "mode", "unattended")).rejects.toThrow(/unknown config key/i);
+    await expect(setConfig(target, "goal", "pixel-perfect")).rejects.toThrow(/unknown config key/i);
   });
 
   it("rejects invalid key", async () => {
@@ -35,7 +31,7 @@ describe("setConfig", () => {
   it("rejects invalid value for enum key", async () => {
     const target = mkdtempSync(join(tmpdir(), "config-"));
     await bootstrapMigration({ targetDir: target, site: baseSite });
-    await expect(setConfig(target, "mode", "bogus")).rejects.toThrow();
+    await expect(setConfig(target, "inputMode", "bogus")).rejects.toThrow();
   });
 
   it("coerces numeric values for parallelism keys", async () => {
@@ -44,6 +40,14 @@ describe("setConfig", () => {
     await setConfig(target, "maxParallelPages", "8");
     const site = readFileSync(join(target, ".migration/SITE.md"), "utf8");
     expect(site).toContain("maxParallelPages: 8");
+  });
+
+  it("parses comma-separated initialPageSelection values", async () => {
+    const target = mkdtempSync(join(tmpdir(), "config-"));
+    await bootstrapMigration({ targetDir: target, site: baseSite });
+    await setConfig(target, "initialPageSelection", "/,/about");
+    const site = readFileSync(join(target, ".migration/SITE.md"), "utf8");
+    expect(site).toContain('initialPageSelection: ["/","/about"]');
   });
 });
 
@@ -66,8 +70,6 @@ describe("config key sets", () => {
     const baseInput = {
       sourceUrl: "https://example.com",
       target: "./",
-      mode: "attended" as const,
-      goal: "pixel-perfect" as const,
       inputMode: "url-only" as const,
     };
     for (const key of NUMERIC_KEYS) {

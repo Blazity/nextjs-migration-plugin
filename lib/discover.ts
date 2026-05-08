@@ -1,9 +1,11 @@
+// RECOVERY USE ONLY: legacy phase entry point retained for maintainer/debug workflows; normal migrations use guided approvals.
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runCrawl } from "./crawl-runner.ts";
 import { runProbeBatch } from "./probe-runner.ts";
 import { loadCrawl } from "./load-crawl.ts";
 import { loadProbe } from "./load-probe.ts";
+import { requireRecoveryTargetArg } from "./recovery-cli.ts";
 import { writePlan, writeExecution, writeVerification } from "./phase-state.ts";
 
 export interface RunDiscoverArgs {
@@ -27,7 +29,7 @@ export interface RunDiscoverArgs {
 }
 
 export async function runDiscover(args: RunDiscoverArgs): Promise<void> {
-  const { sourceUrl, mode, initialPageSelection } = await readSiteConfig(args.targetDir);
+  const { sourceUrl, initialPageSelection } = await readSiteConfig(args.targetDir);
   const phaseDir = join(args.targetDir, ".migration/runs", args.runDir, "phase-1-discover");
   const discoveryDir = join(phaseDir, "discovery");
   mkdirSync(discoveryDir, { recursive: true });
@@ -148,11 +150,10 @@ export async function runDiscover(args: RunDiscoverArgs): Promise<void> {
     : [];
 
   const adapterGate = probeValid && (aborts.length === 0 || args.confirmAborts === true);
-  const pageListGate = isUnattended(mode) ? true : args.confirmPageList === true;
 
   await writeVerification(phaseDir, {
     phase: "phase-1-discover",
-    passed: crawlResult.valid && probeValid && adapterGate && pageListGate,
+    passed: crawlResult.valid && probeValid && adapterGate,
     checkedAt: new Date().toISOString(),
     criteria: [
       { name: "crawl.json valid", passed: crawlResult.valid },
@@ -165,32 +166,18 @@ export async function runDiscover(args: RunDiscoverArgs): Promise<void> {
             ? `${aborts.length} page(s) had no matched adapter; ${args.confirmAborts ? "user confirmed" : "user has not confirmed"}.`
             : undefined,
       },
-      {
-        name: "user confirmed page list",
-        passed: pageListGate,
-        detail: isUnattended(mode)
-          ? "auto-confirmed (unattended mode)"
-          : args.confirmPageList
-            ? "user confirmed"
-            : "awaiting confirmation",
-      },
     ],
   });
 }
 
-async function readSiteConfig(targetDir: string): Promise<{ sourceUrl: string; mode: string; initialPageSelection: string[] }> {
+async function readSiteConfig(targetDir: string): Promise<{ sourceUrl: string; initialPageSelection: string[] }> {
   const { loadSite } = await import("./load-site.ts");
   const result = loadSite(join(targetDir, ".migration/SITE.md"));
   if (!result.valid) throw new Error(`SITE.md is invalid: ${JSON.stringify(result.issues)}`);
   return {
     sourceUrl: result.site.sourceUrl,
-    mode: result.site.mode,
     initialPageSelection: result.site.initialPageSelection,
   };
-}
-
-function isUnattended(mode: string): boolean {
-  return mode === "unattended";
 }
 
 function resolveSelectedUrls(args: {
@@ -222,7 +209,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const i = process.argv.indexOf(flag);
     return i >= 0 ? process.argv[i + 1] : undefined;
   };
-  const targetDir = get("--target") ?? process.cwd();
+  const targetDir = requireRecoveryTargetArg();
   const runDir = get("--run") ?? "001-initial";
   const confirmPageList = process.argv.includes("--confirm-page-list");
   const confirmAborts = process.argv.includes("--confirm-aborts");

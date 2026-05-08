@@ -10,11 +10,16 @@ describe("RoadmapSchema", () => {
     expect(RoadmapSchema.safeParse(readFixture("roadmap-valid.json")).success).toBe(true);
   });
 
-  it("rejects an invalid goal enum value", () => {
-    const result = RoadmapSchema.safeParse(readFixture("roadmap-invalid.json"));
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues.some(i => i.path.includes("goal"))).toBe(true);
+  it("strips legacy goal and mode metadata", () => {
+    const result = RoadmapSchema.safeParse({
+      ...readFixture("roadmap-valid.json"),
+      goal: "wireframe",
+      mode: "unattended",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect("goal" in result.data).toBe(false);
+      expect("mode" in result.data).toBe(false);
     }
   });
 
@@ -36,8 +41,6 @@ describe("RoadmapSchema", () => {
 
   it("rejects an unknown buildOrder kind", () => {
     const bad = {
-      goal: "wireframe",
-      mode: "unattended",
       buildOrder: [{ kind: "ghost", id: "x", name: "X", dependsOn: [] }],
       parallelism: { maxParallelPages: 4, maxParallelSections: 4 },
       generatedAt: "2026-05-01T12:00:00.000Z",

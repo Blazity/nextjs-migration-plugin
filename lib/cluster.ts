@@ -1,10 +1,12 @@
 import { compositeShingles, jaccard, signatureDigest } from "./section-signature.ts";
+import type { SectionSignals } from "../schemas/sections.ts";
 
 export interface SectionInput {
   id: string;
   pathShingles: string[];
   tagSkeleton: string;
   pageUrl: string;
+  signals?: Partial<SectionSignals>;
 }
 
 export interface Cluster {
@@ -47,12 +49,14 @@ export function clusterSections(
     const sectionShingles = compositeShingles({
       pathShingles: section.pathShingles,
       tagSkeleton: section.tagSkeleton,
+      signals: section.signals,
     });
 
     for (const cluster of clusters) {
       const clusterShingles = compositeShingles({
         pathShingles: cluster.representative.pathShingles,
         tagSkeleton: cluster.representative.tagSkeleton,
+        signals: cluster.representative.signals,
       });
       const sim = jaccard(sectionShingles, clusterShingles);
       if (sim > bestSimilarity) {
@@ -70,6 +74,7 @@ export function clusterSections(
       const id = `cluster-${signatureDigest({
         tagSkeleton: section.tagSkeleton,
         pathShingles: section.pathShingles,
+        signals: section.signals,
       })}`;
       clusters.push({ id, representative: section, memberIds: [section.id] });
     }

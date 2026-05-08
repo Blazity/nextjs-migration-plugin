@@ -66,4 +66,4 @@ When `library/layouts.json` has any populated slot, `assembleRootLayoutTsx` writ
 
 ## 14. next build is the dominant cost
 
-A 47-page wireframe build typically takes 30-90 seconds wall-clock once codegen is done. The runner caps at 600_000ms (`NEXT_BUILD_TIMEOUT_MS`). Override via env for very large projects.
+A 47-page build typically takes 30-90 seconds wall-clock once codegen is done. The runner caps at 600_000ms (`NEXT_BUILD_TIMEOUT_MS`). Override via env for very large projects.

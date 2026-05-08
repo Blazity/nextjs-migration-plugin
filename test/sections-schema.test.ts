@@ -41,4 +41,41 @@ describe("DiscoveredSectionsSchema", () => {
       expect(result.error.issues.some(i => i.path.join(".").endsWith("id"))).toBe(true);
     }
   });
+
+  it("preserves optional section signals for evidence-assisted grouping", () => {
+    const result = DiscoveredSectionsSchema.parse({
+      probedAt: "2026-04-30T12:00:00.000Z",
+      pages: [{
+        url: "https://example.com/",
+        sections: [{
+          id: "p0-s0",
+          selector: "main > section",
+          tagSkeleton: "section>div>h2,form>input,button",
+          pathShingles: ["body>main>section"],
+          boundingBox: { x: 0, y: 0, width: 640, height: 720 },
+          signals: {
+            imgCount: "0",
+            videoCount: "0",
+            formCount: "1+",
+            buttonCount: "1",
+            headingCount: "1",
+            liCount: "0",
+            textLen: "<200",
+            height: "<800",
+          },
+        }],
+      }],
+    });
+
+    expect(result.pages[0].sections[0].signals).toEqual({
+      imgCount: "0",
+      videoCount: "0",
+      formCount: "1+",
+      buttonCount: "1",
+      headingCount: "1",
+      liCount: "0",
+      textLen: "<200",
+      height: "<800",
+    });
+  });
 });

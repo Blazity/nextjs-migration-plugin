@@ -1,6 +1,6 @@
 ---
 name: migrate:continue
-description: Auto-resume to the first incomplete phase. Daily driver.
+description: Continue the guided migration from the current approval state.
 ---
 
 Invoke the `migrate-continue` skill.

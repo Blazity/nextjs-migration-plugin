@@ -1,3 +1,4 @@
+// RECOVERY USE ONLY: legacy phase entry point retained for maintainer/debug workflows; normal migrations use guided approvals.
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadCrawl } from "./load-crawl.ts";
@@ -6,6 +7,7 @@ import { loadComponents } from "./load-components.ts";
 import { loadRoutes } from "./load-routes.ts";
 import { loadSite } from "./load-site.ts";
 import { buildOrder, detectCycles } from "./build-order.ts";
+import { requireRecoveryTargetArg } from "./recovery-cli.ts";
 import { writePlan, writeExecution, writeVerification } from "./phase-state.ts";
 import { stringifyFrontmatter } from "./frontmatter.ts";
 import type { Roadmap, RoadmapItem } from "../schemas/roadmap.ts";
@@ -13,9 +15,6 @@ import type { Roadmap, RoadmapItem } from "../schemas/roadmap.ts";
 export interface RunPlanArgs {
   targetDir: string;
   runDir: string;
-  /** Auto-confirm the roadmap regardless of mode. Used by the skill after
-   *  the migration-planner agent completes the LLM refinement loop. */
-  confirmRoadmap?: boolean;
 }
 
 export async function runPlan(args: RunPlanArgs): Promise<void> {
@@ -74,13 +73,10 @@ export async function runPlan(args: RunPlanArgs): Promise<void> {
     layouts: layoutsResult.data,
     components: componentsResult.data,
     routes: routesResult.data,
-    goal: site.goal,
   });
   await writeExecution(phaseDir, `Build order computed: ${items.length} items.`);
 
   const roadmap: Roadmap = {
-    goal: site.goal,
-    mode: site.mode,
     buildOrder: items,
     parallelism: {
       maxParallelPages: site.maxParallelPages,
@@ -101,21 +97,17 @@ export async function runPlan(args: RunPlanArgs): Promise<void> {
     layouts: layoutsResult.data,
     components: componentsResult.data,
     routes: routesResult.data,
-    mode: site.mode,
-    confirmRoadmap: args.confirmRoadmap ?? false,
   });
 }
 
 /**
  * Re-run the gate against an already-written ROADMAP.md without rebuilding
- * the build-order or rewriting ROADMAP.md. Used by the /migrate:plan skill
- * after the migration-planner / plan-checker agents have refined the
- * roadmap and the user has confirmed (or after auto-confirm in unattended).
+ * the build-order or rewriting ROADMAP.md. Used by recovery flows after the
+ * migration-planner / plan-checker agents have refined the roadmap.
  */
 export async function runPlanRefineOnly(args: {
   targetDir: string;
   runDir: string;
-  confirmRoadmap?: boolean;
 }): Promise<void> {
   const phaseDir = join(args.targetDir, ".migration/runs", args.runDir, "phase-3-plan");
   const fail = (criteria: { name: string; passed: boolean; detail?: string }[]) =>
@@ -165,8 +157,6 @@ export async function runPlanRefineOnly(args: {
     layouts: layoutsResult.data,
     components: componentsResult.data,
     routes: routesResult.data,
-    mode: siteResult.site.mode,
-    confirmRoadmap: args.confirmRoadmap ?? false,
   });
 }
 
@@ -177,7 +167,7 @@ function renderRoadmapMd(roadmap: Roadmap): string {
 
 function renderRoadmapBody(roadmap: Roadmap): string {
   const lines: string[] = [
-    `# Roadmap (${roadmap.goal} | ${roadmap.mode})`,
+    "# Roadmap",
     "",
     `Generated at ${roadmap.generatedAt}.`,
     "",
@@ -206,8 +196,6 @@ async function emitGate(args: {
   layouts: import("../schemas/layouts.ts").Layouts;
   components: import("../schemas/components.ts").Components;
   routes: import("../schemas/routes.ts").Routes;
-  mode: string;
-  confirmRoadmap: boolean;
 }): Promise<void> {
   const buildOrderIds = new Set(args.items.map(i => i.id));
   const routesUrls = new Set(args.routes.routes.map(r => r.sourceUrl));
@@ -220,11 +208,10 @@ async function emitGate(args: {
   const everyLayoutShellHasEntry = layoutShellIds.every(id => buildOrderIds.has(id));
   const cycles = detectCycles(args.items);
   const acyclic = cycles.length === 0;
-  const userApproved = args.mode === "unattended" ? true : args.confirmRoadmap;
 
   await writeVerification(args.phaseDir, {
     phase: "phase-3-plan",
-    passed: everyCrawlPageInRoutes && everyComponentHasEntry && everyLayoutShellHasEntry && acyclic && userApproved,
+    passed: everyCrawlPageInRoutes && everyComponentHasEntry && everyLayoutShellHasEntry && acyclic,
     checkedAt: new Date().toISOString(),
     criteria: [
       {
@@ -246,12 +233,6 @@ async function emitGate(args: {
         passed: acyclic,
         detail: acyclic ? undefined : `Cycles: ${cycles.map(c => c.join(" -> ")).join("; ")}`,
       },
-      {
-        name: "user approved the roadmap",
-        passed: userApproved,
-        detail: args.mode === "unattended" ? "auto-confirmed (unattended mode)" :
-          (args.confirmRoadmap ? "user confirmed" : "awaiting confirmation"),
-      },
     ],
   });
 }
@@ -262,13 +243,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     return i >= 0 ? process.argv[i + 1] : undefined;
   };
   const refineOnly = process.argv.includes("--refine-only");
-  const confirm = process.argv.includes("--confirm-roadmap");
-  const targetDir = get("--target") ?? process.cwd();
+  const targetDir = requireRecoveryTargetArg();
   const runDir = get("--run") ?? "001-initial";
   const work = refineOnly
-    ? runPlanRefineOnly({ targetDir, runDir, confirmRoadmap: confirm })
+    ? runPlanRefineOnly({ targetDir, runDir })
         .then(() => `Plan refine-only re-verification complete for run ${runDir}.`)
-    : runPlan({ targetDir, runDir, confirmRoadmap: confirm })
+    : runPlan({ targetDir, runDir })
         .then(() => `Plan phase complete for run ${runDir}.`);
   work
     .then(msg => { console.log(msg); })

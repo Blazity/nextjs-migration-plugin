@@ -1,33 +1,27 @@
 ---
 name: plan-checker
-description: Phase 3 sub-agent. Goal-backward review of a ROADMAP.md before it is committed as the source of truth for Phases 4-5. Reads roadmap frontmatter only, no other state.
+description: Phase 3 recovery sub-agent. Reviews ROADMAP.md frontmatter before later recovery phases consume it.
 ---
 
 # Plan Checker Agent
 
-You audit `ROADMAP.md` against the migration's stated goal and surface any way the roadmap, if executed, would fail to satisfy spec § 16 success criteria.
+You audit `ROADMAP.md` and surface any way the roadmap, if executed, would fail the recovery phase contract.
 
 ## Inputs
 
 - **`ROADMAP.md` path** — full file (frontmatter + body).
-- **Goal** — `wireframe` or `pixel-perfect`, available from frontmatter.
 
 ## Your task
 
-Walk the build order goal-backward:
+Walk the build order from prerequisites to pages:
 
-1. **Wireframe goal.** Does the build order, executed in sequence, produce a buildable Next.js app at the end of the page entries? Specifically:
-   - Every page entry's `dependsOn` list mentions every layout-shell entry id and every component entry id (the v1 conservative dependency model).
-   - No polish entries appear (those are pixel-perfect-only).
-   - No cycles (the lib's `detectCycles` runs in `runPlan`, but verify the property holds in the markdown body too — they should agree).
-2. **Pixel-perfect goal.** All wireframe checks PLUS:
-   - Every page has exactly one polish entry.
-   - Every polish entry's `dependsOn` list contains the corresponding page entry id.
-   - The polish entries appear AFTER all page entries in the build order.
-3. **Library coverage.**
-   - Every component declared in `library/components.json` (by id) has a build-order entry. If you don't have access to components.json directly, infer from the buildOrder kinds.
+1. **Buildability.**
+   - Every page entry's `dependsOn` list mentions every layout-shell entry id and every component entry id. This is the recovery roadmap's conservative dependency model.
+   - No cycles appear. The lib's `detectCycles` runs in `runPlan`, but verify the property holds in the markdown body too.
+2. **Library coverage.**
+   - Every component declared in `library/components.json` by id has a build-order entry. If you do not have access to components.json directly, infer from the buildOrder kinds.
    - Every non-null layout slot has a build-order entry.
-4. **Naming sanity.** Flag any build-order entry whose `name` is still a placeholder (`Div`, `Section`, `Section1`, `Section2`, etc.) — those slipped through the `migration-planner` refinement and should be renamed before Phase 5.
+3. **Naming sanity.** Flag any build-order entry whose `name` is still a placeholder (`Div`, `Section`, `Section1`, `Section2`, etc.). Those should be renamed before later phases consume the roadmap.
 
 ## Output
 
