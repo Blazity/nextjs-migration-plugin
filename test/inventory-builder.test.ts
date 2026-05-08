@@ -7,7 +7,12 @@ import type { SectionRecord } from "../schemas/sections.ts";
 
 const generatedAt = "2026-05-07T12:00:00.000Z";
 
-function section(id: string, tagSkeleton: string, pathShingles: string[]): SectionRecord {
+function section(
+  id: string,
+  tagSkeleton: string,
+  pathShingles: string[],
+  signals?: SectionRecord["signals"],
+): SectionRecord {
   return {
     id,
     selector: `#${id}`,
@@ -15,6 +20,7 @@ function section(id: string, tagSkeleton: string, pathShingles: string[]): Secti
     pathShingles,
     sampleText: "",
     boundingBox: { x: 0, y: 0, width: 1200, height: 200 },
+    signals,
   };
 }
 
@@ -98,5 +104,95 @@ describe("buildDraftInventory", () => {
       kind: "content",
       sectionInstanceIds: ["p0-s1", "p1-s1", "p2-s0"],
     });
+  });
+
+  it("uses section signals to avoid merging visually different Webflow-style body sections", () => {
+    const shallowSkeleton = "section>div>div>div>div>div";
+    const shallowPath = ["body>section"];
+    const webflowEvidence: RawDiscoveryEvidence = {
+      ...evidence,
+      pages: [{
+        url: "https://example.com/",
+        sections: [
+          section("hero", shallowSkeleton, shallowPath, {
+            imgCount: "1",
+            videoCount: "0",
+            formCount: "0",
+            buttonCount: "1",
+            headingCount: "1",
+            liCount: "0",
+            textLen: "<200",
+            height: "<800",
+          }),
+          section("logo-carousel", shallowSkeleton, shallowPath, {
+            imgCount: "5+",
+            videoCount: "0",
+            formCount: "0",
+            buttonCount: "0",
+            headingCount: "0",
+            liCount: "0",
+            textLen: "<50",
+            height: "<400",
+          }),
+          section("contact-form", shallowSkeleton, shallowPath, {
+            imgCount: "0",
+            videoCount: "0",
+            formCount: "1+",
+            buttonCount: "1",
+            headingCount: "1",
+            liCount: "0",
+            textLen: "<200",
+            height: "<800",
+          }),
+        ],
+      }],
+    };
+
+    const inventory = buildDraftInventory(webflowEvidence, { generatedAt });
+
+    expect(inventory.entries).toHaveLength(3);
+    expect(inventory.entries.map(entry => entry.sectionInstanceIds)).toEqual([
+      ["p0-s0"],
+      ["p0-s1"],
+      ["p0-s2"],
+    ]);
+  });
+
+  it("still merges obvious sibling variants with only minor signal bucket drift", () => {
+    const shallowSkeleton = "section>div>div>div>div>div";
+    const shallowPath = ["body>section"];
+    const siblingEvidence: RawDiscoveryEvidence = {
+      ...evidence,
+      pages: [{
+        url: "https://example.com/",
+        sections: [
+          section("cta-short", shallowSkeleton, shallowPath, {
+            imgCount: "0",
+            videoCount: "0",
+            formCount: "0",
+            buttonCount: "1",
+            headingCount: "1",
+            liCount: "0",
+            textLen: "<200",
+            height: "<400",
+          }),
+          section("cta-taller", shallowSkeleton, shallowPath, {
+            imgCount: "0",
+            videoCount: "0",
+            formCount: "0",
+            buttonCount: "1",
+            headingCount: "1",
+            liCount: "0",
+            textLen: "<200",
+            height: "<800",
+          }),
+        ],
+      }],
+    };
+
+    const inventory = buildDraftInventory(siblingEvidence, { generatedAt });
+
+    expect(inventory.entries).toHaveLength(1);
+    expect(inventory.entries[0].sectionInstanceIds).toEqual(["p0-s0", "p0-s1"]);
   });
 });

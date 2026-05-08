@@ -7,15 +7,24 @@ import { CrawlSchema, type Crawl } from "../schemas/crawl.ts";
 import { DiscoveredSectionsSchema, type DiscoveredSections } from "../schemas/sections.ts";
 import { RawDiscoveryEvidenceSchema, type RawDiscoveryEvidence } from "../schemas/raw-discovery.ts";
 import { dismissCookieBanner, getAllCookieSkipSelectors } from "../scripts/lib/cookie-consent.ts";
+import { freezeDynamicContent } from "../scripts/lib/freeze.ts";
+import { installNameShim } from "../scripts/lib/playwright-eval-shim.ts";
 import { BrowserWorkQueue, type BrowserWorkQueueLike } from "./browser-work-queue.ts";
 import { runCrawl, type RunCrawlArgs } from "./crawl-runner.ts";
 import { runDiscoverSections, type RunDiscoverSectionsArgs } from "./discover-sections-runner.ts";
 import { migrationPaths } from "./migration-paths.ts";
 import { runProbeBatch, type RunProbeBatchArgs } from "./probe-runner.ts";
+import { cropReferenceScreenshotFallback } from "./reference-screenshot-fallback.ts";
+import { appendSessionLog } from "./session-log.ts";
 import { urlToSlug } from "./slug.ts";
 
 const REFERENCE_VIEWPORTS = [390, 768, 1440] as const;
-const DEFAULT_SECTION_SELECTOR = "body > header, body > main > *, body > footer";
+// Inclusive top-level section selector. Many sites (e.g., Webflow exports) put
+// `<section>` / `<article>` / `<aside>` directly under `<body>` without a
+// `<main>` wrapper; the original `body > main > *` rule silently dropped all
+// content sections on those sites and yielded only header + footer matches.
+const DEFAULT_SECTION_SELECTOR =
+  "body > header, body > nav, body > main > *, body > section, body > article, body > aside, body > footer";
 
 type CrawlRunner = (args: RunCrawlArgs) => Promise<void>;
 type ProbeRunner = (args: RunProbeBatchArgs) => Promise<void>;
@@ -61,30 +70,91 @@ export async function runDiscoveryV2(args: RunDiscoveryV2Args): Promise<Discover
   const probeRunner = args.probeRunner ?? runProbeBatch;
   const sectionRunner = args.sectionRunner ?? runDiscoverSections;
 
-  await crawlRunner({
-    sourceUrl: args.sourceUrl,
-    outputPath: crawlPath,
-    maxPages: args.maxPages,
-    maxDepth: args.maxDepth,
+  appendSessionLog({
+    targetDir: args.targetDir,
+    title: "discovery: crawl start",
+    body: `sourceUrl: ${args.sourceUrl}\nmaxPages: ${args.maxPages ?? "default"}\nmaxDepth: ${args.maxDepth ?? "default"}`,
   });
+  try {
+    await crawlRunner({
+      sourceUrl: args.sourceUrl,
+      outputPath: crawlPath,
+      maxPages: args.maxPages,
+      maxDepth: args.maxDepth,
+    });
+  } catch (error) {
+    appendSessionLog({
+      targetDir: args.targetDir,
+      title: "discovery: crawl error",
+      body: errorToBody(error),
+    });
+    throw error;
+  }
 
   const crawl = CrawlSchema.parse(JSON.parse(readFileSync(crawlPath, "utf8")));
+  // Use the post-redirect canonical sourceUrl from crawl.json (e.g.
+  // `https://www.example.com/`) when resolving `initialPageSelection` paths,
+  // otherwise the user's apex input would never match the www-prefixed URLs
+  // the crawler actually visited.
   const selectedCrawl = {
     ...crawl,
-    pages: selectCrawledPages(crawl, args.sourceUrl, args.initialPageSelection),
+    pages: selectCrawledPages(crawl, crawl.sourceUrl, args.initialPageSelection),
   };
   const urls = selectedCrawl.pages.map(page => page.url);
-
-  await probeRunner({
-    urls,
-    outputPath: probePath,
+  appendSessionLog({
+    targetDir: args.targetDir,
+    title: "discovery: crawl done",
+    body: `requestedSourceUrl: ${crawl.requestedSourceUrl ?? args.sourceUrl}\ncanonicalSourceUrl: ${crawl.sourceUrl}\ncrawledPages: ${crawl.pages.length}\nselectedPages: ${selectedCrawl.pages.length}\nselection: ${args.initialPageSelection?.join(", ") ?? "(all)"}\nurls:\n${urls.map(u => `- ${u}`).join("\n")}`,
   });
 
-  await sectionRunner({
-    urls,
-    primarySelector: args.primarySelector ?? DEFAULT_SECTION_SELECTOR,
-    skipSelectors: getAllCookieSkipSelectors(),
-    outputPath: discoveredSectionsPath,
+  appendSessionLog({
+    targetDir: args.targetDir,
+    title: "discovery: probe start",
+    body: `urls: ${urls.length}`,
+  });
+  try {
+    await probeRunner({
+      urls,
+      outputPath: probePath,
+    });
+  } catch (error) {
+    appendSessionLog({
+      targetDir: args.targetDir,
+      title: "discovery: probe error",
+      body: errorToBody(error),
+    });
+    throw error;
+  }
+  appendSessionLog({
+    targetDir: args.targetDir,
+    title: "discovery: probe done",
+    body: `output: ${probePath}`,
+  });
+
+  appendSessionLog({
+    targetDir: args.targetDir,
+    title: "discovery: sections start",
+    body: `primarySelector: ${args.primarySelector ?? DEFAULT_SECTION_SELECTOR}`,
+  });
+  try {
+    await sectionRunner({
+      urls,
+      primarySelector: args.primarySelector ?? DEFAULT_SECTION_SELECTOR,
+      skipSelectors: getAllCookieSkipSelectors(),
+      outputPath: discoveredSectionsPath,
+    });
+  } catch (error) {
+    appendSessionLog({
+      targetDir: args.targetDir,
+      title: "discovery: sections error",
+      body: errorToBody(error),
+    });
+    throw error;
+  }
+  appendSessionLog({
+    targetDir: args.targetDir,
+    title: "discovery: sections done",
+    body: `output: ${discoveredSectionsPath}`,
   });
 
   const discoveredSections = DiscoveredSectionsSchema.parse(
@@ -92,14 +162,34 @@ export async function runDiscoveryV2(args: RunDiscoveryV2Args): Promise<Discover
   );
   const screenshotCapturer = args.screenshotCapturer ?? captureReferenceScreenshots;
   const browserQueue = args.browserQueue ?? BrowserWorkQueue.from({ targetDir: args.targetDir });
-  const referenceScreenshots = await browserQueue.enqueue(() =>
-    screenshotCapturer({
+  appendSessionLog({
+    targetDir: args.targetDir,
+    title: "discovery: reference screenshots start",
+    body: `viewports: ${REFERENCE_VIEWPORTS.join(", ")}\npages: ${discoveredSections.pages.length}\nsections: ${discoveredSections.pages.reduce((acc, p) => acc + p.sections.length, 0)}`,
+  });
+  let referenceScreenshots: RawDiscoveryEvidence["referenceScreenshots"];
+  try {
+    referenceScreenshots = await browserQueue.enqueue(() =>
+      screenshotCapturer({
+        targetDir: args.targetDir,
+        crawl: selectedCrawl,
+        discoveredSections,
+        primarySelector: args.primarySelector ?? DEFAULT_SECTION_SELECTOR,
+      })
+    );
+  } catch (error) {
+    appendSessionLog({
       targetDir: args.targetDir,
-      crawl: selectedCrawl,
-      discoveredSections,
-      primarySelector: args.primarySelector ?? DEFAULT_SECTION_SELECTOR,
-    })
-  );
+      title: "discovery: reference screenshots error",
+      body: errorToBody(error),
+    });
+    throw error;
+  }
+  appendSessionLog({
+    targetDir: args.targetDir,
+    title: "discovery: reference screenshots done",
+    body: `pageShots: ${referenceScreenshots.pages.length}\ncomponentShots: ${referenceScreenshots.components.length}`,
+  });
 
   const evidence = RawDiscoveryEvidenceSchema.parse({
     probedAt: discoveredSections.probedAt,
@@ -111,11 +201,23 @@ export async function runDiscoveryV2(args: RunDiscoveryV2Args): Promise<Discover
     },
   });
   writeFileSync(paths.rawDiscovery, JSON.stringify(evidence, null, 2));
+  appendSessionLog({
+    targetDir: args.targetDir,
+    title: "discovery: complete",
+    body: `evidencePath: ${paths.rawDiscovery}`,
+  });
 
   return {
     rawDiscoveryPath: paths.rawDiscovery,
     evidence,
   };
+}
+
+function errorToBody(error: unknown): string {
+  if (error instanceof Error) {
+    return `${error.name}: ${error.message}${error.stack ? `\n\n\`\`\`\n${error.stack}\n\`\`\`` : ""}`;
+  }
+  return String(error);
 }
 
 async function captureReferenceScreenshots(args: {
@@ -125,7 +227,9 @@ async function captureReferenceScreenshots(args: {
   primarySelector: string;
 }): Promise<RawDiscoveryEvidence["referenceScreenshots"]> {
   const browser = await chromium.launch();
-  const page = await browser.newPage();
+  const context = await browser.newContext();
+  await installNameShim(context);
+  const page = await context.newPage();
   const components: RawDiscoveryEvidence["referenceScreenshots"]["components"] = [];
   const pages: RawDiscoveryEvidence["referenceScreenshots"]["pages"] = [];
 
@@ -135,11 +239,13 @@ async function captureReferenceScreenshots(args: {
       for (const pageSections of args.discoveredSections.pages) {
         await page.goto(pageSections.url, { waitUntil: "domcontentloaded", timeout: 15_000 });
         await dismissCookieBanner(page);
+        await freezeDynamicContent(page, { extractionSafe: true });
 
         const slug = slugForUrl(args.crawl, pageSections.url);
         const pagePath = referencePath("pages", `${slug}-${viewport}.png`);
+        const absolutePagePath = absoluteReferencePath(args.targetDir, pagePath);
         await page.screenshot({
-          path: absoluteReferencePath(args.targetDir, pagePath),
+          path: absolutePagePath,
           fullPage: true,
         });
         pages.push({
@@ -147,20 +253,53 @@ async function captureReferenceScreenshots(args: {
           url: pageSections.url,
           viewport,
           path: pagePath,
-          sha256: sha256File(absoluteReferencePath(args.targetDir, pagePath)),
+          sha256: sha256File(absolutePagePath),
         });
 
         for (const section of pageSections.sections) {
           const sectionIndex = sectionIndexFromId(section.id);
           const path = referencePath("components", `${section.id}-${viewport}.png`);
-          await screenshotSection(page, args.primarySelector, sectionIndex, absoluteReferencePath(args.targetDir, path));
-          components.push({
-            sectionInstanceId: section.id,
-            url: pageSections.url,
-            viewport,
-            path,
-            sha256: sha256File(absoluteReferencePath(args.targetDir, path)),
-          });
+          const absoluteComponentPath = absoluteReferencePath(args.targetDir, path);
+          const sectionSelector = section.selector || args.primarySelector;
+          try {
+            await screenshotSection(page, sectionSelector, sectionIndex, absoluteComponentPath);
+            components.push({
+              sectionInstanceId: section.id,
+              url: pageSections.url,
+              viewport,
+              path,
+              sha256: sha256File(absoluteComponentPath),
+            });
+          } catch (error) {
+            try {
+              const boundingBox = await currentSectionBoundingBox(page, sectionSelector, sectionIndex, section.boundingBox);
+              cropReferenceScreenshotFallback({
+                fullPagePath: absolutePagePath,
+                outputPath: absoluteComponentPath,
+                boundingBox,
+              });
+              components.push({
+                sectionInstanceId: section.id,
+                url: pageSections.url,
+                viewport,
+                path,
+                sha256: sha256File(absoluteComponentPath),
+              });
+              appendSessionLog({
+                targetDir: args.targetDir,
+                title: "discovery: section screenshot fallback",
+                body: `sectionInstanceId: ${section.id}\nurl: ${pageSections.url}\nviewport: ${viewport}\nreason: ${error instanceof Error ? error.message.split("\n")[0] : String(error)}`,
+              });
+            } catch (fallbackError) {
+              // If both element screenshot and full-page crop fail, keep the
+              // run moving and leave the structural evidence in place.
+              appendSessionLog({
+                targetDir: args.targetDir,
+                title: "discovery: section screenshot skipped",
+                body: `sectionInstanceId: ${section.id}\nurl: ${pageSections.url}\nviewport: ${viewport}\nreason: ${error instanceof Error ? error.message.split("\n")[0] : String(error)}\nfallbackReason: ${fallbackError instanceof Error ? fallbackError.message.split("\n")[0] : String(fallbackError)}`,
+              });
+            }
+          }
         }
       }
     }
@@ -199,7 +338,28 @@ function selectCrawledPages(
 async function screenshotSection(page: Page, selector: string, sectionIndex: number, path: string): Promise<void> {
   mkdirSync(dirname(path), { recursive: true });
   const section = page.locator(selector).nth(sectionIndex);
-  await section.screenshot({ path });
+  // 5s timeout (down from Playwright's default 30s) so a hidden / 0-sized /
+  // animated-out section fails fast instead of stalling the whole run.
+  // `animations: "disabled"` makes the stable-wait succeed on sections with
+  // running CSS animations; `caret: "hide"` keeps screenshots deterministic.
+  await section.screenshot({ path, timeout: 5_000, animations: "disabled", caret: "hide" });
+}
+
+async function currentSectionBoundingBox(
+  page: Page,
+  selector: string,
+  sectionIndex: number,
+  fallback: DiscoveredSections["pages"][number]["sections"][number]["boundingBox"],
+): Promise<DiscoveredSections["pages"][number]["sections"][number]["boundingBox"]> {
+  return page.locator(selector).nth(sectionIndex).evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return {
+      x: rect.x + window.scrollX,
+      y: rect.y + window.scrollY,
+      width: rect.width,
+      height: rect.height,
+    };
+  }).catch(() => fallback);
 }
 
 function referencePath(kind: "components" | "pages", fileName: string): string {

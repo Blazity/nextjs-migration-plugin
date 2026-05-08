@@ -1,3 +1,4 @@
+import type { SectionSignals } from "../schemas/sections.ts";
 import { createHash } from "node:crypto";
 
 export function pathShingles(tags: string[], n = 3): string[] {
@@ -46,9 +47,27 @@ export function tagShingles(tagSkeleton: string, n = 3): string[] {
  */
 export function compositeShingles(input: SignatureInput): string[] {
   return [
-    ...input.pathShingles.map(s => `p:${s}`),
-    ...tagShingles(input.tagSkeleton).map(s => `t:${s}`),
+    ...weightedShingles("p", input.pathShingles),
+    ...weightedShingles("t", tagShingles(input.tagSkeleton)),
+    ...signalShingles(input.signals),
   ];
+}
+
+function weightedShingles(prefix: "p" | "t", values: string[]): string[] {
+  return values.flatMap(value => [
+    `${prefix}:${value}`,
+    `${prefix}:w2:${value}`,
+    `${prefix}:w3:${value}`,
+    `${prefix}:w4:${value}`,
+  ]);
+}
+
+export function signalShingles(signals: Partial<SectionSignals> | undefined): string[] {
+  if (!signals) return [];
+  return Object.entries(signals)
+    .filter((entry) => typeof entry[1] === "string")
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `s:${key}=${value}`);
 }
 
 export function jaccard(a: string[], b: string[]): number {
@@ -64,12 +83,16 @@ export function jaccard(a: string[], b: string[]): number {
 export interface SignatureInput {
   tagSkeleton: string;
   pathShingles: string[];
+  signals?: Partial<SectionSignals>;
 }
 
 export function signatureDigest(input: SignatureInput): string {
   const canonical = JSON.stringify({
     tagSkeleton: input.tagSkeleton,
     pathShingles: [...input.pathShingles].sort(),
+    signals: input.signals
+      ? Object.fromEntries(Object.entries(input.signals).sort(([left], [right]) => left.localeCompare(right)))
+      : undefined,
   });
   return createHash("sha256").update(canonical).digest("hex").slice(0, 16);
 }

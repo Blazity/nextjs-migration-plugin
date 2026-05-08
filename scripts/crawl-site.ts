@@ -72,15 +72,44 @@ function normalize(url: string): string {
   return u.href;
 }
 
+// Conservative same-registrable-host check: accepts only apex ↔ `www.` variants
+// of the same domain so that a 307 from `example.com` → `www.example.com`
+// (or vice versa) does not get rejected by the same-origin filter, while
+// cross-site redirects (to a third-party CDN, login portal, etc.) still are.
+function sameRegistrableHost(a: string, b: string): boolean {
+  const al = a.toLowerCase();
+  const bl = b.toLowerCase();
+  if (al === bl) return true;
+  const stripWww = (h: string) => h.replace(/^www\./, "");
+  return stripWww(al) === stripWww(bl);
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const seed = new URL(args.sourceUrl);
-  const origin = seed.origin;
-  const robots = await fetchRobots(origin);
+  let origin = seed.origin;
+  let canonicalSeedHref = seed.href;
 
   const browser = await chromium.launch();
   const context = await browser.newContext();
   const page = await context.newPage();
+
+  // Pre-resolve the seed: follow any host-normalization redirect (apex → www
+  // or www → apex) so the same-origin filter below does not silently drop
+  // every page. Cross-site redirects (e.g., apex 307 → cdn.example.net) are
+  // not accepted; we only canonicalize within the same registrable host.
+  try {
+    await page.goto(seed.href, { waitUntil: "domcontentloaded", timeout: 15_000 });
+    const finalUrl = new URL(page.url());
+    if (finalUrl.origin !== origin && sameRegistrableHost(seed.hostname, finalUrl.hostname)) {
+      origin = finalUrl.origin;
+      canonicalSeedHref = finalUrl.href;
+    }
+  } catch {
+    // Seed pre-fetch failed; the main crawl loop below will surface any error.
+  }
+
+  const robots = await fetchRobots(origin);
 
   interface Visited {
     url: string;
@@ -93,7 +122,7 @@ async function main() {
   const visited = new Map<string, Visited>();
   const errors: { url: string; reason: string }[] = [];
   const queue: { url: string; depth: number; via: Visited["discoveredVia"] }[] = [
-    { url: seed.href, depth: 0, via: "seed" },
+    { url: canonicalSeedHref, depth: 0, via: "seed" },
   ];
 
   while (queue.length > 0 && visited.size < args.maxPages) {
@@ -142,7 +171,8 @@ async function main() {
   await browser.close();
 
   const crawl = {
-    sourceUrl: args.sourceUrl,
+    sourceUrl: canonicalSeedHref,
+    requestedSourceUrl: args.sourceUrl,
     crawledAt: new Date().toISOString(),
     limits: { maxPages: args.maxPages, maxDepth: args.maxDepth },
     robotsTxt: robots,

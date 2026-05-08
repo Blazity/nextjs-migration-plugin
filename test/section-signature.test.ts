@@ -100,6 +100,27 @@ describe("compositeShingles", () => {
     });
     expect(jaccard(hero, testimonial)).toBeLessThan(0.5);
   });
+
+  it("adds namespaced section signal tokens to evidence shingles", () => {
+    const composite = compositeShingles({
+      pathShingles: ["body>section"],
+      tagSkeleton: "section>div>div>div>div>div",
+      signals: {
+        imgCount: "5+",
+        videoCount: "0",
+        formCount: "0",
+        buttonCount: "1",
+        headingCount: "1",
+        liCount: "0",
+        textLen: "<200",
+        height: "<400",
+      },
+    });
+
+    expect(composite).toContain("s:imgCount=5+");
+    expect(composite).toContain("s:textLen=<200");
+    expect(composite.every(s => s.startsWith("p:") || s.startsWith("t:") || s.startsWith("s:"))).toBe(true);
+  });
 });
 
 describe("signatureDigest", () => {

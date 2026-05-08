@@ -11,8 +11,8 @@ export interface BuildDraftInventoryOptions {
 }
 
 const DEFAULT_CLUSTER_OPTIONS: ClusterOptions = {
-  autoMergeThreshold: 1,
-  ambiguousThreshold: 1,
+  autoMergeThreshold: 0.9,
+  ambiguousThreshold: 0.75,
 };
 
 const SHELL_TAG = /(^|[>,])(header|nav|footer)\b/i;
@@ -30,6 +30,7 @@ export function buildDraftInventory(
         id: sectionInstanceId,
         pathShingles: section.pathShingles,
         tagSkeleton: section.tagSkeleton,
+        signals: section.signals,
         pageUrl: page.url,
       };
     }),
@@ -41,6 +42,7 @@ export function buildDraftInventory(
     const signature = signatureDigest({
       tagSkeleton: cluster.representative.tagSkeleton,
       pathShingles: cluster.representative.pathShingles,
+      signals: cluster.representative.signals,
     });
     const proposedName = options.proposedNamesBySignature?.[signature] ?? `UnnamedGroup${++unnamedGroupCount}`;
 
