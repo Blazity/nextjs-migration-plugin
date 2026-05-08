@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { hashArtifact } from "../lib/artifact-hash.ts";
-import { defaultDispatchers, resumeMigration } from "../lib/continue.ts";
+import { createDefaultDispatchers, defaultDispatchers, resumeMigration } from "../lib/continue.ts";
 import { migrationPaths } from "../lib/migration-paths.ts";
 import type { ApprovedInventory } from "../schemas/approved-inventory.ts";
 import type { DraftInventory } from "../schemas/draft-inventory.ts";
@@ -17,6 +17,44 @@ describe("resumeMigration", () => {
 
   it("wires a default page-assembly dispatcher for guided continue", () => {
     expect(defaultDispatchers()?.assemblePage).toBeTypeOf("function");
+  });
+
+  it("runs guided extraction before the default component-batch dispatcher", async () => {
+    const calls: string[] = [];
+    const dispatchers = createDefaultDispatchers({
+      ensureGuidedExtractionReady: async () => {
+        calls.push("extract");
+      },
+      runComponentBatch: async () => {
+        calls.push("batch");
+      },
+    });
+
+    await dispatchers?.implementComponentBatch?.({
+      targetDir: "/target",
+      artifactVersion: "abcdefabcdef1234",
+      batch: [],
+    });
+
+    expect(calls).toEqual(["extract", "batch"]);
+  });
+
+  it("does not run a component batch when guided extraction fails", async () => {
+    const runComponentBatch = vi.fn();
+    const dispatchers = createDefaultDispatchers({
+      ensureGuidedExtractionReady: async () => {
+        throw new Error("missing adapter");
+      },
+      runComponentBatch,
+    });
+
+    await expect(dispatchers?.implementComponentBatch?.({
+      targetDir: "/target",
+      artifactVersion: "abcdefabcdef1234",
+      batch: [],
+    })).rejects.toThrow("missing adapter");
+
+    expect(runComponentBatch).not.toHaveBeenCalled();
   });
 
   it("returns not-initialized when there is no .migration directory", async () => {

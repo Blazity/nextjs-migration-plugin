@@ -143,6 +143,17 @@ describe("migration skill contracts", () => {
     expect(skill).not.toContain("verify-build-baseline");
   });
 
+  it("migrate:continue describes live-run component batch verification inputs", () => {
+    const skill = readSkill("migrate-continue");
+
+    expect(skill).toContain("guided extraction");
+    expect(skill).toContain("Design System Foundation");
+    expect(skill).toContain("Storybook review links");
+    expect(skill).toContain("Interaction Class");
+    expect(skill).toContain("similarity readiness");
+    expect(skill).toContain("Pixel Diff Diagnostic");
+  });
+
   it("routes inventory corrections through natural-language chat", () => {
     const skill = readSkill("migrate-continue");
 

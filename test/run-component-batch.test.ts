@@ -27,8 +27,11 @@ describe("runComponentBatch", () => {
           viewport: 390 as const,
           status: "PASS" as const,
           ratio: 0.004,
+          similarity: 0.996,
+          pixelDiffRatio: 0.004,
+          bestOffset: { x: 0, y: 0 },
           referencePath: join(targetDir, ".migration/references/components/p0-s1-390.png"),
-          storyUrl: "http://127.0.0.1:6006/?path=/story/migrated-components-hero--hero",
+          storyUrl: "http://127.0.0.1:6006/iframe.html?id=migrated-components-hero--hero&viewMode=story",
           diffPath: join(targetDir, ".migration/reports/component-batches/abcdefabcdef1234-diffs/Hero-390.diff.png"),
           diagnostics: [],
         },
@@ -36,8 +39,11 @@ describe("runComponentBatch", () => {
           viewport: 768 as const,
           status: "FAIL" as const,
           ratio: 0.02,
+          similarity: 0.9,
+          pixelDiffRatio: 0.02,
+          bestOffset: { x: 0, y: 0 },
           referencePath: join(targetDir, ".migration/references/components/p0-s1-768.png"),
-          storyUrl: "http://127.0.0.1:6006/?path=/story/migrated-components-hero--hero",
+          storyUrl: "http://127.0.0.1:6006/iframe.html?id=migrated-components-hero--hero&viewMode=story",
           diffPath: join(targetDir, ".migration/reports/component-batches/abcdefabcdef1234-diffs/Hero-768.diff.png"),
           diagnostics: [],
         },
@@ -63,17 +69,17 @@ describe("runComponentBatch", () => {
           {
             viewport: 390,
             referencePath: join(targetDir, ".migration/references/components/p0-s1-390.png"),
-            storyUrl: "http://127.0.0.1:6006/?path=/story/migrated-components-hero--hero",
+            storyUrl: "http://127.0.0.1:6006/iframe.html?id=migrated-components-hero--hero&viewMode=story",
           },
           {
             viewport: 768,
             referencePath: join(targetDir, ".migration/references/components/p0-s1-768.png"),
-            storyUrl: "http://127.0.0.1:6006/?path=/story/migrated-components-hero--hero",
+            storyUrl: "http://127.0.0.1:6006/iframe.html?id=migrated-components-hero--hero&viewMode=story",
           },
           {
             viewport: 1440,
             referencePath: join(targetDir, ".migration/references/components/p0-s1-1440.png"),
-            storyUrl: "http://127.0.0.1:6006/?path=/story/migrated-components-hero--hero",
+            storyUrl: "http://127.0.0.1:6006/iframe.html?id=migrated-components-hero--hero&viewMode=story",
           },
         ],
         diffOutputDir: join(targetDir, ".migration/reports/component-batches/abcdefabcdef1234-diffs"),
@@ -121,6 +127,14 @@ describe("runComponentBatch", () => {
           ],
           failingViewports: [768],
           error: null,
+          interaction: {
+            class: "static",
+            status: "not-required",
+            evidence: ["no source-observed behavior beyond static content"],
+            requiredChecks: [],
+            verifiedChecks: [],
+            unresolvedBehavior: [],
+          },
         },
       ],
     });
@@ -136,6 +150,7 @@ describe("runComponentBatch", () => {
       targetDir,
       artifactVersion: "abcdefabcdef1234",
       batch: [contentEntry()],
+      storybookBaseUrl: "http://127.0.0.1:6006",
       now: () => now,
       implementComponent: async ({ entry }) => ({
         componentPath: join(targetDir, entry.filePath),
@@ -157,6 +172,105 @@ describe("runComponentBatch", () => {
     ]);
   });
 
+  it("continues the batch and writes a failed report entry when component implementation throws", async () => {
+    const targetDir = mkdtempSync(join(tmpdir(), "component-batch-"));
+    writeJson(migrationPaths(targetDir).rawDiscovery, rawDiscovery());
+    const implement = vi.fn(async ({ entry }: { entry: ApprovedInventoryEntry }) => {
+      if (entry.componentGroupId === "group-header") {
+        throw new Error("Refusing to overwrite existing component artifact: SiteHeader.tsx");
+      }
+      return {
+        componentPath: join(targetDir, entry.filePath),
+        storyPath: join(targetDir, `src/components/${entry.implementationName}.stories.tsx`),
+        sectionInstanceIds: entry.sectionInstanceIds,
+      };
+    });
+    const verify = vi.fn(async () => ({
+      status: "PASS" as const,
+      ratios: { 390: 0, 768: 0, 1440: 0 },
+      failingViewports: [],
+      results: [],
+    }));
+
+    const result = await runComponentBatch({
+      targetDir,
+      artifactVersion: "abcdefabcdef1234",
+      batch: [shellEntry(), contentEntry()],
+      storybookBaseUrl: "http://127.0.0.1:6006",
+      now: () => now,
+      implementComponent: implement,
+      verifyComponent: verify,
+    });
+
+    expect(implement).toHaveBeenCalledTimes(2);
+    expect(verify).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(readFileSync(result.reportPath, "utf8")).components).toEqual([
+      expect.objectContaining({
+        componentGroupId: "group-header",
+        implementationName: "SiteHeader",
+        kind: "shell",
+        componentPath: join(targetDir, "src/components/SiteHeader.tsx"),
+        storyPath: join(targetDir, "src/components/SiteHeader.stories.tsx"),
+        verification: "FAIL",
+        failingViewports: [390, 768, 1440],
+        error: "Refusing to overwrite existing component artifact: SiteHeader.tsx",
+      }),
+      expect.objectContaining({
+        componentGroupId: "group-hero",
+        verification: "PASS",
+        error: null,
+      }),
+    ]);
+    expect(existsSync(migrationPaths(targetDir).componentApproval("group-header"))).toBe(false);
+    expect(existsSync(migrationPaths(targetDir).componentApproval("group-hero"))).toBe(false);
+  });
+
+  it("starts a Storybook server for content verification when no base URL is supplied", async () => {
+    const targetDir = mkdtempSync(join(tmpdir(), "component-batch-"));
+    writeJson(migrationPaths(targetDir).rawDiscovery, rawDiscovery());
+    const storybookCalls: Array<{ targetDir: string; baseUrl?: string }> = [];
+    const withStorybookServer = async <T,>(args: {
+      targetDir: string;
+      baseUrl?: string;
+      run: (context: { baseUrl: string }) => Promise<T> | T;
+    }): Promise<T> => {
+      storybookCalls.push({ targetDir: args.targetDir, baseUrl: args.baseUrl });
+      return args.run({ baseUrl: "http://127.0.0.1:6123" });
+    };
+    const verify = vi.fn(async () => ({
+      status: "PASS" as const,
+      ratios: { 390: 0, 768: 0, 1440: 0 },
+      failingViewports: [],
+      results: [],
+    }));
+
+    await runComponentBatch({
+      targetDir,
+      artifactVersion: "abcdefabcdef1234",
+      batch: [contentEntry()],
+      now: () => now,
+      withStorybookServer,
+      implementComponent: async ({ entry }) => ({
+        componentPath: join(targetDir, entry.filePath),
+        storyPath: join(targetDir, `src/components/${entry.implementationName}.stories.tsx`),
+        sectionInstanceIds: entry.sectionInstanceIds,
+      }),
+      verifyComponent: verify,
+    });
+
+    expect(storybookCalls).toEqual([{
+      targetDir,
+      baseUrl: undefined,
+    }]);
+    expect(verify).toHaveBeenCalledWith(expect.objectContaining({
+      references: expect.arrayContaining([
+        expect.objectContaining({
+          storyUrl: "http://127.0.0.1:6123/iframe.html?id=migrated-components-hero--hero&viewMode=story",
+        }),
+      ]),
+    }));
+  });
+
   it("runs content verification through the injected browser queue", async () => {
     const targetDir = mkdtempSync(join(tmpdir(), "component-batch-"));
     const guard = queueGuard();
@@ -176,6 +290,7 @@ describe("runComponentBatch", () => {
       targetDir,
       artifactVersion: "abcdefabcdef1234",
       batch: [contentEntry()],
+      storybookBaseUrl: "http://127.0.0.1:6006",
       now: () => now,
       browserQueue: guard.queue,
       implementComponent: async ({ entry }) => ({

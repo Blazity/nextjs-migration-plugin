@@ -15,3 +15,7 @@ Never copy computed `width`, `height`, `gridTemplate*`, `position`, `top`, `righ
 ## Verify behavior states before final visual polish
 
 Do not treat a static screenshot match as completion for interactive components. First classify components as `static`, `css-state`, `client-state`, `form-integration`, or `motion`. Menus, drawers, tabs, accordions, dialogs, carousels, forms, marquees, reveal effects, and autoplaying media need representative browser checks for their real states before final visual parity refinement.
+
+## Use similarity as readiness and pixel diffs as diagnostics
+
+Component and page verification should surface similarity readiness first. Pixel Diff Diagnostic images and ratios are still useful for locating changed regions, but raw pixel mismatch alone is too sensitive to harmless vertical offsets and sticky-header capture artifacts.

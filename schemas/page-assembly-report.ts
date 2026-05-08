@@ -8,6 +8,12 @@ export const PageAssemblyViewportResultSchema = z.object({
   viewport: ViewportSchema,
   status: z.enum(["PASS", "FAIL", "SUSPICIOUS_ZERO_DIFF"]),
   ratio: z.number().min(0),
+  similarity: z.number().min(0).max(1),
+  pixelDiffRatio: z.number().min(0),
+  bestOffset: z.object({
+    x: z.number(),
+    y: z.number(),
+  }).strict(),
   referencePath: NonEmptyStringSchema,
   screenshotPath: NonEmptyStringSchema,
   diffPath: NonEmptyStringSchema.optional(),

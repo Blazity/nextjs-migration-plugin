@@ -37,6 +37,8 @@ Read the JSON result and handle exactly one outcome. Do not auto-loop; after one
 
 `kind: "dispatched"` with `action: "implement-component-batch"` means component implementation work was started for the returned component group ids. After the dispatcher finishes, present the generated component artifacts for Component Batch Approval.
 
+Component batch dispatch first runs guided extraction, writes the Design System Foundation from extracted globals, generates Storybook stories, and reports Storybook review links for the user. Treat similarity readiness as the automated readiness signal; treat each Pixel Diff Diagnostic as debugging evidence, not approval. Surface each component's Interaction Class and any unresolved behavior before asking for Component Batch Approval.
+
 `kind: "no-dispatcher"` with `action: "assemble-page"` means all required components are approved and the next internal action is page assembly followed by Page Layout Approval. Report the pending page assembly action.
 
 `kind: "dispatched"` with `action: "assemble-page"` means page assembly work was started. After the dispatcher finishes, present the generated page for Page Layout Approval.

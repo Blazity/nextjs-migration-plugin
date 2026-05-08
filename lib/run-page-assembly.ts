@@ -4,7 +4,7 @@ import { PNG } from "pngjs";
 import { ApprovedInventorySchema } from "../schemas/approved-inventory.ts";
 import { PageAssemblyReportSchema, type PageAssemblyReport, type PageAssemblyViewportResult } from "../schemas/page-assembly-report.ts";
 import { RawDiscoveryEvidenceSchema, type RawDiscoveryEvidence } from "../schemas/raw-discovery.ts";
-import { assessDiffResult, diffNormalizedPngs, type DiffAssessment, type DiffResult } from "../scripts/lib/visual-verify-core.ts";
+import { assessDiffResult, assessVisualSimilarity, diffNormalizedPngs, type DiffAssessment, type DiffResult, type VisualSimilarityResult } from "../scripts/lib/visual-verify-core.ts";
 import { hashArtifact } from "./artifact-hash.ts";
 import { BrowserWorkQueue, type BrowserWorkQueueLike } from "./browser-work-queue.ts";
 import { migrationPaths } from "./migration-paths.ts";
@@ -34,6 +34,7 @@ export interface RunPageAssemblyArgs {
   readPng?: (path: string) => PNG;
   diffPngs?: (reference: PNG, local: PNG) => DiffResult;
   assessDiff?: typeof assessDiffResult;
+  assessSimilarity?: (input: { refPng: PNG; localPng: PNG }) => VisualSimilarityResult;
   writePng?: (path: string, png: PNG) => void;
 }
 
@@ -81,6 +82,7 @@ export async function runPageAssembly(args: RunPageAssemblyArgs): Promise<RunPag
       readPng: args.readPng ?? readPng,
       diffPngs: args.diffPngs ?? diffNormalizedPngs,
       assessDiff: args.assessDiff ?? assessDiffResult,
+      assessSimilarity: args.assessSimilarity ?? assessVisualSimilarity,
       writePng: args.writePng ?? writePng,
     })
     : [];
@@ -143,6 +145,7 @@ async function verifyPageScreenshots(args: {
   readPng: (path: string) => PNG;
   diffPngs: (reference: PNG, local: PNG) => DiffResult;
   assessDiff: typeof assessDiffResult;
+  assessSimilarity: (input: { refPng: PNG; localPng: PNG }) => VisualSimilarityResult;
   writePng: (path: string, png: PNG) => void;
 }): Promise<PageAssemblyViewportResult[]> {
   const results: PageAssemblyViewportResult[] = [];
@@ -156,6 +159,9 @@ async function verifyPageScreenshots(args: {
         viewport,
         status: "FAIL",
         ratio: 1,
+        similarity: 0,
+        pixelDiffRatio: 1,
+        bestOffset: { x: 0, y: 0 },
         referencePath: "",
         screenshotPath: "",
         diagnostics: [`missing page reference for viewport ${viewport}`],
@@ -175,6 +181,7 @@ async function verifyPageScreenshots(args: {
     const referencePng = args.readPng(referencePath);
     const localPng = args.readPng(screenshotPath);
     const diff = args.diffPngs(referencePng, localPng);
+    const similarity = args.assessSimilarity({ refPng: referencePng, localPng });
     const assessment = args.assessDiff({
       ratio: diff.ratio,
       refLabel: `${args.slug}:${viewport}:source`,
@@ -184,22 +191,26 @@ async function verifyPageScreenshots(args: {
       exactZeroIsSuspicious: false,
       maxDiffRatio: 0.02,
     });
+    const status = similarity.similarity >= 0.92 ? "PASS" : "FAIL";
     const diffPath = maybeWriteDiff({
       targetDir: args.targetDir,
       slug: args.slug,
       viewport,
-      assessment,
+      assessment: { ...assessment, status },
       diff,
       writePng: args.writePng,
     });
     results.push({
       viewport,
-      status: assessment.status,
+      status,
       ratio: assessment.ratio,
+      similarity: similarity.similarity,
+      pixelDiffRatio: similarity.pixelDiffRatio,
+      bestOffset: similarity.bestOffset,
       referencePath,
       screenshotPath,
       diffPath,
-      diagnostics: assessment.diagnostics,
+      diagnostics: [...assessment.diagnostics, ...similarity.diagnostics],
     });
   }
   return results;

@@ -3,8 +3,10 @@ import { dirname, isAbsolute, join } from "node:path";
 import { BrowserWorkQueue, type BrowserWorkQueueLike } from "./browser-work-queue.ts";
 import { implementComponent as defaultImplementComponent, type ImplementComponentResult } from "./implement-component.ts";
 import { migrationPaths } from "./migration-paths.ts";
-import { componentStorybookUrl } from "./storybook-url.ts";
+import { withStorybookServer as defaultWithStorybookServer } from "./storybook-server.ts";
+import { componentStorybookReviewUrl, componentStorybookUrl } from "./storybook-url.ts";
 import { verifyComponent as defaultVerifyComponent, type ComponentReference, type VerifyComponentInput, type VerifyComponentResult } from "./verify-component.ts";
+import { classifyInteractionBehavior } from "./interaction-behavior.ts";
 import { ApprovedInventoryEntrySchema, type ApprovedInventoryEntry } from "../schemas/approved-inventory.ts";
 import type { ComponentBatchReport, ComponentBatchReportEntry } from "../schemas/component-batch-report.ts";
 import { RawDiscoveryEvidenceSchema, type RawDiscoveryEvidence } from "../schemas/raw-discovery.ts";
@@ -26,11 +28,27 @@ export interface RunComponentBatchArgs {
   }) => Promise<ImplementComponentResult> | ImplementComponentResult;
   verifyComponent?: (input: VerifyComponentInput) => Promise<VerifyComponentResult>;
   browserQueue?: BrowserWorkQueueLike;
+  withStorybookServer?: <T>(args: {
+    targetDir: string;
+    baseUrl?: string;
+    run: (context: { baseUrl: string }) => Promise<T> | T;
+  }) => Promise<T>;
 }
 
 export async function runComponentBatch(
   args: RunComponentBatchArgs,
 ): Promise<RunComponentBatchResult> {
+  if (!args.storybookBaseUrl && args.batch.some(entry => ApprovedInventoryEntrySchema.parse(entry).kind === "content")) {
+    return (args.withStorybookServer ?? defaultWithStorybookServer)({
+      targetDir: args.targetDir,
+      baseUrl: args.storybookBaseUrl,
+      run: ({ baseUrl }) => runComponentBatch({
+        ...args,
+        storybookBaseUrl: baseUrl,
+      }),
+    });
+  }
+
   const paths = migrationPaths(args.targetDir);
   const evidence = RawDiscoveryEvidenceSchema.parse(
     JSON.parse(readFileSync(paths.rawDiscovery, "utf8")),
@@ -50,10 +68,20 @@ export async function runComponentBatch(
 
   for (const rawEntry of args.batch) {
     const entry = ApprovedInventoryEntrySchema.parse(rawEntry);
-    const implementation = await implement({
-      targetDir: args.targetDir,
-      entry,
-    });
+    let implementation: ImplementComponentResult;
+    try {
+      implementation = await implement({
+        targetDir: args.targetDir,
+        entry,
+      });
+    } catch (error) {
+      components.push(failedImplementationEntry({
+        targetDir: args.targetDir,
+        entry,
+        error,
+      }));
+      continue;
+    }
 
     if (entry.kind === "shell") {
       components.push({
@@ -94,13 +122,20 @@ export async function runComponentBatch(
       componentPath: implementation.componentPath,
       storyPath: implementation.storyPath,
       verification: verification.status,
-      storybookUrls: unique(references.map(reference => reference.storyUrl)),
+      storybookUrls: storybookReviewUrls({
+        entry,
+        storybookBaseUrl: args.storybookBaseUrl ?? "http://127.0.0.1:6006",
+      }),
       referencePaths: references.map(reference => reference.referencePath),
       diffPaths: verification.results
         .map(result => result.diffPath)
         .filter((path): path is string => Boolean(path)),
       failingViewports: verification.failingViewports,
       error: verification.error,
+      interaction: classifyInteractionBehavior({
+        entry,
+        evidence,
+      }),
     });
   }
 
@@ -119,6 +154,39 @@ export async function runComponentBatch(
   writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
 
   return { reportPath, report };
+}
+
+function storybookReviewUrls(args: {
+  entry: ApprovedInventoryEntry;
+  storybookBaseUrl: string;
+}): string[] {
+  return unique(args.entry.sectionInstanceIds.map((_, index) => {
+    const storyName = index === 0
+      ? args.entry.implementationName
+      : `${args.entry.implementationName}Variant${index + 1}`;
+    return componentStorybookReviewUrl(args.storybookBaseUrl, args.entry.implementationName, storyName);
+  }));
+}
+
+function failedImplementationEntry(args: {
+  targetDir: string;
+  entry: ApprovedInventoryEntry;
+  error: unknown;
+}): ComponentBatchReportEntry {
+  const componentPath = join(args.targetDir, args.entry.filePath);
+  return {
+    componentGroupId: args.entry.componentGroupId,
+    implementationName: args.entry.implementationName,
+    kind: args.entry.kind,
+    componentPath,
+    storyPath: join(dirname(componentPath), `${args.entry.implementationName}.stories.tsx`),
+    verification: "FAIL",
+    storybookUrls: [],
+    referencePaths: [],
+    diffPaths: [],
+    failingViewports: [390, 768, 1440],
+    error: args.error instanceof Error ? args.error.message : String(args.error),
+  };
 }
 
 async function verifyComponentSafely(args: {

@@ -14,14 +14,14 @@ const readText = (dir: string, path: string) => readFileSync(join(dir, path), "u
 const readPackageJson = (dir: string) => JSON.parse(readText(dir, "package.json"));
 
 describe("ensureStorybookScaffold", () => {
-  it("creates Storybook 8 React-Vite files and adds missing scripts idempotently", () => {
+  it("creates Storybook 8 Next.js files and adds missing scripts idempotently", () => {
     const dir = createTarget();
 
     ensureStorybookScaffold(dir);
 
     expect(existsSync(join(dir, ".storybook/main.ts"))).toBe(true);
     expect(existsSync(join(dir, ".storybook/preview.ts"))).toBe(true);
-    expect(readText(dir, ".storybook/main.ts")).toContain('@storybook/react-vite');
+    expect(readText(dir, ".storybook/main.ts")).toContain('@storybook/nextjs');
     expect(readText(dir, ".storybook/preview.ts")).toContain("390");
     expect(readText(dir, ".storybook/preview.ts")).toContain("768");
     expect(readText(dir, ".storybook/preview.ts")).toContain("1440");
@@ -35,7 +35,7 @@ describe("ensureStorybookScaffold", () => {
       devDependencies: {
         storybook: "^8.0.0",
         "@storybook/addon-essentials": "^8.0.0",
-        "@storybook/react-vite": "^8.0.0",
+        "@storybook/nextjs": "^8.0.0",
       },
     });
 
@@ -82,7 +82,7 @@ describe("ensureStorybookScaffold", () => {
       devDependencies: {
         storybook: "^8.2.0",
         "@storybook/addon-essentials": "^8.0.0",
-        "@storybook/react-vite": "^8.0.0",
+        "@storybook/nextjs": "^8.0.0",
       },
       dependencies: {
         next: "15.0.0",

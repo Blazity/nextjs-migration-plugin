@@ -10,16 +10,16 @@ const storybookVersion = "^8.0.0";
 const storybookDevDependencies = {
   storybook: storybookVersion,
   "@storybook/addon-essentials": storybookVersion,
-  "@storybook/react-vite": storybookVersion,
+  "@storybook/nextjs": storybookVersion,
 } as const;
 
-const mainTs = `import type { StorybookConfig } from "@storybook/react-vite";
+const mainTs = `import type { StorybookConfig } from "@storybook/nextjs";
 
 const config: StorybookConfig = {
   stories: ["../src/**/*.mdx", "../src/**/*.stories.@(js|jsx|mjs|ts|tsx)"],
   addons: ["@storybook/addon-essentials"],
   framework: {
-    name: "@storybook/react-vite",
+    name: "@storybook/nextjs",
     options: {},
   },
 };

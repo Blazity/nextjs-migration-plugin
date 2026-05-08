@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { InteractionBehaviorSchema } from "./interaction-behavior.ts";
 
 const ArtifactVersionSchema = z.string().regex(/^[0-9a-f]{16}$/);
 const NonEmptyStringSchema = z.string().min(1);
@@ -16,6 +17,7 @@ export const ComponentBatchReportEntrySchema = z.object({
   diffPaths: z.array(NonEmptyStringSchema),
   failingViewports: z.array(ViewportSchema),
   error: z.string().nullable(),
+  interaction: InteractionBehaviorSchema.optional(),
 }).strict();
 
 export const ComponentBatchReportSchema = z.object({

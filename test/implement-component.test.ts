@@ -100,6 +100,27 @@ describe("implementComponent", () => {
       }),
     ).toThrow("No generated TSX source found for section instance p1-s1");
   });
+
+  it("refuses to overwrite an existing component artifact by default", () => {
+    const targetDir = mkdtempSync(join(tmpdir(), "implement-component-"));
+    writeJson(migrationPaths(targetDir).rawDiscovery, rawDiscovery());
+    writeFile(
+      join(targetDir, ".migration/pages/home/generated/01-hero.generated.jsx"),
+      '<section className="hero"><h1>Homepage Hero</h1></section>',
+    );
+    writeFile(
+      join(targetDir, ".migration/pages/about/generated/01-hero.generated.jsx"),
+      '<section className="hero"><h1>About Hero</h1></section>',
+    );
+    writeFile(join(targetDir, "src/components/Hero.tsx"), "export default function Hero() { return null; }\n");
+
+    expect(() =>
+      implementComponent({
+        targetDir,
+        entry: approvedEntry(),
+      }),
+    ).toThrow(/Refusing to overwrite existing component artifact/);
+  });
 });
 
 function approvedEntry(): ApprovedInventoryEntry {

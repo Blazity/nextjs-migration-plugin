@@ -3,9 +3,11 @@ import { join } from "node:path";
 import { PNG } from "pngjs";
 import {
   assessDiffResult,
+  assessVisualSimilarity,
   diffNormalizedPngs,
   type DiffAssessment,
   type DiffResult,
+  type VisualSimilarityResult,
 } from "../scripts/lib/visual-verify-core.ts";
 import { BrowserWorkQueue, type BrowserWorkQueueLike } from "./browser-work-queue.ts";
 
@@ -23,6 +25,7 @@ export interface VerifyComponentInput {
   references: ComponentReference[];
   diffOutputDir?: string;
   maxDiffRatio?: number;
+  similarityThreshold?: number;
 }
 
 export interface VerifyComponentPage {
@@ -40,12 +43,16 @@ export interface VerifyComponentDeps {
   writePng?: (path: string, png: PNG) => void;
   diffPngs?: (reference: PNG, local: PNG) => DiffResult;
   assessDiff?: typeof assessDiffResult;
+  assessSimilarity?: (input: { refPng: PNG; localPng: PNG }) => VisualSimilarityResult;
 }
 
 export interface VerifyComponentViewportResult {
   viewport: ComponentVerifyViewport;
   status: DiffAssessment["status"];
   ratio: number;
+  similarity: number;
+  pixelDiffRatio: number;
+  bestOffset: { x: number; y: number };
   referencePath: string;
   storyUrl: string;
   diffPath?: string;
@@ -84,6 +91,10 @@ export async function verifyComponent(
         const referencePng = (deps.readPng ?? readPng)(reference.referencePath);
         const localPng = (deps.decodePng ?? decodePng)(screenshot);
         const diff = (deps.diffPngs ?? diffNormalizedPngs)(referencePng, localPng);
+        const similarity = (deps.assessSimilarity ?? assessVisualSimilarity)({
+          refPng: referencePng,
+          localPng,
+        });
         const assessment = (deps.assessDiff ?? assessDiffResult)({
           ratio: diff.ratio,
           refLabel: `${input.name}:${reference.viewport}:reference`,
@@ -101,17 +112,23 @@ export async function verifyComponent(
         });
 
         ratios[reference.viewport] = assessment.ratio;
-        if (assessment.status === "FAIL") {
+        const status = similarity.similarity >= (input.similarityThreshold ?? 0.92)
+          ? "PASS"
+          : "FAIL";
+        if (status === "FAIL") {
           pushUnique(failingViewports, reference.viewport);
         }
         results.push({
           viewport: reference.viewport,
-          status: assessment.status,
+          status,
           ratio: assessment.ratio,
+          similarity: similarity.similarity,
+          pixelDiffRatio: similarity.pixelDiffRatio,
+          bestOffset: similarity.bestOffset,
           referencePath: reference.referencePath,
           storyUrl: reference.storyUrl,
           diffPath,
-          diagnostics: assessment.diagnostics,
+          diagnostics: [...assessment.diagnostics, ...similarity.diagnostics],
         });
       } finally {
         await page.close();
@@ -126,6 +143,9 @@ export async function verifyComponent(
       viewport,
       status: "FAIL",
       ratio: 1,
+      similarity: 0,
+      pixelDiffRatio: 1,
+      bestOffset: { x: 0, y: 0 },
       referencePath: "",
       storyUrl: "",
       diagnostics: [`missing reference for viewport ${viewport}`],

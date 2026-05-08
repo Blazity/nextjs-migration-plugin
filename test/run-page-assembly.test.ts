@@ -87,9 +87,9 @@ describe("runPageAssembly", () => {
       failingViewports: [],
       error: null,
       results: [
-        expect.objectContaining({ viewport: 390, status: "PASS", ratio: 0 }),
-        expect.objectContaining({ viewport: 768, status: "PASS", ratio: 0.01 }),
-        expect.objectContaining({ viewport: 1440, status: "PASS", ratio: 0.019 }),
+        expect.objectContaining({ viewport: 390, status: "PASS", ratio: 0, similarity: expect.any(Number), pixelDiffRatio: expect.any(Number) }),
+        expect.objectContaining({ viewport: 768, status: "PASS", ratio: 0.01, similarity: expect.any(Number), pixelDiffRatio: expect.any(Number) }),
+        expect.objectContaining({ viewport: 1440, status: "PASS", ratio: 0.019, similarity: expect.any(Number), pixelDiffRatio: expect.any(Number) }),
       ],
     });
     expect(existsSync(paths.pageApproval("home"))).toBe(false);

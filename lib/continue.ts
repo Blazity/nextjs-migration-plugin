@@ -1,9 +1,10 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { ApprovedInventoryEntry } from "../schemas/approved-inventory.ts";
+import { ensureGuidedExtractionReady as defaultEnsureGuidedExtractionReady } from "./guided-extraction.ts";
 import { scheduleMigration } from "./migration-scheduler.ts";
-import { runComponentBatch } from "./run-component-batch.ts";
-import { runPageAssembly } from "./run-page-assembly.ts";
+import { runComponentBatch as defaultRunComponentBatch } from "./run-component-batch.ts";
+import { runPageAssembly as defaultRunPageAssembly } from "./run-page-assembly.ts";
 
 export type ComponentBatchDispatcher = (args: {
   targetDir: string;
@@ -65,6 +66,23 @@ export interface ResumeArgs {
     implementComponentBatch?: ComponentBatchDispatcher;
     assemblePage?: PageAssemblyDispatcher;
   };
+}
+
+export interface DefaultDispatcherDeps {
+  ensureGuidedExtractionReady?: (args: {
+    targetDir: string;
+    artifactVersion: string;
+  }) => Promise<unknown>;
+  runComponentBatch?: (args: {
+    targetDir: string;
+    artifactVersion: string;
+    batch: ApprovedInventoryEntry[];
+  }) => Promise<unknown>;
+  runPageAssembly?: (args: {
+    targetDir: string;
+    slug: string;
+    componentGroupIds: string[];
+  }) => Promise<unknown>;
 }
 
 export async function resumeMigration(
@@ -141,15 +159,26 @@ export async function resumeMigration(
   }
 }
 
-export function defaultDispatchers(): ResumeArgs["dispatchers"] {
+export function createDefaultDispatchers(
+  deps: DefaultDispatcherDeps = {},
+): ResumeArgs["dispatchers"] {
+  const ensureGuidedExtractionReady = deps.ensureGuidedExtractionReady ?? defaultEnsureGuidedExtractionReady;
+  const runComponentBatch = deps.runComponentBatch ?? defaultRunComponentBatch;
+  const runPageAssembly = deps.runPageAssembly ?? defaultRunPageAssembly;
+
   return {
     implementComponentBatch: async ({ targetDir, artifactVersion, batch }) => {
+      await ensureGuidedExtractionReady({ targetDir, artifactVersion });
       await runComponentBatch({ targetDir, artifactVersion, batch });
     },
     assemblePage: async ({ targetDir, slug, componentGroupIds }) => {
       await runPageAssembly({ targetDir, slug, componentGroupIds });
     },
   };
+}
+
+export function defaultDispatchers(): ResumeArgs["dispatchers"] {
+  return createDefaultDispatchers();
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

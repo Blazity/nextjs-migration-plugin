@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
   renderComponentModule,
@@ -13,6 +13,7 @@ import { RawDiscoveryEvidenceSchema } from "../schemas/raw-discovery.ts";
 export interface ImplementComponentArgs {
   targetDir: string;
   entry: ApprovedInventoryEntry;
+  writePolicy?: "error-if-exists" | "overwrite";
 }
 
 export interface ImplementComponentResult {
@@ -48,6 +49,10 @@ export function implementComponent(args: ImplementComponentArgs): ImplementCompo
     dirname(componentPath),
     `${entry.implementationName}.stories.tsx`,
   );
+  ensureWritableArtifacts({
+    paths: [componentPath, storyPath],
+    writePolicy: args.writePolicy ?? "error-if-exists",
+  });
 
   mkdirSync(dirname(componentPath), { recursive: true });
   writeFileSync(
@@ -73,4 +78,18 @@ export function implementComponent(args: ImplementComponentArgs): ImplementCompo
     storyPath,
     sectionInstanceIds: entry.sectionInstanceIds,
   };
+}
+
+function ensureWritableArtifacts(args: {
+  paths: string[];
+  writePolicy: "error-if-exists" | "overwrite";
+}): void {
+  if (args.writePolicy === "overwrite") return;
+
+  const existing = args.paths.filter(path => existsSync(path));
+  if (existing.length > 0) {
+    throw new Error(
+      `Refusing to overwrite existing component artifact: ${existing.join(", ")}`,
+    );
+  }
 }

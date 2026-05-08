@@ -36,6 +36,13 @@ export interface DiffAssessment {
   diagnostics: string[]
 }
 
+export interface VisualSimilarityResult {
+  similarity: number
+  pixelDiffRatio: number
+  bestOffset: { x: number; y: number }
+  diagnostics: string[]
+}
+
 export interface VisualReadyOptions {
   selector?: string
   timeoutMs?: number
@@ -315,6 +322,93 @@ export function diffNormalizedPngs(refPng: PNG, localPng: PNG): DiffResult {
     ratio: mismatch / (width * height),
     diff,
   }
+}
+
+export function assessVisualSimilarity(input: {
+  refPng: PNG
+  localPng: PNG
+  maxOffsetPx?: number
+}): VisualSimilarityResult {
+  const rawDiff = diffNormalizedPngs(input.refPng, input.localPng)
+  const maxOffsetPx = input.maxOffsetPx ?? 24
+  let best = {
+    similarity: clampUnit(1 - rawDiff.ratio),
+    bestOffset: { x: 0, y: 0 },
+  }
+
+  for (let y = -maxOffsetPx; y <= maxOffsetPx; y += 1) {
+    for (let x = -maxOffsetPx; x <= maxOffsetPx; x += 1) {
+      const overlap = offsetOverlapSimilarity(input.refPng, input.localPng, { x, y })
+      if (overlap === null) continue
+      const offsetPenalty = ((Math.abs(x) / input.refPng.width) + (Math.abs(y) / input.refPng.height)) * 0.1
+      const similarity = clampUnit(overlap - offsetPenalty)
+      if (similarity > best.similarity) {
+        best = {
+          similarity,
+          bestOffset: { x, y },
+        }
+      }
+    }
+  }
+
+  return {
+    similarity: best.similarity,
+    pixelDiffRatio: rawDiff.ratio,
+    bestOffset: best.bestOffset,
+    diagnostics: [
+      `pixelDiffRatio=${rawDiff.ratio}`,
+      `bestOffset=${best.bestOffset.x},${best.bestOffset.y}`,
+    ],
+  }
+}
+
+function offsetOverlapSimilarity(
+  refPng: PNG,
+  localPng: PNG,
+  offset: { x: number; y: number },
+): number | null {
+  let compared = 0
+  let mismatch = 0
+
+  for (let y = 0; y < refPng.height; y += 1) {
+    const localY = y - offset.y
+    if (localY < 0 || localY >= localPng.height) continue
+
+    for (let x = 0; x < refPng.width; x += 1) {
+      const localX = x - offset.x
+      if (localX < 0 || localX >= localPng.width) continue
+
+      compared += 1
+      if (pixelsDiffer(refPng, localPng, x, y, localX, localY)) {
+        mismatch += 1
+      }
+    }
+  }
+
+  if (compared === 0) return null
+  return 1 - mismatch / compared
+}
+
+function pixelsDiffer(
+  refPng: PNG,
+  localPng: PNG,
+  refX: number,
+  refY: number,
+  localX: number,
+  localY: number,
+): boolean {
+  const refIndex = (refPng.width * refY + refX) << 2
+  const localIndex = (localPng.width * localY + localX) << 2
+  const delta =
+    Math.abs(refPng.data[refIndex] - localPng.data[localIndex]) +
+    Math.abs(refPng.data[refIndex + 1] - localPng.data[localIndex + 1]) +
+    Math.abs(refPng.data[refIndex + 2] - localPng.data[localIndex + 2]) +
+    Math.abs(refPng.data[refIndex + 3] - localPng.data[localIndex + 3])
+  return delta > 30
+}
+
+function clampUnit(value: number): number {
+  return Math.max(0, Math.min(1, value))
 }
 
 export function assessDiffResult(input: {

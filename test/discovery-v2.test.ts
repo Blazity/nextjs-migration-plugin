@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import getPort from "get-port";
-import { runDiscoveryV2 } from "../lib/discovery-v2.ts";
+import { runDiscoveryV2, shouldPreferFullPageSectionCrop } from "../lib/discovery-v2.ts";
 import { migrationPaths } from "../lib/migration-paths.ts";
 import { RawDiscoveryEvidenceSchema } from "../schemas/raw-discovery.ts";
 
@@ -37,6 +37,17 @@ beforeAll(async () => {
 afterAll(() => new Promise<void>(resolve => server.close(() => resolve())));
 
 describe("runDiscoveryV2", () => {
+  it("prefers full-page crops for non-top sections to avoid sticky header overlay contamination", () => {
+    expect(shouldPreferFullPageSectionCrop({
+      tagSkeleton: "section>h1",
+      boundingBox: { x: 0, y: 120, width: 1440, height: 500 },
+    })).toBe(true);
+    expect(shouldPreferFullPageSectionCrop({
+      tagSkeleton: "header>nav",
+      boundingBox: { x: 0, y: 0, width: 1440, height: 80 },
+    })).toBe(false);
+  });
+
   it("writes raw discovery evidence and reference screenshots without legacy phase dirs", async () => {
     const targetDir = mkdtempSync(join(tmpdir(), "discovery-v2-"));
 

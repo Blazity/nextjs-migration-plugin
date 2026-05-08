@@ -261,6 +261,27 @@ async function captureReferenceScreenshots(args: {
           const path = referencePath("components", `${section.id}-${viewport}.png`);
           const absoluteComponentPath = absoluteReferencePath(args.targetDir, path);
           const sectionSelector = section.selector || args.primarySelector;
+          if (shouldPreferFullPageSectionCrop(section)) {
+            try {
+              const boundingBox = await currentSectionBoundingBox(page, sectionSelector, sectionIndex, section.boundingBox);
+              cropReferenceScreenshotFallback({
+                fullPagePath: absolutePagePath,
+                outputPath: absoluteComponentPath,
+                boundingBox,
+              });
+              components.push({
+                sectionInstanceId: section.id,
+                url: pageSections.url,
+                viewport,
+                path,
+                sha256: sha256File(absoluteComponentPath),
+              });
+              continue;
+            } catch {
+              // Fall through to direct element screenshot. It may still work on
+              // pages without sticky/fixed top overlays.
+            }
+          }
           try {
             await screenshotSection(page, sectionSelector, sectionIndex, absoluteComponentPath);
             components.push({
@@ -308,6 +329,14 @@ async function captureReferenceScreenshots(args: {
   }
 
   return { components, pages };
+}
+
+export function shouldPreferFullPageSectionCrop(section: Pick<
+  DiscoveredSections["pages"][number]["sections"][number],
+  "tagSkeleton" | "boundingBox"
+>): boolean {
+  if (section.boundingBox.y <= 0) return false;
+  return !/^(header|nav)\b/i.test(section.tagSkeleton);
 }
 
 function selectCrawledPages(

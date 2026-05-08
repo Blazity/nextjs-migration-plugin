@@ -15,12 +15,13 @@ describe("verifyComponent", () => {
           reference(1440, "http://storybook/Hero?viewport=1440"),
         ],
       },
-      deps(page, [0, 0.004, 0.01]),
+      deps(page, [0, 0.004, 0.01], undefined, [1, 0.996, 0.99]),
     );
 
     expect(result.status).toBe("PASS");
     expect(result.failingViewports).toEqual([]);
     expect(result.ratios).toEqual({ 390: 0, 768: 0.004, 1440: 0.01 });
+    expect(result.results.map(viewport => viewport.similarity)).toEqual([1, 0.996, 0.99]);
     expect(page.calls).toEqual([
       ["setViewportSize", { width: 390, height: 900 }],
       ["goto", "http://storybook/Hero?viewport=390"],
@@ -47,7 +48,7 @@ describe("verifyComponent", () => {
           reference(1440, "http://storybook/Hero?viewport=1440"),
         ],
       },
-      deps(fakePage(), [0.003, 0.02, 0.001]),
+      deps(fakePage(), [0.003, 0.02, 0.001], undefined, [0.997, 0.9, 0.999]),
     );
 
     expect(result.status).toBe("FAIL");
@@ -64,7 +65,7 @@ describe("verifyComponent", () => {
           reference(1440, "http://storybook/Hero?viewport=1440"),
         ],
       },
-      deps(fakePage(), [0, 0]),
+      deps(fakePage(), [0, 0], undefined, [1, 1]),
     );
 
     expect(result.status).toBe("FAIL");
@@ -73,6 +74,9 @@ describe("verifyComponent", () => {
       viewport: 768,
       status: "FAIL",
       ratio: 1,
+      similarity: 0,
+      pixelDiffRatio: 1,
+      bestOffset: { x: 0, y: 0 },
       referencePath: "",
       storyUrl: "",
       diagnostics: ["missing reference for viewport 768"],
@@ -90,7 +94,7 @@ describe("verifyComponent", () => {
           reference(1440, "http://storybook/Hero?viewport=1440"),
         ],
       },
-      deps(fakePage(guard.assertActive), [0, 0, 0], guard.queue),
+      deps(fakePage(guard.assertActive), [0, 0, 0], guard.queue, [1, 1, 1]),
     );
 
     expect(result.status).toBe("PASS");
@@ -115,7 +119,7 @@ describe("verifyComponent", () => {
         ],
       },
       {
-        ...deps(fakePage(), [0.001, 0.001, 0.001]),
+        ...deps(fakePage(), [0.001, 0.001, 0.001], undefined, [0.999, 0.999, 0.999]),
         assessDiff,
       },
     );
@@ -138,6 +142,7 @@ function deps(
   page: ReturnType<typeof fakePage>,
   ratios: number[],
   browserQueue?: { enqueue<T>(run: () => Promise<T> | T): Promise<T> },
+  similarities: number[] = ratios.map(ratio => 1 - ratio),
 ) {
   const png = new PNG({ width: 10, height: 10 });
   return {
@@ -154,6 +159,15 @@ function deps(
         ratio,
         diff: png,
       } satisfies DiffResult;
+    }),
+    assessSimilarity: vi.fn(() => {
+      const similarity = similarities.shift() ?? 1;
+      return {
+        similarity,
+        pixelDiffRatio: 1 - similarity,
+        bestOffset: { x: 0, y: 0 },
+        diagnostics: [`similarity=${similarity}`],
+      };
     }),
   };
 }

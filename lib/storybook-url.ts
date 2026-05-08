@@ -3,7 +3,23 @@ export function componentStorybookUrl(
   componentName: string,
   storyName = componentName,
 ): string {
-  return `${baseUrl.replace(/\/$/, "")}/?path=/story/migrated-components-${kebab(componentName)}--${kebab(storyName)}`;
+  return `${normalizeBaseUrl(baseUrl)}/iframe.html?id=${storyId(componentName, storyName)}&viewMode=story`;
+}
+
+export function componentStorybookReviewUrl(
+  baseUrl: string,
+  componentName: string,
+  storyName = componentName,
+): string {
+  return `${normalizeBaseUrl(baseUrl)}/?path=/story/${storyId(componentName, storyName)}`;
+}
+
+function storyId(componentName: string, storyName: string): string {
+  return `migrated-components-${kebab(componentName)}--${kebab(storyName)}`;
+}
+
+function normalizeBaseUrl(baseUrl: string): string {
+  return baseUrl.replace(/\/$/, "");
 }
 
 function kebab(value: string): string {
