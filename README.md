@@ -1,8 +1,8 @@
 # nextjs-migration-plugin
 
-Claude Code plugin for pixel-perfect, multi-page Next.js migrations.
+Claude Code plugin for guided, component-first Next.js migrations.
 
-Point it at a URL, answer a few wizard questions, get a production-ready Next.js site with shared layouts, a deduped component library, cross-page routing, and <1% visual diff.
+Point it at a URL, answer a few wizard questions, and work through concrete review checkpoints: component inventory, component batches, and page layouts.
 
 ## Status
 
@@ -12,7 +12,7 @@ Point it at a URL, answer a few wizard questions, get a production-ready Next.js
 
 - Claude Code CLI installed
 - `superpowers` plugin installed (hard dependency)
-- Node.js ≥22 and pnpm on your machine (scripts shell out to `tsx`)
+- Node.js >=22 and pnpm on your machine.
 - Playwright/browser tooling available for extraction and verification phases.
 
 ## Install
@@ -39,12 +39,12 @@ claude
 /migrate:new https://example.com
 ```
 
-Answer up to four wizard questions (all have defaults). The plugin creates `.migration/` in your current directory with `SITE.md` and a `runs/001-initial/` scaffold.
+Answer up to three wizard questions (all have defaults). The plugin creates `.migration/` in your target directory and stops at the Component Inventory Review.
 
 ```
 /nextjs-migration-plugin:migrate-help   # explain the workflow and recommend the next command
-/migrate:status        # print current state
-/migrate:config mode unattended   # flip a setting
+/migrate:continue      # continue from the current approval state
+/migrate:status        # print current approval and blocker state
 ```
 
 ## Development

@@ -32,7 +32,7 @@ describe("ApprovedInventorySchema", () => {
     expect(ApprovedInventorySchema.safeParse(approvedInventory).success).toBe(true);
   });
 
-  it.each(["Component3", "p0-s0", "P0S0", "P12S3", "Section1"])("rejects generic or ID-like implementation name %s", implementationName => {
+  it.each(["Component3", "p0-s0", "P0S0", "P12S3", "Section1", "UnnamedGroup1"])("rejects generic or ID-like implementation name %s", implementationName => {
     const approvedInventory = {
       ...validApprovedInventory,
       entries: [
@@ -74,6 +74,13 @@ describe("ApprovedInventorySchema", () => {
     expect(ApprovedInventorySchema.safeParse({
       ...validApprovedInventory,
       staleSince: "2026-05-07T13:00:00.000Z",
+    }).success).toBe(true);
+  });
+
+  it("accepts optional user notes on approved inventory", () => {
+    expect(ApprovedInventorySchema.safeParse({
+      ...validApprovedInventory,
+      userNotes: "Approved after LLM naming review.",
     }).success).toBe(true);
   });
 });

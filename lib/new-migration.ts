@@ -20,7 +20,8 @@ export async function runNewMigration(args: NewMigrationArgs): Promise<OutcomeRe
   });
 }
 
-// CLI shim: allow invocation via `tsx lib/new-migration.ts --url ... --target ...`
+// CLI shim: allow invocation via native Node type stripping:
+// `node --experimental-strip-types lib/new-migration.ts --url ... --target ...`
 if (import.meta.url === `file://${process.argv[1]}`) {
   const args = parseNewMigrationArgs(process.argv.slice(2));
   runNewMigration(args)

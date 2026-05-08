@@ -13,6 +13,8 @@ When the active migration is waiting at the Component Inventory Review and the u
 
 For free-text correction requests, invoke the `inventory-corrector` agent with the user's requested changes and the current draft inventory context. Apply the returned `InventoryCorrection[]` to draft inventory state only, then regenerate the review artifact so the user can inspect the updated grouping and names.
 
+When applying corrections, record the raw chat feedback in SESSION_LOG.md and write a structured decision record under `.migration/decisions/`. Tools provide source evidence, repeatable transforms, and gate enforcement; the LLM owns grouping, semantic naming, prop intent, migration decisions, and refinement choices.
+
 ## Step 2 - Read scheduler output
 
 Run:

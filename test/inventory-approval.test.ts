@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -51,6 +51,18 @@ describe("approveDraftInventory", () => {
           kind: "content",
           sectionInstanceIds: ["p0-s1"],
         },
+        {
+          componentGroupId: "group-unnamed",
+          proposedName: "UnnamedGroup1",
+          kind: "content",
+          sectionInstanceIds: ["p0-s2"],
+        },
+        {
+          componentGroupId: "group-pascal-id",
+          proposedName: "P0S3",
+          kind: "content",
+          sectionInstanceIds: ["p0-s3"],
+        },
       ],
     };
 
@@ -59,7 +71,7 @@ describe("approveDraftInventory", () => {
     expect(result).toEqual({
       ok: false,
       reason: "blocking-names",
-      names: ["Component12", "Hero-p0-s0"],
+      names: ["Component12", "Hero-p0-s0", "UnnamedGroup1", "P0S3"],
     });
     expect(existsSync(migrationPaths(targetDir).approvedInventory)).toBe(false);
   });
@@ -118,6 +130,34 @@ describe("approveDraftInventory", () => {
           filePath: "src/components/SiteHeader.tsx",
         },
       ],
+    });
+  });
+
+  it("persists user notes and records an inventory approval decision", async () => {
+    const targetDir = mkdtempSync(join(tmpdir(), "inventory-approval-"));
+    const draftInventory = cleanDraftInventory();
+
+    const result = await approveDraftInventory({
+      targetDir,
+      draftInventory,
+      approvedAt,
+      userNotes: "Approved after renaming the shared shell.",
+    });
+
+    expect(result.ok).toBe(true);
+    const paths = migrationPaths(targetDir);
+    const approved = JSON.parse(readFileSync(paths.approvedInventory, "utf8"));
+    expect(approved.userNotes).toBe("Approved after renaming the shared shell.");
+
+    const decisionFiles = readdirSync(paths.decisionsDir);
+    expect(decisionFiles).toHaveLength(1);
+    const decision = JSON.parse(readFileSync(join(paths.decisionsDir, decisionFiles[0]), "utf8"));
+    expect(decision).toMatchObject({
+      kind: "component-inventory-approval",
+      actor: "user",
+      summary: "Approved Component Inventory Review",
+      userNotes: "Approved after renaming the shared shell.",
+      artifactVersion: hashArtifact(draftInventory),
     });
   });
 

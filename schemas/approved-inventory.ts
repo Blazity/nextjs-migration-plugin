@@ -8,6 +8,7 @@ export const ApprovedInventoryEntrySchema = DraftInventoryEntrySchema.extend({
     .refine(
       name =>
         !/^Component\d+$/.test(name) &&
+        !/^UnnamedGroup\d+$/.test(name) &&
         !/p\d+-s\d+/i.test(name) &&
         !/^P\d+S\d+$/.test(name) &&
         !/^Section\d+$/.test(name),
@@ -28,6 +29,7 @@ export const ApprovedInventoryEntrySchema = DraftInventoryEntrySchema.extend({
 export const ApprovedInventorySchema = z.object({
   approvedAt: z.string().datetime(),
   artifactVersion: z.string().regex(/^[0-9a-f]{16}$/),
+  userNotes: z.string().optional(),
   staleSince: z.string().datetime().optional(),
   entries: z.array(ApprovedInventoryEntrySchema),
 }).strict();

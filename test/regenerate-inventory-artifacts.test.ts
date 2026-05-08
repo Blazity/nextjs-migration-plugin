@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { regenerateInventoryArtifacts } from "../lib/regenerate-inventory-artifacts.ts";
@@ -62,6 +62,7 @@ describe("regenerateInventoryArtifacts", () => {
     const result = regenerateInventoryArtifacts({
       targetDir,
       corrections: [{ type: "rename", componentGroupId: "group-one", newName: "Hero" }],
+      userFeedback: "Rename Component1 to Hero.",
     });
 
     const updated = JSON.parse(readFileSync(paths.draftInventory, "utf8"));
@@ -75,6 +76,15 @@ describe("regenerateInventoryArtifacts", () => {
     });
     expect(existsSync(paths.reviewHtml)).toBe(true);
     expect(readFileSync(paths.reviewHtml, "utf8")).toContain("Hero");
+    expect(readFileSync(join(targetDir, ".migration", "SESSION_LOG.md"), "utf8")).toContain("Rename Component1 to Hero.");
+    const decisionFile = readdirSync(paths.decisionsDir)[0];
+    const decision = JSON.parse(readFileSync(join(paths.decisionsDir, decisionFile), "utf8"));
+    expect(decision).toMatchObject({
+      kind: "inventory-correction",
+      actor: "llm",
+      summary: "Updated draft inventory from chat feedback",
+      userFeedback: "Rename Component1 to Hero.",
+    });
   });
 
   it("saves drafts with blocking names and reports them", () => {

@@ -56,6 +56,20 @@ describe("migration skill contracts", () => {
     expect(plugin.skills).toBe("skills/");
   });
 
+  it("keeps public command wrappers and README on the guided approval surface", () => {
+    for (const path of [
+      "commands/migrate-continue.md",
+      "commands/migrate-status.md",
+      "README.md",
+    ]) {
+      const content = readRepoFile(path);
+      expect(content).not.toContain("/migrate:config");
+      expect(content).not.toContain("unattended");
+      expect(content).not.toContain("first incomplete phase");
+      expect(content).not.toContain("phases complete");
+    }
+  });
+
   it("migrate:new no longer asks mode or goal questions", () => {
     const skill = readSkill("migrate-new");
 
@@ -83,11 +97,22 @@ describe("migration skill contracts", () => {
   it("reports Component Inventory Review as the migrate:new success checkpoint", () => {
     const skill = readSkill("migrate-new");
 
+    expect(skill).toContain("inventory-decider");
+    expect(skill).toContain("regenerateInventoryArtifacts");
+    expect(skill).toContain("userFeedback");
     expect(skill).toContain("Open the Component Inventory Review at");
     expect(skill).toContain("reviewHtmlPath");
     expect(skill).toContain("describe any name or grouping changes in chat");
     expect(skill).not.toContain("/migrate:discover");
     expect(skill).not.toContain("the next message is the Component Inventory Review summary");
+  });
+
+  it("runs migrate:new without tsx so Playwright utility-world callbacks do not inherit esbuild __name helpers", () => {
+    const skill = readSkill("migrate-new");
+
+    expect(skill).toContain("node --experimental-strip-types");
+    expect(skill).toContain("lib/new-migration.ts");
+    expect(skill).not.toContain("tsx ${PLUGIN_DIR}/lib/new-migration.ts");
   });
 
   it("migrate:continue no longer branches on removed mode or goal settings", () => {
@@ -122,6 +147,8 @@ describe("migration skill contracts", () => {
     const skill = readSkill("migrate-continue");
 
     expect(skill).toContain("describe changes in chat");
+    expect(skill).toContain("record the raw chat feedback in SESSION_LOG.md");
+    expect(skill).toContain(".migration/decisions/");
     expect(skill).not.toContain("Run `/migrate:discover`");
     expect(skill).not.toContain("Run `/migrate:plan`");
   });
@@ -133,7 +160,20 @@ describe("migration skill contracts", () => {
     expect(agent).toContain("free-text user description");
     expect(agent).toContain("Output JSON only");
     expect(agent).toContain("no prose");
+    expect(agent).toContain("The LLM owns grouping, semantic naming, and correction intent");
+    expect(agent).toContain("Tools provide evidence and enforce gates");
     expectNoStaleGuidedFlowTerms(agent, "inventory-corrector");
+  });
+
+  it("defines an LLM-led initial inventory decision agent", () => {
+    const agent = readRepoFile("agents/inventory-decider.md");
+
+    expect(agent).toContain("InventoryCorrection[]");
+    expect(agent).toContain("initial Component Inventory Review");
+    expect(agent).toContain("The LLM owns initial grouping, semantic naming, prop intent");
+    expect(agent).toContain("Tools provide evidence and enforce gates");
+    expect(agent).toContain("Do not approve the inventory");
+    expectNoStaleGuidedFlowTerms(agent, "inventory-decider");
   });
 
   it("runtime prompts and knowledge do not preserve removed mode or goal choices", () => {

@@ -17,6 +17,8 @@ You convert a free-text user description of Component Inventory Review changes i
 
 Map the user's request to an `InventoryCorrection[]`.
 
+The LLM owns grouping, semantic naming, and correction intent. Tools provide evidence and enforce gates; do not let a deterministic similarity score override a clear visual or semantic migration decision.
+
 Supported operations:
 
 ```json

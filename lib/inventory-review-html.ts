@@ -31,6 +31,8 @@ export function renderInventoryReviewHtml(args: RenderInventoryReviewHtmlArgs): 
     .instance[data-hidden="true"] { display: none; }
     img { max-width: 100%; height: auto; display: block; border: 1px solid #e2e8f0; }
     button { margin-right: 8px; }
+    button[data-copy] { font-size: 12px; margin-left: 8px; opacity: 0.65; }
+    button[data-copy]:hover { opacity: 1; }
   </style>
 </head>
 <body>
@@ -40,7 +42,7 @@ export function renderInventoryReviewHtml(args: RenderInventoryReviewHtmlArgs): 
   ${args.draftInventory.entries.map(entry => {
     const hiddenCount = Math.max(0, entry.sectionInstanceIds.length - sampleLimit);
     return `<section class="group" data-component-group-id="${escapeAttr(entry.componentGroupId)}">
-      <h2>${escapeHtml(entry.proposedName)}</h2>
+      <h2>${escapeHtml(entry.proposedName)}${copyButton(entry.proposedName, "Copy component name")}${copyButton(entry.componentGroupId, "Copy group id")}</h2>
       <p>Kind: ${escapeHtml(entry.kind)}</p>
       <div class="viewports">
         ${VIEWPORTS.map(viewport => `<button type="button" data-viewport="${viewport}">${viewport}</button>`).join("")}
@@ -50,7 +52,7 @@ export function renderInventoryReviewHtml(args: RenderInventoryReviewHtmlArgs): 
         const refs = referencesBySection.get(sectionInstanceId) ?? new Map();
         const initialSrc = relativeReferencePath(refs.get(390)?.path);
         return `<article class="instance" data-section-instance-id="${escapeAttr(sectionInstanceId)}"${index >= sampleLimit ? ' data-hidden="true"' : ""}>
-          <h3>${escapeHtml(sectionInstanceId)}</h3>
+          <h3>${escapeHtml(sectionInstanceId)}${copyButton(sectionInstanceId, "Copy section id")}</h3>
           <p><a href="${escapeAttr(section?.url ?? "")}">${escapeHtml(section?.url ?? "Unknown source")}</a></p>
           <img alt="${escapeAttr(`${entry.proposedName} ${sectionInstanceId}`)}" src="${escapeAttr(initialSrc)}"${VIEWPORTS.map(viewport => ` data-src-${viewport}="${escapeAttr(relativeReferencePath(refs.get(viewport)?.path))}"`).join("")}>
         </article>`;
@@ -62,6 +64,20 @@ export function renderInventoryReviewHtml(args: RenderInventoryReviewHtmlArgs): 
     document.addEventListener("click", (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
+      const copyValue = target.dataset.copy;
+      if (copyValue) {
+        const done = () => {
+          const original = target.textContent || "Copy";
+          target.textContent = "Copied";
+          setTimeout(() => { target.textContent = original; }, 900);
+        };
+        if (navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(copyValue).then(done).catch(() => fallbackCopy(copyValue, done));
+        } else {
+          fallbackCopy(copyValue, done);
+        }
+        return;
+      }
       const viewport = target.dataset.viewport;
       if (viewport) {
         document.querySelectorAll("img[data-src-" + viewport + "]").forEach((img) => {
@@ -75,6 +91,18 @@ export function renderInventoryReviewHtml(args: RenderInventoryReviewHtmlArgs): 
         target.remove();
       }
     });
+    function fallbackCopy(value, done) {
+      const textarea = document.createElement("textarea");
+      textarea.value = value;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      textarea.remove();
+      done();
+    }
   </script>
 </body>
 </html>
@@ -109,7 +137,11 @@ function relativeReferencePath(path: string | undefined): string {
 }
 
 function isGenericOrIdLike(name: string): boolean {
-  return /^Component\d+$/.test(name) || /^Section\d+$/.test(name) || /p\d+-s\d+/.test(name);
+  return /^Component\d+$/.test(name) || /^Section\d+$/.test(name) || /^UnnamedGroup\d+$/.test(name) || /^P\d+S\d+$/.test(name) || /p\d+-s\d+/.test(name);
+}
+
+function copyButton(value: string, label: string): string {
+  return `<button type="button" data-copy="${escapeAttr(value)}" aria-label="${escapeAttr(label)}">Copy</button>`;
 }
 
 function escapeHtml(value: string): string {

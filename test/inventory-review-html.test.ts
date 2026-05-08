@@ -15,7 +15,7 @@ const draftInventory: DraftInventory = {
     },
     {
       componentGroupId: "cluster-placeholder",
-      proposedName: "Component3",
+      proposedName: "P0S1",
       kind: "content",
       sectionInstanceIds: ["p0-s1"],
     },
@@ -55,6 +55,10 @@ describe("renderInventoryReviewHtml", () => {
     expect(html).toContain("Read-only &mdash; request changes in chat");
     expect(html).toContain("Approval blocked: 1 components have generic or ID-like names");
     expect(html).toContain('data-component-group-id="cluster-hero"');
+    expect(html).toContain('data-copy="Hero"');
+    expect(html).toContain('data-copy="cluster-hero"');
+    expect(html).toContain('data-copy="p0-s0"');
+    expect(html).toContain("navigator.clipboard.writeText");
     expect(html).toContain("Hero");
     expect(html).toContain("p0-s0");
     expect(html).toContain('<a href="https://example.com/about">https://example.com/about</a>');

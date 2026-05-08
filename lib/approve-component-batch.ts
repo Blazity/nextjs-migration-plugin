@@ -6,6 +6,7 @@ import { ApprovedBaselineSchema, type ApprovedBaseline } from "../schemas/approv
 import { ApprovedInventorySchema, type ApprovedInventory } from "../schemas/approved-inventory.ts";
 import { ComponentBatchReportSchema, type ComponentBatchReport, type ComponentBatchReportEntry } from "../schemas/component-batch-report.ts";
 import { BrowserWorkQueue, type BrowserWorkQueueLike } from "./browser-work-queue.ts";
+import { recordMigrationDecision } from "./migration-decision-journal.ts";
 import { migrationPaths } from "./migration-paths.ts";
 import { componentStorybookUrl } from "./storybook-url.ts";
 import type { ComponentVerifyViewport } from "./verify-component.ts";
@@ -108,6 +109,20 @@ export async function approveComponentBatch(
   for (const approvalPath of approvalPaths) {
     writeJson(approvalPath, approval);
   }
+  recordMigrationDecision({
+    targetDir: args.targetDir,
+    kind: "component-batch-approval",
+    actor: "user",
+    createdAt: approvedAt,
+    summary: "Approved Component Batch",
+    artifactVersion: report.artifactVersion,
+    userNotes: args.userNotes,
+    details: {
+      componentGroupIds: approval.componentGroupIds,
+      implementationNames: approval.implementationNames,
+      reportPath: args.reportPath,
+    },
+  });
 
   return {
     ok: true,

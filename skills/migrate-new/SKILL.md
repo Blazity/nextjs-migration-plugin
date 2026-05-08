@@ -34,7 +34,7 @@ Do not create `.migration/` before the scaffold exists.
 Run the Node entry point with collected answers:
 
 ```bash
-tsx ${PLUGIN_DIR}/lib/new-migration.ts \
+node --experimental-strip-types ${PLUGIN_DIR}/lib/new-migration.ts \
   --url "${URL}" \
   --target "${TARGET_DIR}" \
   --input-mode "${INPUT_MODE}" \
@@ -44,10 +44,20 @@ tsx ${PLUGIN_DIR}/lib/new-migration.ts \
 
 If `${PLUGIN_DIR}` is not set by the harness, resolve it from the plugin install path.
 
-## Step 4 — Report the Component Inventory Review
+## Step 4 — Run the LLM inventory decision pass
+
+Before reporting the review artifact, load the draft inventory and raw discovery evidence, then invoke the `inventory-decider` agent. The agent returns `InventoryCorrection[]` for semantic names, splits/merges, prop-intent notes, and initial migration decisions.
+
+Apply those corrections with `regenerateInventoryArtifacts({ targetDir: TARGET_DIR, corrections, userFeedback: "Initial LLM inventory decision pass" })` so the raw decision is recorded in `SESSION_LOG.md` and `.migration/decisions/`.
+
+If blocking names remain, run another LLM decision pass or ask the user for the missing semantic name. Do not approve the inventory automatically.
+
+## Step 5 — Report the Component Inventory Review
 
 On success, parse the JSON outcome printed by the entry script and report:
 
 > Migration initialized at `[TARGET_DIR]/.migration/`. Open the Component Inventory Review at `[reviewHtmlPath]`. When you are ready, describe any name or grouping changes in chat. To approve the inventory, say so in chat.
+
+Treat the review as LLM-led and tool-supported: raw discovery tools gather evidence and enforce approval gates, while the LLM owns semantic grouping, naming, prop intent, migration decisions, and refinement choices based on that evidence.
 
 If the entry script fails (e.g., `.migration/` already exists), surface the error message verbatim and stop.

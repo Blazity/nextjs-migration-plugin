@@ -6,6 +6,7 @@ import { ApprovedBaselineSchema, type ApprovedBaseline } from "../schemas/approv
 import { ApprovedInventorySchema, type ApprovedInventory } from "../schemas/approved-inventory.ts";
 import { PageAssemblyReportSchema, type PageAssemblyReport } from "../schemas/page-assembly-report.ts";
 import { BrowserWorkQueue, type BrowserWorkQueueLike } from "./browser-work-queue.ts";
+import { recordMigrationDecision } from "./migration-decision-journal.ts";
 import { migrationPaths } from "./migration-paths.ts";
 import { capturePageScreenshot, localPageUrlForSlug, type PageScreenshotCapturerArgs } from "./run-page-assembly.ts";
 import type { ComponentVerifyViewport } from "./verify-component.ts";
@@ -92,6 +93,21 @@ export async function approvePageLayout(
   });
   writeJson(baselinePath, baseline);
   writeJson(approvalPath, approval);
+  recordMigrationDecision({
+    targetDir: args.targetDir,
+    kind: "page-layout-approval",
+    actor: "user",
+    createdAt: approvedAt,
+    summary: "Approved Page Layout",
+    artifactVersion: report.artifactVersion,
+    userNotes: args.userNotes,
+    details: {
+      slug: approval.slug,
+      componentGroupIds: approval.componentGroupIds,
+      pageReferenceVersion: approval.pageReferenceVersion,
+      reportPath: args.reportPath,
+    },
+  });
 
   return {
     ok: true,

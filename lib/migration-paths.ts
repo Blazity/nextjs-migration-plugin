@@ -26,6 +26,9 @@ export function migrationPaths(targetDir: string) {
     queueConfig: join(migrationDir, "config", "queue.json"),
     draftInventory: join(migrationDir, "inventory", "component-inventory.json"),
     reviewHtml: join(migrationDir, "inventory", "inventory-review.html"),
+    decisionsDir: join(migrationDir, "decisions"),
+    decision: (decisionId: string) =>
+      join(migrationDir, "decisions", `${decisionId}.json`),
     approvedInventory: join(migrationDir, "approvals", "component-inventory.json"),
     componentApproval: (componentId: string) =>
       join(migrationDir, "approvals", "components", `${componentId}.json`),
