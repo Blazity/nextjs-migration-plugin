@@ -6,6 +6,14 @@ Entries are reverse-chronological.
 
 ---
 
+## 2026-05-08 - Pnpm Test Double Dash Runs The Full Suite
+
+**Rule:** Do not rely on `pnpm test -- test/file.test.ts` as a narrow Vitest filter in this repository.
+
+**Why:** The package script expands to `vitest run --passWithNoTests -- test/file.test.ts`; the extra `--` causes Vitest to ignore the file filter and run the full configured suite.
+
+**How to apply:** For a true narrow run, use `pnpm exec vitest run test/file.test.ts`. When a task explicitly asks for `pnpm test -- ...`, treat it as the requested command but expect full-suite runtime.
+
 ## 2026-05-08 - Combine Direct And Wrapped Section Selectors
 
 **Rule:** When adding adaptive root-wrapper discovery, combine direct top-level section selectors with wrapper selectors whenever both match.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 function readSkill(name: string): string {
@@ -8,6 +8,10 @@ function readSkill(name: string): string {
 
 function readRepoFile(path: string): string {
   return readFileSync(join(process.cwd(), path), "utf8");
+}
+
+function readJson(path: string): Record<string, unknown> {
+  return JSON.parse(readRepoFile(path)) as Record<string, unknown>;
 }
 
 function expectNoStaleGuidedFlowTerms(content: string, label: string): void {
@@ -201,5 +205,83 @@ describe("migration skill contracts", () => {
     ]) {
       expectNoStaleGuidedFlowTerms(readRepoFile(path), path);
     }
+  });
+});
+
+describe("release metadata contracts", () => {
+  it("keeps the public README free of launch placeholders", () => {
+    expect(readRepoFile("README.md")).not.toContain("TBD");
+  });
+
+  it("ships an MIT license for Blazity", () => {
+    const licensePath = join(process.cwd(), "LICENSE");
+
+    expect(existsSync(licensePath)).toBe(true);
+    if (!existsSync(licensePath)) {
+      return;
+    }
+
+    const license = readRepoFile("LICENSE");
+
+    expect(license).toContain("MIT License");
+    expect(license).toContain("Copyright (c) 2026 Blazity");
+    expect(license).toContain("Permission is hereby granted, free of charge");
+  });
+
+  it("credits the visual parity attribution scope", () => {
+    const acknowledgmentsPath = join(process.cwd(), "ACKNOWLEDGMENTS.md");
+
+    expect(existsSync(acknowledgmentsPath)).toBe(true);
+    if (!existsSync(acknowledgmentsPath)) {
+      return;
+    }
+
+    const acknowledgments = readRepoFile("ACKNOWLEDGMENTS.md");
+
+    expect(acknowledgments).toContain("@jczapski0");
+    expect(acknowledgments).toContain("original visual parity methodology");
+    expect(acknowledgments).toContain("legacy visual verification/polish tooling");
+    expect(acknowledgments).toContain("Included:");
+    expect(acknowledgments).toContain("screenshot-based visual verification");
+    expect(acknowledgments).toContain("visual-diff helpers");
+    expect(acknowledgments).toContain("similarity/pixel diagnostics");
+    expect(acknowledgments).toContain("polish-loop methodology");
+    expect(acknowledgments).toContain("legacy visual verifier tooling");
+    expect(acknowledgments).toContain("Excluded:");
+    expect(acknowledgments).toContain("newer guided-flow orchestration");
+    expect(acknowledgments).toContain("design-system foundation");
+    expect(acknowledgments).toContain("behavior gates");
+    expect(acknowledgments).toContain("general plugin architecture");
+  });
+
+  it("keeps package and plugin metadata aligned for public release", () => {
+    const packageJson = readJson("package.json");
+    const pluginJson = readJson("plugin.json");
+    const claudePluginJson = readJson(".claude-plugin/plugin.json");
+
+    expect(packageJson.name).toBe("nextjs-migration-plugin");
+    expect(packageJson.version).toBe("0.1.0");
+    expect(packageJson.private).toBe(true);
+    expect(packageJson.license).toBe("MIT");
+
+    for (const manifest of [pluginJson, claudePluginJson]) {
+      expect(manifest.name).toBe(packageJson.name);
+      expect(manifest.version).toBe(packageJson.version);
+      expect(manifest.license).toBe(packageJson.license);
+      expect(manifest.description).toBe(packageJson.description);
+    }
+  });
+
+  it("documents only the normal four-command public flow in the README", () => {
+    const commands = [
+      ...new Set(readRepoFile("README.md").match(/\/(?:nextjs-migration-plugin:)?migrate[-:][a-z]+/g) ?? []),
+    ].sort();
+
+    expect(commands).toEqual([
+      "/migrate:continue",
+      "/migrate:help",
+      "/migrate:new",
+      "/migrate:status",
+    ]);
   });
 });

@@ -1,51 +1,67 @@
 # nextjs-migration-plugin
 
-Claude Code plugin for guided, component-first Next.js migrations.
-
-Point it at a URL, answer a few wizard questions, and work through concrete review checkpoints: component inventory, component batches, and page layouts.
+`nextjs-migration-plugin` is a Claude Code plugin for migrating public websites into production-ready Next.js App Router projects. It turns a source URL into a guided, resumable workflow with local migration state, component discovery, review gates, build generation, and verification-oriented follow-up.
 
 ## Status
 
-**Pre-release.** The repository contains the plugin foundation plus phase work through build-oriented workflows. See `.ai/plans/` for executed implementation plans and `docs/specs/` for canonical design docs.
+This is a pre-release v1. The current public surface focuses on the guided flow for starting, continuing, checking, and getting help for a migration. Internals for discovery, extraction, build, visual verification, and recovery continue to evolve before a stable 1.0 contract.
 
 ## Prerequisites
 
-- Claude Code CLI installed
-- `superpowers` plugin installed (hard dependency)
-- Node.js >=22 and pnpm on your machine.
-- Playwright/browser tooling available for extraction and verification phases.
+- Claude Code with plugin support
+- Node.js 22 or newer
+- `pnpm`
+- Playwright-compatible browser dependencies for extraction and visual verification workflows
+- A target project directory where the migration can create local `.migration/` state
 
 ## Install
 
-```bash
-claude plugin install ./path/to/nextjs-migration-plugin
+Use the Atlas marketplace path for normal installation:
+
+```text
+/plugin marketplace add Blazity/atlas
+/plugin install nextjs-migration-plugin@blazity
 ```
 
-or, from a git URL once published:
+For local development or direct testing from a checkout, install the plugin from this repository path:
 
 ```bash
-claude plugin install github:blazity/nextjs-migration-plugin
+claude plugin install /path/to/nextjs-migration-plugin
 ```
 
-Session start will fail with a clear message if `superpowers` is missing.
+The checked-in `.claude-plugin/marketplace.json` is local development metadata for validating this plugin repository. Atlas is the public catalog entrypoint.
 
-## Usage
+## Quickstart
 
 ```bash
-cd ~/dev/my-new-site
+cd /path/to/target-nextjs-project
 claude
-# in Claude Code:
-/nextjs-migration-plugin:migrate-help
+```
+
+Then run the guided commands in Claude Code:
+
+```text
+/migrate:help
 /migrate:new https://example.com
+/migrate:status
+/migrate:continue
 ```
 
-Answer up to three wizard questions (all have defaults). The plugin creates `.migration/` in your target directory and stops at the Component Inventory Review.
+## Guided Workflow
 
-```
-/nextjs-migration-plugin:migrate-help   # explain the workflow and recommend the next command
-/migrate:continue      # continue from the current approval state
-/migrate:status        # print current approval and blocker state
-```
+`/migrate:help` explains the current migration state and recommends the next normal command.
+
+`/migrate:new` starts a migration from a source URL, asks the guided intake questions, prepares local state, and drives the first review checkpoint.
+
+`/migrate:status` prints the current approval state, progress, and blockers for the active migration directory.
+
+`/migrate:continue` resumes from the current guided checkpoint, including component inventory review, component batch approval, page layout approval, and follow-up verification work.
+
+## Local State And Telemetry
+
+Migration state is written into the target project under `.migration/`. That directory contains human-readable phase notes, machine-readable artifacts, decisions, approvals, and generated review outputs for the local run.
+
+The plugin does not add telemetry. Migration artifacts stay local unless you explicitly copy, commit, upload, or share them through your own tools.
 
 ## Development
 
@@ -55,12 +71,18 @@ pnpm test
 pnpm typecheck
 ```
 
-## Architecture
+This repository uses `pnpm`, Node.js, ESM, TypeScript, and Vitest. Keep release-facing metadata aligned across `package.json`, `plugin.json`, and `.claude-plugin/plugin.json`.
 
-See the design spec at `docs/specs/2026-04-21-migration-plugin-design.md`.
+## Credits
 
-AI-facing maintainer documentation uses the [`Blazity/ai-harness`](https://github.com/Blazity/ai-harness) scaffold. It lives in `.ai/`; implementation plans are in `.ai/plans/`, research artifacts in `.ai/research/`, and durable project memory in `.ai/memory/`.
+Built by Blazity.
+
+See [ACKNOWLEDGMENTS.md](ACKNOWLEDGMENTS.md) for visual parity attribution, including public credit to @jczapski0 for the original visual parity methodology and legacy visual verification/polish tooling adapted into this plugin.
+
+## Contributing And Support
+
+Use GitHub issues for bug reports, installation problems, and support requests. Use pull requests for focused fixes or documentation improvements. Each plugin repository remains authoritative for its own behavior, release notes, and support routing.
 
 ## License
 
-TBD
+MIT. See [LICENSE](LICENSE).

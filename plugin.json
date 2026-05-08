@@ -1,7 +1,7 @@
 {
   "name": "nextjs-migration-plugin",
-  "version": "0.0.2",
-  "description": "Multi-page Next.js migration via phased, stateful agents.",
+  "version": "0.1.0",
+  "description": "Guided Claude Code plugin for migrating public websites into production-ready Next.js App Router projects.",
   "author": "Blazity",
   "license": "MIT",
   "keywords": ["nextjs", "migration", "claude-code", "pixel-perfect"],
