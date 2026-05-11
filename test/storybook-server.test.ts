@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -75,6 +75,64 @@ describe("withStorybookServer", () => {
     );
   });
 
+  it("skips install when Storybook is already available through an installed package layout", async () => {
+    const targetDir = createTarget({
+      scripts: {
+        storybook: "storybook dev",
+        "build-storybook": "storybook build",
+      },
+      devDependencies: {
+        storybook: "^10.3.0",
+        "@storybook/nextjs-vite": "^10.3.0",
+        vite: "^8.0.0",
+      },
+    });
+    mkdirSync(join(targetDir, "node_modules/storybook"), { recursive: true });
+    const process = fakeProcess();
+    const install = vi.fn(async () => undefined);
+
+    await withStorybookServer(
+      {
+        targetDir,
+        run: async ({ baseUrl }) => baseUrl,
+      },
+      {
+        getPort: async () => 6126,
+        spawn: () => process,
+        install,
+        fetch: async () => ({ ok: true }),
+        sleep: async () => {},
+      },
+    );
+
+    expect(install).not.toHaveBeenCalled();
+  });
+
+  it("fails readiness with the spawned process error message", async () => {
+    const targetDir = createTarget();
+    const process = fakeProcess();
+
+    await expect(
+      withStorybookServer(
+        {
+          targetDir,
+          readinessAttempts: 1,
+          run: async ({ baseUrl }) => baseUrl,
+        },
+        {
+          getPort: async () => 6127,
+          install: async () => {},
+          spawn: () => process,
+          fetch: async () => {
+            process.emitError(new Error("spawn storybook ENOENT"));
+            return { ok: false };
+          },
+          sleep: async () => {},
+        },
+      ),
+    ).rejects.toThrow("spawn storybook ENOENT");
+  });
+
   it("stops Storybook when the caller throws", async () => {
     const targetDir = createTarget();
     const process = fakeProcess();
@@ -130,12 +188,16 @@ function fakeProcess() {
   const emitter = new EventEmitter() as EventEmitter & {
     killCalls: string[];
     kill(signal?: NodeJS.Signals): boolean;
+    emitError(error: Error): void;
   };
   emitter.killCalls = [];
   emitter.kill = (signal = "SIGTERM") => {
     emitter.killCalls.push(signal);
     emitter.emit("exit", 0, signal);
     return true;
+  };
+  emitter.emitError = (error) => {
+    if (emitter.listenerCount("error") > 0) emitter.emit("error", error);
   };
   return emitter;
 }

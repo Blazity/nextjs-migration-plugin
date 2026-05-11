@@ -35,7 +35,7 @@ export function runScriptCommand(
   scriptName: string,
   scriptArgs: string[] = [],
 ): PackageCommand {
-  if (packageManager === "yarn" || packageManager === "bun") {
+  if (packageManager === "pnpm" || packageManager === "yarn" || packageManager === "bun") {
     return {
       command: packageManager,
       args: ["run", scriptName, ...scriptArgs],

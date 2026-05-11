@@ -118,34 +118,47 @@ export interface StorybookScaffoldResult {
   packageJsonChanged: boolean;
 }
 
+interface StorybookFileSyncResult {
+  changed: boolean;
+  pluginOwned: boolean;
+}
+
 export function ensureStorybookScaffold(targetDir: string): StorybookScaffoldResult {
   const storybookDir = join(targetDir, storybookDirName);
   mkdirSync(storybookDir, { recursive: true });
 
-  const filesChanged = [
-    writeIfMissingOrOldGenerated(join(storybookDir, mainFileName), mainTs, oldGeneratedMainTs),
-    writeIfMissingOrOldGenerated(join(storybookDir, previewFileName), previewTs, oldGeneratedPreviewTs),
-  ].some(Boolean);
-  const packageJsonChanged = ensurePackageScripts(join(targetDir, "package.json"));
+  const mainResult = syncStorybookFile(join(storybookDir, mainFileName), mainTs, oldGeneratedMainTs);
+  const previewResult = syncStorybookFile(join(storybookDir, previewFileName), previewTs, oldGeneratedPreviewTs);
+  const filesChanged = mainResult.changed || previewResult.changed;
+  const packageJsonChanged = ensurePackageScripts(join(targetDir, "package.json"), {
+    removeLegacyDependencies: mainResult.pluginOwned && previewResult.pluginOwned,
+  });
 
   return { filesChanged, packageJsonChanged };
 }
 
-function writeIfMissingOrOldGenerated(path: string, contents: string, oldContents: string): boolean {
+function syncStorybookFile(path: string, contents: string, oldContents: string): StorybookFileSyncResult {
   if (!existsSync(path)) {
     writeFileSync(path, contents);
-    return true;
+    return { changed: true, pluginOwned: true };
   }
 
-  if (readFileSync(path, "utf8") === oldContents) {
+  const existingContents = readFileSync(path, "utf8");
+  if (existingContents === oldContents) {
     writeFileSync(path, contents);
-    return true;
+    return { changed: true, pluginOwned: true };
   }
 
-  return false;
+  return {
+    changed: false,
+    pluginOwned: existingContents === contents,
+  };
 }
 
-function ensurePackageScripts(packageJsonPath: string): boolean {
+function ensurePackageScripts(
+  packageJsonPath: string,
+  options: { removeLegacyDependencies: boolean },
+): boolean {
   const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
   const scripts = isRecord(packageJson.scripts) ? packageJson.scripts : {};
   const devDependencies = isRecord(packageJson.devDependencies) ? packageJson.devDependencies : {};
@@ -168,10 +181,12 @@ function ensurePackageScripts(packageJsonPath: string): boolean {
     }
   }
 
-  for (const name of ["@storybook/addon-essentials", "@storybook/nextjs"]) {
-    if (name in devDependencies) {
-      delete devDependencies[name];
-      changed = true;
+  if (options.removeLegacyDependencies) {
+    for (const name of ["@storybook/addon-essentials", "@storybook/nextjs"]) {
+      if (name in devDependencies) {
+        delete devDependencies[name];
+        changed = true;
+      }
     }
   }
 

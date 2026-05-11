@@ -3,6 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runNextBuild, detectPackageManager } from "../lib/next-build-runner.ts";
+import { runScriptCommand } from "../lib/package-manager.ts";
 
 describe("detectPackageManager", () => {
   it("uses the packageManager field before lockfiles", () => {
@@ -30,6 +31,22 @@ describe("detectPackageManager", () => {
   it("falls back to npm when no lockfile is present", () => {
     const dir = mkdtempSync(join(tmpdir(), "pm-"));
     expect(detectPackageManager(dir)).toBe("npm");
+  });
+});
+
+describe("runScriptCommand", () => {
+  it("passes pnpm script args directly without an npm separator", () => {
+    expect(runScriptCommand("pnpm", "storybook", ["--port", "6123"])).toEqual({
+      command: "pnpm",
+      args: ["run", "storybook", "--port", "6123"],
+    });
+  });
+
+  it("keeps npm's script arg separator", () => {
+    expect(runScriptCommand("npm", "storybook", ["--port", "6123"])).toEqual({
+      command: "npm",
+      args: ["run", "storybook", "--", "--port", "6123"],
+    });
   });
 });
 

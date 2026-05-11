@@ -131,6 +131,42 @@ describe("ensureStorybookScaffold", () => {
       },
     });
   });
+
+  it("preserves legacy Storybook dependencies referenced by custom Storybook config", () => {
+    const dir = createTarget({
+      name: "target-app",
+      scripts: {
+        storybook: "storybook dev --port 7007",
+      },
+      devDependencies: {
+        storybook: "^8.2.0",
+        "@storybook/addon-essentials": "^8.2.0",
+        "@storybook/nextjs": "^8.2.0",
+      },
+    });
+    mkdirSync(join(dir, ".storybook"), { recursive: true });
+    writeFileSync(join(dir, ".storybook/main.ts"), `import type { StorybookConfig } from "@storybook/nextjs";
+
+const config: StorybookConfig = {
+  addons: ["@storybook/addon-essentials"],
+  framework: { name: "@storybook/nextjs", options: {} },
+};
+
+export default config;
+`);
+    writeFileSync(join(dir, ".storybook/preview.ts"), "export default {};\n");
+
+    ensureStorybookScaffold(dir);
+
+    expect(readText(dir, ".storybook/main.ts")).toContain("@storybook/nextjs");
+    expect(readPackageJson(dir).devDependencies).toMatchObject({
+      storybook: "^10.3.0",
+      "@storybook/nextjs-vite": "^10.3.0",
+      vite: "^8.0.0",
+      "@storybook/addon-essentials": "^8.2.0",
+      "@storybook/nextjs": "^8.2.0",
+    });
+  });
 });
 
 function oldGeneratedMainTs(): string {
