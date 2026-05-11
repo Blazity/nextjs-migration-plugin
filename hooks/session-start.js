@@ -7,7 +7,11 @@ function listInstalledPlugins() {
   try {
     const output = execSync("claude plugin list --json", { encoding: "utf8" });
     const parsed = JSON.parse(output);
-    return Array.isArray(parsed) ? parsed.map(p => p.name) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(p => p.enabled !== false)
+      .map(p => (p.id ?? p.name ?? "").split("@")[0])
+      .filter(Boolean);
   } catch {
     return [];
   }
