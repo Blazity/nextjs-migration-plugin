@@ -5,6 +5,13 @@ import { join } from "node:path";
 import { runNextBuild, detectPackageManager } from "../lib/next-build-runner.ts";
 
 describe("detectPackageManager", () => {
+  it("uses the packageManager field before lockfiles", () => {
+    const dir = mkdtempSync(join(tmpdir(), "pm-"));
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ packageManager: "bun@1.3.0" }));
+    writeFileSync(join(dir, "pnpm-lock.yaml"), "");
+    expect(detectPackageManager(dir)).toBe("bun");
+  });
+
   it("returns pnpm when pnpm-lock.yaml exists", () => {
     const dir = mkdtempSync(join(tmpdir(), "pm-"));
     writeFileSync(join(dir, "pnpm-lock.yaml"), "");
@@ -14,6 +21,11 @@ describe("detectPackageManager", () => {
     const dir = mkdtempSync(join(tmpdir(), "pm-"));
     writeFileSync(join(dir, "yarn.lock"), "");
     expect(detectPackageManager(dir)).toBe("yarn");
+  });
+  it("returns bun when bun.lock exists and no pnpm/yarn lock", () => {
+    const dir = mkdtempSync(join(tmpdir(), "pm-"));
+    writeFileSync(join(dir, "bun.lock"), "");
+    expect(detectPackageManager(dir)).toBe("bun");
   });
   it("falls back to npm when no lockfile is present", () => {
     const dir = mkdtempSync(join(tmpdir(), "pm-"));
@@ -34,6 +46,21 @@ describe("runNextBuild", () => {
     expect(result.exitCode).toBe(0);
     expect(calls[0].cmd).toBe("pnpm");
     expect(calls[0].args).toContain("build");
+  });
+
+  it("runs Bun build scripts with bun run", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "nb-"));
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ packageManager: "bun@1.3.0" }));
+    const fakeExec = vi.fn(async () => ({ stdout: "", stderr: "" }));
+
+    const result = await runNextBuild({ targetDir: dir }, { execFile: fakeExec });
+
+    expect(result).toMatchObject({ exitCode: 0, packageManager: "bun" });
+    expect(fakeExec).toHaveBeenCalledWith(
+      "bun",
+      ["run", "build"],
+      expect.objectContaining({ cwd: dir }),
+    );
   });
 
   it("returns exitCode 1 with stderr when the subprocess throws", async () => {

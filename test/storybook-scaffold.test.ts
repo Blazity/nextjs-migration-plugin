@@ -14,14 +14,17 @@ const readText = (dir: string, path: string) => readFileSync(join(dir, path), "u
 const readPackageJson = (dir: string) => JSON.parse(readText(dir, "package.json"));
 
 describe("ensureStorybookScaffold", () => {
-  it("creates Storybook 8 Next.js files and adds missing scripts idempotently", () => {
+  it("creates Storybook 10 Next.js Vite files and adds explicit dependency ranges idempotently", () => {
     const dir = createTarget();
 
-    ensureStorybookScaffold(dir);
+    const result = ensureStorybookScaffold(dir);
 
+    expect(result.packageJsonChanged).toBe(true);
     expect(existsSync(join(dir, ".storybook/main.ts"))).toBe(true);
     expect(existsSync(join(dir, ".storybook/preview.ts"))).toBe(true);
-    expect(readText(dir, ".storybook/main.ts")).toContain('@storybook/nextjs');
+    expect(readText(dir, ".storybook/main.ts")).toContain('@storybook/nextjs-vite');
+    expect(readText(dir, ".storybook/main.ts")).not.toContain('@storybook/nextjs"');
+    expect(readText(dir, ".storybook/preview.ts")).toContain('@storybook/nextjs-vite');
     expect(readText(dir, ".storybook/preview.ts")).toContain("390");
     expect(readText(dir, ".storybook/preview.ts")).toContain("768");
     expect(readText(dir, ".storybook/preview.ts")).toContain("1440");
@@ -29,6 +32,34 @@ describe("ensureStorybookScaffold", () => {
       name: "target-app",
       scripts: {
         dev: "next dev",
+        storybook: "storybook dev",
+        "build-storybook": "storybook build",
+      },
+      devDependencies: {
+        storybook: "^10.3.0",
+        "@storybook/nextjs-vite": "^10.3.0",
+        vite: "^8.0.0",
+      },
+    });
+    expect(readPackageJson(dir).devDependencies).not.toHaveProperty("@storybook/addon-essentials");
+    expect(readPackageJson(dir).devDependencies).not.toHaveProperty("@storybook/nextjs");
+
+    const firstMain = readText(dir, ".storybook/main.ts");
+    const firstPreview = readText(dir, ".storybook/preview.ts");
+    const firstPackageJson = readText(dir, "package.json");
+
+    const secondResult = ensureStorybookScaffold(dir);
+
+    expect(secondResult.packageJsonChanged).toBe(false);
+    expect(readText(dir, ".storybook/main.ts")).toBe(firstMain);
+    expect(readText(dir, ".storybook/preview.ts")).toBe(firstPreview);
+    expect(readText(dir, "package.json")).toBe(firstPackageJson);
+  });
+
+  it("migrates the old plugin-owned Storybook 8 scaffold to Storybook 10 Next.js Vite", () => {
+    const dir = createTarget({
+      name: "target-app",
+      scripts: {
         storybook: "storybook dev -p 6006",
         "build-storybook": "storybook build",
       },
@@ -38,19 +69,30 @@ describe("ensureStorybookScaffold", () => {
         "@storybook/nextjs": "^8.0.0",
       },
     });
+    mkdirSync(join(dir, ".storybook"), { recursive: true });
+    writeFileSync(join(dir, ".storybook/main.ts"), oldGeneratedMainTs());
+    writeFileSync(join(dir, ".storybook/preview.ts"), oldGeneratedPreviewTs());
 
-    const firstMain = readText(dir, ".storybook/main.ts");
-    const firstPreview = readText(dir, ".storybook/preview.ts");
-    const firstPackageJson = readText(dir, "package.json");
+    const result = ensureStorybookScaffold(dir);
 
-    ensureStorybookScaffold(dir);
-
-    expect(readText(dir, ".storybook/main.ts")).toBe(firstMain);
-    expect(readText(dir, ".storybook/preview.ts")).toBe(firstPreview);
-    expect(readText(dir, "package.json")).toBe(firstPackageJson);
+    expect(result.packageJsonChanged).toBe(true);
+    expect(readText(dir, ".storybook/main.ts")).toContain('@storybook/nextjs-vite');
+    expect(readText(dir, ".storybook/preview.ts")).toContain('@storybook/nextjs-vite');
+    expect(readPackageJson(dir)).toEqual({
+      name: "target-app",
+      scripts: {
+        storybook: "storybook dev",
+        "build-storybook": "storybook build",
+      },
+      devDependencies: {
+        storybook: "^10.3.0",
+        "@storybook/nextjs-vite": "^10.3.0",
+        vite: "^8.0.0",
+      },
+    });
   });
 
-  it("preserves existing Storybook files and script values", () => {
+  it("preserves custom Storybook files while normalizing plugin-owned dependency ranges", () => {
     const dir = createTarget({
       name: "target-app",
       private: true,
@@ -80,9 +122,9 @@ describe("ensureStorybookScaffold", () => {
         "build-storybook": "storybook build",
       },
       devDependencies: {
-        storybook: "^8.2.0",
-        "@storybook/addon-essentials": "^8.0.0",
-        "@storybook/nextjs": "^8.0.0",
+        storybook: "^10.3.0",
+        "@storybook/nextjs-vite": "^10.3.0",
+        vite: "^8.0.0",
       },
       dependencies: {
         next: "15.0.0",
@@ -90,3 +132,56 @@ describe("ensureStorybookScaffold", () => {
     });
   });
 });
+
+function oldGeneratedMainTs(): string {
+  return `import type { StorybookConfig } from "@storybook/nextjs";
+
+const config: StorybookConfig = {
+  stories: ["../src/**/*.mdx", "../src/**/*.stories.@(js|jsx|mjs|ts|tsx)"],
+  addons: ["@storybook/addon-essentials"],
+  framework: {
+    name: "@storybook/nextjs",
+    options: {},
+  },
+};
+
+export default config;
+`;
+}
+
+function oldGeneratedPreviewTs(): string {
+  return `import type { Preview } from "@storybook/react";
+
+const preview: Preview = {
+  parameters: {
+    viewport: {
+      viewports: {
+        mobile: {
+          name: "Mobile",
+          styles: {
+            width: "390px",
+            height: "844px",
+          },
+        },
+        tablet: {
+          name: "Tablet",
+          styles: {
+            width: "768px",
+            height: "1024px",
+          },
+        },
+        desktop: {
+          name: "Desktop",
+          styles: {
+            width: "1440px",
+            height: "900px",
+          },
+        },
+      },
+    },
+  },
+};
+
+export default preview;
+`;
+}

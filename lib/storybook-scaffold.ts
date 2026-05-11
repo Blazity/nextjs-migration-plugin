@@ -4,22 +4,24 @@ import { join } from "node:path";
 const storybookDirName = ".storybook";
 const mainFileName = "main.ts";
 const previewFileName = "preview.ts";
-const storybookScript = "storybook dev -p 6006";
+const storybookScript = "storybook dev";
 const buildStorybookScript = "storybook build";
-const storybookVersion = "^8.0.0";
+const oldStorybookScript = "storybook dev -p 6006";
+const storybookVersion = "^10.3.0";
+const viteVersion = "^8.0.0";
 const storybookDevDependencies = {
   storybook: storybookVersion,
-  "@storybook/addon-essentials": storybookVersion,
-  "@storybook/nextjs": storybookVersion,
+  "@storybook/nextjs-vite": storybookVersion,
+  vite: viteVersion,
 } as const;
 
-const mainTs = `import type { StorybookConfig } from "@storybook/nextjs";
+const mainTs = `import type { StorybookConfig } from "@storybook/nextjs-vite";
 
 const config: StorybookConfig = {
   stories: ["../src/**/*.mdx", "../src/**/*.stories.@(js|jsx|mjs|ts|tsx)"],
-  addons: ["@storybook/addon-essentials"],
+  addons: [],
   framework: {
-    name: "@storybook/nextjs",
+    name: "@storybook/nextjs-vite",
     options: {},
   },
 };
@@ -27,7 +29,7 @@ const config: StorybookConfig = {
 export default config;
 `;
 
-const previewTs = `import type { Preview } from "@storybook/react";
+const previewTs = `import type { Preview } from "@storybook/nextjs-vite";
 
 const preview: Preview = {
   parameters: {
@@ -62,26 +64,94 @@ const preview: Preview = {
 export default preview;
 `;
 
-export function ensureStorybookScaffold(targetDir: string): void {
+const oldGeneratedMainTs = `import type { StorybookConfig } from "@storybook/nextjs";
+
+const config: StorybookConfig = {
+  stories: ["../src/**/*.mdx", "../src/**/*.stories.@(js|jsx|mjs|ts|tsx)"],
+  addons: ["@storybook/addon-essentials"],
+  framework: {
+    name: "@storybook/nextjs",
+    options: {},
+  },
+};
+
+export default config;
+`;
+
+const oldGeneratedPreviewTs = `import type { Preview } from "@storybook/react";
+
+const preview: Preview = {
+  parameters: {
+    viewport: {
+      viewports: {
+        mobile: {
+          name: "Mobile",
+          styles: {
+            width: "390px",
+            height: "844px",
+          },
+        },
+        tablet: {
+          name: "Tablet",
+          styles: {
+            width: "768px",
+            height: "1024px",
+          },
+        },
+        desktop: {
+          name: "Desktop",
+          styles: {
+            width: "1440px",
+            height: "900px",
+          },
+        },
+      },
+    },
+  },
+};
+
+export default preview;
+`;
+
+export interface StorybookScaffoldResult {
+  filesChanged: boolean;
+  packageJsonChanged: boolean;
+}
+
+export function ensureStorybookScaffold(targetDir: string): StorybookScaffoldResult {
   const storybookDir = join(targetDir, storybookDirName);
   mkdirSync(storybookDir, { recursive: true });
 
-  writeIfMissing(join(storybookDir, mainFileName), mainTs);
-  writeIfMissing(join(storybookDir, previewFileName), previewTs);
-  ensurePackageScripts(join(targetDir, "package.json"));
+  const filesChanged = [
+    writeIfMissingOrOldGenerated(join(storybookDir, mainFileName), mainTs, oldGeneratedMainTs),
+    writeIfMissingOrOldGenerated(join(storybookDir, previewFileName), previewTs, oldGeneratedPreviewTs),
+  ].some(Boolean);
+  const packageJsonChanged = ensurePackageScripts(join(targetDir, "package.json"));
+
+  return { filesChanged, packageJsonChanged };
 }
 
-function writeIfMissing(path: string, contents: string): void {
-  if (!existsSync(path)) writeFileSync(path, contents);
+function writeIfMissingOrOldGenerated(path: string, contents: string, oldContents: string): boolean {
+  if (!existsSync(path)) {
+    writeFileSync(path, contents);
+    return true;
+  }
+
+  if (readFileSync(path, "utf8") === oldContents) {
+    writeFileSync(path, contents);
+    return true;
+  }
+
+  return false;
 }
 
-function ensurePackageScripts(packageJsonPath: string): void {
+function ensurePackageScripts(packageJsonPath: string): boolean {
   const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
   const scripts = isRecord(packageJson.scripts) ? packageJson.scripts : {};
   const devDependencies = isRecord(packageJson.devDependencies) ? packageJson.devDependencies : {};
   let changed = false;
 
-  if (!("storybook" in scripts)) {
+  if (!("storybook" in scripts) || scripts.storybook === oldStorybookScript) {
     scripts.storybook = storybookScript;
     changed = true;
   }
@@ -92,17 +162,25 @@ function ensurePackageScripts(packageJsonPath: string): void {
   }
 
   for (const [name, version] of Object.entries(storybookDevDependencies)) {
-    if (!(name in devDependencies)) {
+    if (devDependencies[name] !== version) {
       devDependencies[name] = version;
       changed = true;
     }
   }
 
-  if (!changed) return;
+  for (const name of ["@storybook/addon-essentials", "@storybook/nextjs"]) {
+    if (name in devDependencies) {
+      delete devDependencies[name];
+      changed = true;
+    }
+  }
+
+  if (!changed) return false;
 
   packageJson.scripts = scripts;
   packageJson.devDependencies = devDependencies;
   writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`);
+  return true;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

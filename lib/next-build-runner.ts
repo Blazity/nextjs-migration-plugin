@@ -1,17 +1,10 @@
 import { execFile as defaultExecFile } from "node:child_process";
 import { promisify } from "node:util";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { detectPackageManager, runScriptCommand, type PackageManager } from "./package-manager.ts";
 
 const promisifiedDefault = promisify(defaultExecFile);
 
-export type PackageManager = "pnpm" | "yarn" | "npm";
-
-export function detectPackageManager(targetDir: string): PackageManager {
-  if (existsSync(join(targetDir, "pnpm-lock.yaml"))) return "pnpm";
-  if (existsSync(join(targetDir, "yarn.lock"))) return "yarn";
-  return "npm";
-}
+export { detectPackageManager, type PackageManager };
 
 export interface RunNextBuildArgs {
   targetDir: string;
@@ -36,9 +29,9 @@ export async function runNextBuild(
 ): Promise<RunNextBuildResult> {
   const exec = deps.execFile ?? promisifiedDefault;
   const pm = detectPackageManager(args.targetDir);
-  const cliArgs = pm === "npm" ? ["run", "build"] : ["build"];
+  const buildCommand = runScriptCommand(pm, "build");
   try {
-    const result = await exec(pm, cliArgs, {
+    const result = await exec(buildCommand.command, buildCommand.args, {
       cwd: args.targetDir,
       env: process.env,
       timeout: BUILD_TIMEOUT_MS,

@@ -6,6 +6,14 @@ Entries are reverse-chronological.
 
 ---
 
+## 2026-05-11 - Keep Storybook Scaffold Aligned With Current Next
+
+**Rule:** Generated target scaffolds must use Storybook 10 `@storybook/nextjs-vite` with explicit Storybook/Vite ranges for Next 16 targets.
+
+**Why:** Storybook 8's Next framework can fail on Next 16 with missing `next/config`, and `@storybook/addon-essentials` is not published for Storybook 10 because essentials are zero-config.
+
+**How to apply:** Scaffold `storybook` and `@storybook/nextjs-vite` as `^10.3.0`, `vite` as `^8.0.0`, remove old `@storybook/nextjs` / `@storybook/addon-essentials`, and run Storybook through the detected target package manager.
+
 ## 2026-05-08 - Pnpm Test Double Dash Runs The Full Suite
 
 **Rule:** Do not rely on `pnpm test -- test/file.test.ts` as a narrow Vitest filter in this repository.

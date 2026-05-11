@@ -54,7 +54,7 @@ describe("implementComponent", () => {
 
     const story = readFileSync(result.storyPath, "utf8");
     expect(story).toMatchInlineSnapshot(`
-      "import type { Meta, StoryObj } from "@storybook/react";
+      "import type { Meta, StoryObj } from "@storybook/nextjs-vite";
       import HeroComponent, { HeroVariant2 as HeroVariant2Component } from "./Hero";
 
       const meta = {

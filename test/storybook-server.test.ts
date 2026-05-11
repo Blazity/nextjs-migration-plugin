@@ -10,6 +10,7 @@ describe("withStorybookServer", () => {
     const targetDir = createTarget();
     const process = fakeProcess();
     const spawn = vi.fn(() => process);
+    const install = vi.fn(async () => undefined);
     const fetch = vi.fn(async (_url: string): Promise<Pick<Response, "ok">> => ({ ok: true }));
     fetch
       .mockResolvedValueOnce({ ok: false })
@@ -21,19 +22,57 @@ describe("withStorybookServer", () => {
       {
         getPort: async () => 6123,
         spawn,
+        install,
         fetch,
         sleep: async () => {},
       },
     );
 
     expect(result).toBe("ran:http://127.0.0.1:6123");
+    expect(install).toHaveBeenCalledWith(
+      "npm",
+      ["install"],
+      expect.objectContaining({ cwd: targetDir }),
+    );
     expect(spawn).toHaveBeenCalledWith(
-      "pnpm",
-      ["exec", "storybook", "dev", "--port", "6123", "--ci"],
+      "npm",
+      ["run", "storybook", "--", "--port", "6123", "--ci"],
       expect.objectContaining({ cwd: targetDir }),
     );
     expect(fetch).toHaveBeenCalledWith("http://127.0.0.1:6123/iframe.html");
     expect(process.killCalls).toEqual(["SIGTERM"]);
+  });
+
+  it("uses Bun to install and run the Storybook package script for Bun targets", async () => {
+    const targetDir = createTarget({ packageManager: "bun@1.3.0" });
+    const process = fakeProcess();
+    const spawn = vi.fn(() => process);
+    const install = vi.fn(async () => undefined);
+
+    await withStorybookServer(
+      {
+        targetDir,
+        run: async ({ baseUrl }) => baseUrl,
+      },
+      {
+        getPort: async () => 6125,
+        spawn,
+        install,
+        fetch: async () => ({ ok: true }),
+        sleep: async () => {},
+      },
+    );
+
+    expect(install).toHaveBeenCalledWith(
+      "bun",
+      ["install"],
+      expect.objectContaining({ cwd: targetDir }),
+    );
+    expect(spawn).toHaveBeenCalledWith(
+      "bun",
+      ["run", "storybook", "--port", "6125", "--ci"],
+      expect.objectContaining({ cwd: targetDir }),
+    );
   });
 
   it("stops Storybook when the caller throws", async () => {
@@ -50,6 +89,7 @@ describe("withStorybookServer", () => {
         },
         {
           getPort: async () => 6124,
+          install: async () => {},
           spawn: () => process,
           fetch: async () => ({ ok: true }),
           sleep: async () => {},
@@ -80,9 +120,9 @@ describe("withStorybookServer", () => {
   });
 });
 
-function createTarget(): string {
+function createTarget(packageJson: Record<string, unknown> = {}): string {
   const dir = mkdtempSync(join(tmpdir(), "storybook-server-"));
-  writeFileSync(join(dir, "package.json"), JSON.stringify({ scripts: {} }, null, 2));
+  writeFileSync(join(dir, "package.json"), JSON.stringify({ scripts: {}, ...packageJson }, null, 2));
   return dir;
 }
 

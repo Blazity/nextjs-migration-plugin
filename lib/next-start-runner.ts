@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import getPort from "get-port";
 import { detectPackageManager } from "./next-build-runner.ts";
+import { runScriptCommand } from "./package-manager.ts";
 import type { RunVerifyBuildBaselineResult } from "./verify-build-baseline-runner.ts";
 
 export interface RunWithNextServerArgs {
@@ -14,11 +15,9 @@ export async function runWithNextStartServer(args: RunWithNextServerArgs): Promi
   const port = await getPort({ port: [3000, 3001, 3002, 3003] });
   const localUrl = `http://127.0.0.1:${port}/`;
   const pm = detectPackageManager(args.targetDir);
-  const cliArgs = pm === "npm"
-    ? ["run", "start", "--", "-p", String(port)]
-    : ["start", "--", "-p", String(port)];
+  const startCommand = runScriptCommand(pm, "start", ["-p", String(port)]);
 
-  const child = spawn(pm, cliArgs, {
+  const child = spawn(startCommand.command, startCommand.args, {
     cwd: args.targetDir,
     env: { ...process.env, PORT: String(port) },
     stdio: ["ignore", "pipe", "pipe"],
