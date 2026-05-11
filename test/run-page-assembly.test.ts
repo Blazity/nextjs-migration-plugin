@@ -33,7 +33,7 @@ describe("runPageAssembly", () => {
       browserQueue: guard.queue,
       buildProject: vi.fn(async () => {
         order.push("build");
-        return { exitCode: 0 as const, stdout: "built", stderr: "", packageManager: "pnpm" as const };
+        return { exitCode: 0 as const, stdout: "built", stderr: "", packageManager: "bun" as const };
       }),
       screenshotCapturer: async ({ viewport, outputPath }) => {
         guard.assertActive();
@@ -75,7 +75,7 @@ describe("runPageAssembly", () => {
       generatedAt: now,
       componentGroupIds: ["group-header", "group-hero"],
       pagePath,
-      build: { exitCode: 0, stdout: "built", stderr: "", packageManager: "pnpm" },
+      build: { exitCode: 0, stdout: "built", stderr: "", packageManager: "bun" },
       verification: "PASS",
       referencePaths: [390, 768, 1440].map(viewport =>
         join(targetDir, ".migration/references/pages/home-${viewport}.png").replace("${viewport}", String(viewport))

@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -10,6 +10,7 @@ describe("withStorybookServer", () => {
     const targetDir = createTarget();
     const process = fakeProcess();
     const spawn = vi.fn(() => process);
+    const install = vi.fn(async () => undefined);
     const fetch = vi.fn(async (_url: string): Promise<Pick<Response, "ok">> => ({ ok: true }));
     fetch
       .mockResolvedValueOnce({ ok: false })
@@ -21,19 +22,115 @@ describe("withStorybookServer", () => {
       {
         getPort: async () => 6123,
         spawn,
+        install,
         fetch,
         sleep: async () => {},
       },
     );
 
     expect(result).toBe("ran:http://127.0.0.1:6123");
+    expect(install).toHaveBeenCalledWith(
+      "npm",
+      ["install"],
+      expect.objectContaining({ cwd: targetDir }),
+    );
     expect(spawn).toHaveBeenCalledWith(
-      "pnpm",
-      ["exec", "storybook", "dev", "--port", "6123", "--ci"],
+      "npm",
+      ["run", "storybook", "--", "--port", "6123", "--ci"],
       expect.objectContaining({ cwd: targetDir }),
     );
     expect(fetch).toHaveBeenCalledWith("http://127.0.0.1:6123/iframe.html");
     expect(process.killCalls).toEqual(["SIGTERM"]);
+  });
+
+  it("uses Bun to install and run the Storybook package script for Bun targets", async () => {
+    const targetDir = createTarget({ packageManager: "bun@1.3.0" });
+    const process = fakeProcess();
+    const spawn = vi.fn(() => process);
+    const install = vi.fn(async () => undefined);
+
+    await withStorybookServer(
+      {
+        targetDir,
+        run: async ({ baseUrl }) => baseUrl,
+      },
+      {
+        getPort: async () => 6125,
+        spawn,
+        install,
+        fetch: async () => ({ ok: true }),
+        sleep: async () => {},
+      },
+    );
+
+    expect(install).toHaveBeenCalledWith(
+      "bun",
+      ["install"],
+      expect.objectContaining({ cwd: targetDir }),
+    );
+    expect(spawn).toHaveBeenCalledWith(
+      "bun",
+      ["run", "storybook", "--port", "6125", "--ci"],
+      expect.objectContaining({ cwd: targetDir }),
+    );
+  });
+
+  it("skips install when Storybook is already available through an installed package layout", async () => {
+    const targetDir = createTarget({
+      scripts: {
+        storybook: "storybook dev",
+        "build-storybook": "storybook build",
+      },
+      devDependencies: {
+        storybook: "^10.3.0",
+        "@storybook/nextjs-vite": "^10.3.0",
+        vite: "^8.0.0",
+      },
+    });
+    mkdirSync(join(targetDir, "node_modules/storybook"), { recursive: true });
+    const process = fakeProcess();
+    const install = vi.fn(async () => undefined);
+
+    await withStorybookServer(
+      {
+        targetDir,
+        run: async ({ baseUrl }) => baseUrl,
+      },
+      {
+        getPort: async () => 6126,
+        spawn: () => process,
+        install,
+        fetch: async () => ({ ok: true }),
+        sleep: async () => {},
+      },
+    );
+
+    expect(install).not.toHaveBeenCalled();
+  });
+
+  it("fails readiness with the spawned process error message", async () => {
+    const targetDir = createTarget();
+    const process = fakeProcess();
+
+    await expect(
+      withStorybookServer(
+        {
+          targetDir,
+          readinessAttempts: 1,
+          run: async ({ baseUrl }) => baseUrl,
+        },
+        {
+          getPort: async () => 6127,
+          install: async () => {},
+          spawn: () => process,
+          fetch: async () => {
+            process.emitError(new Error("spawn storybook ENOENT"));
+            return { ok: false };
+          },
+          sleep: async () => {},
+        },
+      ),
+    ).rejects.toThrow("spawn storybook ENOENT");
   });
 
   it("stops Storybook when the caller throws", async () => {
@@ -50,6 +147,7 @@ describe("withStorybookServer", () => {
         },
         {
           getPort: async () => 6124,
+          install: async () => {},
           spawn: () => process,
           fetch: async () => ({ ok: true }),
           sleep: async () => {},
@@ -80,9 +178,9 @@ describe("withStorybookServer", () => {
   });
 });
 
-function createTarget(): string {
+function createTarget(packageJson: Record<string, unknown> = {}): string {
   const dir = mkdtempSync(join(tmpdir(), "storybook-server-"));
-  writeFileSync(join(dir, "package.json"), JSON.stringify({ scripts: {} }, null, 2));
+  writeFileSync(join(dir, "package.json"), JSON.stringify({ scripts: {}, ...packageJson }, null, 2));
   return dir;
 }
 
@@ -90,12 +188,16 @@ function fakeProcess() {
   const emitter = new EventEmitter() as EventEmitter & {
     killCalls: string[];
     kill(signal?: NodeJS.Signals): boolean;
+    emitError(error: Error): void;
   };
   emitter.killCalls = [];
   emitter.kill = (signal = "SIGTERM") => {
     emitter.killCalls.push(signal);
     emitter.emit("exit", 0, signal);
     return true;
+  };
+  emitter.emitError = (error) => {
+    if (emitter.listenerCount("error") > 0) emitter.emit("error", error);
   };
   return emitter;
 }

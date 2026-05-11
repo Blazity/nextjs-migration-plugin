@@ -32,7 +32,7 @@ export const PageAssemblyReportSchema = z.object({
     exitCode: z.union([z.literal(0), z.literal(1)]),
     stdout: z.string(),
     stderr: z.string(),
-    packageManager: z.enum(["pnpm", "yarn", "npm"]),
+    packageManager: z.enum(["pnpm", "yarn", "npm", "bun"]),
   }).strict(),
   verification: z.enum(["PASS", "FAIL"]),
   referencePaths: z.array(NonEmptyStringSchema),

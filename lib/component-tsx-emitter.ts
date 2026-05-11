@@ -102,7 +102,7 @@ export const ${storyName}: Story = {
 };`;
   });
 
-  return `import type { Meta, StoryObj } from "@storybook/react";
+  return `import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import ${componentImport}${namedImports} from "./${args.implementationName}";
 
 const meta = {
