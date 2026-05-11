@@ -159,12 +159,17 @@ export default config;
     ensureStorybookScaffold(dir);
 
     expect(readText(dir, ".storybook/main.ts")).toContain("@storybook/nextjs");
-    expect(readPackageJson(dir).devDependencies).toMatchObject({
-      storybook: "^10.3.0",
-      "@storybook/nextjs-vite": "^10.3.0",
-      vite: "^8.0.0",
-      "@storybook/addon-essentials": "^8.2.0",
-      "@storybook/nextjs": "^8.2.0",
+    expect(readPackageJson(dir)).toEqual({
+      name: "target-app",
+      scripts: {
+        storybook: "storybook dev --port 7007",
+        "build-storybook": "storybook build",
+      },
+      devDependencies: {
+        storybook: "^8.2.0",
+        "@storybook/addon-essentials": "^8.2.0",
+        "@storybook/nextjs": "^8.2.0",
+      },
     });
   });
 });
