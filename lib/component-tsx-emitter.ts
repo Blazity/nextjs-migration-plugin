@@ -98,6 +98,11 @@ export function renderComponentStories(args: {
       : `${storyName}Component`;
     return `// Section instance: ${sectionInstanceId}
 export const ${storyName}: Story = {
+  parameters: {
+    reference: {
+      sectionInstanceId: "${sectionInstanceId}",
+    },
+  },
   render: () => <${storyComponent} />,
 };`;
   });

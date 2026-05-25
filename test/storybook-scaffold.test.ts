@@ -24,7 +24,14 @@ describe("ensureStorybookScaffold", () => {
     expect(existsSync(join(dir, ".storybook/preview.ts"))).toBe(true);
     expect(readText(dir, ".storybook/main.ts")).toContain('@storybook/nextjs-vite');
     expect(readText(dir, ".storybook/main.ts")).not.toContain('@storybook/nextjs"');
+    expect(readText(dir, ".storybook/main.ts")).toContain("staticDirs");
+    expect(readText(dir, ".storybook/main.ts")).toContain("../.migration/references");
+    expect(readText(dir, ".storybook/main.ts")).toContain("/migration-references");
     expect(readText(dir, ".storybook/preview.ts")).toContain('@storybook/nextjs-vite');
+    expect(readText(dir, ".storybook/preview.ts")).toContain("ReferenceOverlayDecorator");
+    expect(readText(dir, ".storybook/preview.ts")).toContain("refOpacity");
+    expect(readText(dir, ".storybook/preview.ts")).toContain("data-reference-overlay");
+    expect(readText(dir, ".storybook/preview.ts")).toContain("context.parameters.reference");
     expect(readText(dir, ".storybook/preview.ts")).toContain("390");
     expect(readText(dir, ".storybook/preview.ts")).toContain("768");
     expect(readText(dir, ".storybook/preview.ts")).toContain("1440");
@@ -77,7 +84,10 @@ describe("ensureStorybookScaffold", () => {
 
     expect(result.packageJsonChanged).toBe(true);
     expect(readText(dir, ".storybook/main.ts")).toContain('@storybook/nextjs-vite');
+    expect(readText(dir, ".storybook/main.ts")).toContain("/migration-references");
     expect(readText(dir, ".storybook/preview.ts")).toContain('@storybook/nextjs-vite');
+    expect(readText(dir, ".storybook/preview.ts")).toContain("ReferenceOverlayDecorator");
+    expect(readText(dir, ".storybook/preview.ts")).toContain("refOpacity");
     expect(readPackageJson(dir)).toEqual({
       name: "target-app",
       scripts: {

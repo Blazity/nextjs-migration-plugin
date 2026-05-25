@@ -67,11 +67,21 @@ describe("implementComponent", () => {
 
       // Section instance: p0-s0
       export const Hero: Story = {
+        parameters: {
+          reference: {
+            sectionInstanceId: "p0-s0",
+          },
+        },
         render: () => <HeroComponent />,
       };
 
       // Section instance: p1-s0
       export const HeroVariant2: Story = {
+        parameters: {
+          reference: {
+            sectionInstanceId: "p1-s0",
+          },
+        },
         render: () => <HeroVariant2Component />,
       };
       "

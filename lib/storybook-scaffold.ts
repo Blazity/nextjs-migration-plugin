@@ -20,6 +20,9 @@ const mainTs = `import type { StorybookConfig } from "@storybook/nextjs-vite";
 
 const config: StorybookConfig = {
   stories: ["../src/**/*.mdx", "../src/**/*.stories.@(js|jsx|mjs|ts|tsx)"],
+  staticDirs: [
+    { from: "../.migration/references", to: "/migration-references" },
+  ],
   addons: [],
   framework: {
     name: "@storybook/nextjs-vite",
@@ -30,9 +33,75 @@ const config: StorybookConfig = {
 export default config;
 `;
 
-const previewTs = `import type { Preview } from "@storybook/nextjs-vite";
+const previewTs = `import React from "react";
+import type { Preview } from "@storybook/nextjs-vite";
+
+interface ReferenceParameters {
+  sectionInstanceId?: string;
+}
+
+const referenceViewportByName: Record<string, 390 | 768 | 1440> = {
+  mobile: 390,
+  tablet: 768,
+  desktop: 1440,
+};
+
+const ReferenceOverlayDecorator: NonNullable<Preview["decorators"]>[number] = (Story, context) => {
+  const reference = context.parameters.reference as ReferenceParameters | undefined;
+  const opacity = Number(context.globals.refOpacity ?? 0);
+  if (!reference?.sectionInstanceId || opacity <= 0) {
+    return React.createElement(Story);
+  }
+
+  const viewportName = String(context.globals.viewport ?? "desktop");
+  const viewport = referenceViewportByName[viewportName] ?? 1440;
+
+  return React.createElement(
+    "div",
+    {
+      style: {
+        position: "relative",
+        isolation: "isolate",
+      },
+    },
+    React.createElement(Story),
+    React.createElement("img", {
+      "aria-hidden": true,
+      alt: "",
+      "data-reference-overlay": reference.sectionInstanceId,
+      src: \`/migration-references/components/\${reference.sectionInstanceId}-\${viewport}.png\`,
+      style: {
+        position: "absolute",
+        inset: 0,
+        width: "100%",
+        height: "auto",
+        opacity,
+        pointerEvents: "none",
+        zIndex: 2147483647,
+        mixBlendMode: "difference",
+      },
+    }),
+  );
+};
 
 const preview: Preview = {
+  globalTypes: {
+    refOpacity: {
+      name: "Reference overlay",
+      description: "Opacity for the source reference screenshot overlay.",
+      defaultValue: 0,
+      toolbar: {
+        icon: "photo",
+        items: [
+          { value: 0, title: "Off" },
+          { value: 0.35, title: "35%" },
+          { value: 0.65, title: "65%" },
+          { value: 1, title: "100%" },
+        ],
+      },
+    },
+  },
+  decorators: [ReferenceOverlayDecorator],
   parameters: {
     viewport: {
       viewports: {
