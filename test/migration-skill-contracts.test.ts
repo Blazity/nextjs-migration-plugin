@@ -260,7 +260,7 @@ describe("release metadata contracts", () => {
     const claudePluginJson = readJson(".claude-plugin/plugin.json");
 
     expect(packageJson.name).toBe("nextjs-migration-plugin");
-    expect(packageJson.version).toBe("0.1.0");
+    expect(packageJson.version).toBe("0.2.0");
     expect(packageJson.private).toBe(true);
     expect(packageJson.license).toBe("MIT");
 
@@ -270,6 +270,21 @@ describe("release metadata contracts", () => {
       expect(manifest.license).toBe(packageJson.license);
       expect(manifest.description).toBe(packageJson.description);
     }
+  });
+
+  it("documents the Storybook 10 and reference overlay release", () => {
+    const changelogPath = join(process.cwd(), "CHANGELOG.md");
+
+    expect(existsSync(changelogPath)).toBe(true);
+    if (!existsSync(changelogPath)) {
+      return;
+    }
+
+    const changelog = readRepoFile("CHANGELOG.md");
+
+    expect(changelog).toContain("## 0.2.0");
+    expect(changelog).toContain("Storybook 10");
+    expect(changelog).toContain("reference overlay");
   });
 
   it("documents only the normal four-command public flow in the README", () => {
