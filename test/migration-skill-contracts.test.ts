@@ -260,7 +260,7 @@ describe("release metadata contracts", () => {
     const claudePluginJson = readJson(".claude-plugin/plugin.json");
 
     expect(packageJson.name).toBe("nextjs-migration-plugin");
-    expect(packageJson.version).toBe("0.2.0");
+    expect(packageJson.version).toBe("0.3.0");
     expect(packageJson.private).toBe(true);
     expect(packageJson.license).toBe("MIT");
 
