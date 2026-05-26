@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, renameSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, renameSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve, join } from "node:path";
 import type { PageSpecManifest } from "../schemas/page-spec.ts";
@@ -141,7 +141,16 @@ function readStats(specDir: string): PageSpecManifest["stats"] {
 // Cap per-subprocess wall-clock time. Without this, a hung extract script
 // (see knowledge/open-issues/004) wedges its parent worker indefinitely.
 // Override via env for tests or large-page allowances.
+//
+// `extract-images` scales with rendered page surface (one playwright
+// screenshot + asset walk per visible element) so it gets a longer default
+// ceiling than `extract-styles`/`extract-animations`. Pricing/feature-matrix
+// pages on Webflow/Squarespace routinely run 5–10 minutes. See
+// docs/issues/002.
 const SUBPROCESS_TIMEOUT_MS = Number(process.env.EXTRACT_SUBPROCESS_TIMEOUT_MS ?? 180_000);
+const IMAGE_SUBPROCESS_TIMEOUT_MS = Number(
+  process.env.EXTRACT_IMAGE_SUBPROCESS_TIMEOUT_MS ?? Math.max(SUBPROCESS_TIMEOUT_MS, 600_000),
+);
 
 const defaultRunStyles: ExtractStep = async ({ url, outputDir, adapterPath, pluginRoot }) => {
   const script = resolve(pluginRoot, "scripts/extract-styles.ts");
@@ -156,20 +165,23 @@ const defaultRunImages: ExtractStep = async ({ url, outputDir, adapterPath, plug
   const script = resolve(pluginRoot, "scripts/extract-images.ts");
   // extract-images.ts hardcodes `public/images/<domain>/<page>` for binaries
   // (relative to CWD) and `docs/specs/<page>` for JSON. We invoke with cwd
-  // set to a per-page staging dir, then move the JSON output into spec/.
-  // Binaries stay in the staging dir; Phase 5 copies them into the user's
-  // <target>/public/ during build. v1 does not move them itself.
+  // set to a per-page staging dir, then move the JSON output into spec/ and
+  // copy the binary tree into the project's `<target>/public/`. Without the
+  // public/ copy, every <Image src="/images/..."/> emitted by generate-jsx
+  // 404s in Storybook (which is the user's verification surface at
+  // Component Batch Approval time). See docs/issues/006.
   const stagingDir = resolve(outputDir, "..", "_staging");
   mkdirSync(stagingDir, { recursive: true });
   try {
     await execFileP("npx", ["tsx", script, url, "--page", "page", "--adapter", adapterPath], {
       env: process.env,
       cwd: stagingDir,
-      timeout: SUBPROCESS_TIMEOUT_MS,
+      timeout: IMAGE_SUBPROCESS_TIMEOUT_MS,
       killSignal: "SIGKILL",
     });
   } finally {
     moveStagedImageOutputs(stagingDir, outputDir);
+    copyStagedImagesToTargetPublic(stagingDir, outputDir);
   }
 };
 
@@ -179,6 +191,23 @@ export function moveStagedImageOutputs(stagingDir: string, outputDir: string): v
   if (existsSync(stagedManifest)) renameSync(stagedManifest, join(outputDir, "image-manifest.json"));
   const stagedJson = join(stagingDir, "docs/specs/page/images.json");
   if (existsSync(stagedJson)) renameSync(stagedJson, join(outputDir, "images.json"));
+}
+
+/**
+ * Copy the binary tree produced by `scripts/extract-images.ts` from the
+ * per-page staging dir into the user's `<target>/public/` so that paths
+ * emitted into JSX (e.g. `/images/<domain>/<page>/<hash>.svg`) resolve in
+ * both Storybook and the Next dev server.
+ *
+ * `outputDir` is `<target>/.migration/pages/<slug>/spec` — `<target>` is
+ * four levels up.
+ */
+export function copyStagedImagesToTargetPublic(stagingDir: string, outputDir: string): void {
+  const stagedPublic = join(stagingDir, "public");
+  if (!existsSync(stagedPublic)) return;
+  const targetPublic = resolve(outputDir, "..", "..", "..", "..", "public");
+  mkdirSync(targetPublic, { recursive: true });
+  cpSync(stagedPublic, targetPublic, { recursive: true });
 }
 
 const defaultRunAnimations: ExtractStep = async ({ url, outputDir, adapterPath, pluginRoot }) => {

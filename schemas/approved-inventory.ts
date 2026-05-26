@@ -14,14 +14,22 @@ export const ApprovedInventoryEntrySchema = DraftInventoryEntrySchema.extend({
         !/^Section\d+$/.test(name),
       "implementation name must be semantic, not generic or ID-like"
     ),
-  filePath: z.string().regex(/^src\/components\/[A-Z][A-Za-z0-9]*\.tsx$/),
+  // Accept either the `src/components/` layout (Next.js scaffolds with a
+  // `src/` directory) or the root `components/` layout (Next.js scaffolds
+  // without it). The directory is chosen at approval time based on which
+  // App Router root the project actually uses — see docs/issues/008.
+  filePath: z.string().regex(/^(?:src\/)?components\/[A-Z][A-Za-z0-9]*\.tsx$/),
 }).superRefine((entry, ctx) => {
-  const expectedFilePath = `src/components/${entry.implementationName}.tsx`;
-  if (entry.filePath !== expectedFilePath) {
+  const expectedSuffix = `/${entry.implementationName}.tsx`;
+  const allowedFilePaths = [
+    `src/components${expectedSuffix}`,
+    `components${expectedSuffix}`,
+  ];
+  if (!allowedFilePaths.includes(entry.filePath)) {
     ctx.addIssue({
       code: "custom",
       path: ["filePath"],
-      message: `filePath must match implementationName (${expectedFilePath})`,
+      message: `filePath must match implementationName (${allowedFilePaths.join(" or ")})`,
     });
   }
 });

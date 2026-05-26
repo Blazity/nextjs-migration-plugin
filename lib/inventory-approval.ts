@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { ApprovedInventorySchema, type ApprovedInventory } from "../schemas/approved-inventory.ts";
 import { DraftInventorySchema, type DraftInventory } from "../schemas/draft-inventory.ts";
+import { detectAppRouterRoot } from "./app-router-root.ts";
 import { hashArtifact } from "./artifact-hash.ts";
 import { recordMigrationDecision } from "./migration-decision-journal.ts";
 import { migrationPaths } from "./migration-paths.ts";
@@ -79,14 +80,22 @@ export async function approveDraftInventory(args: ApproveDraftInventoryArgs): Pr
     };
   }
 
+  // Resolve the components directory against the project's actual App
+  // Router root so emitted files land next to a layout that imports them.
+  // See docs/issues/008.
+  const router = detectAppRouterRoot(args.targetDir);
   const approvedInventory = ApprovedInventorySchema.parse({
     approvedAt: args.approvedAt ?? new Date().toISOString(),
     artifactVersion,
     userNotes: args.userNotes,
     entries: draftInventory.entries.map(entry => ({
       ...entry,
+      // Default `render`. The inventory-decider sets `emit: "skip"` on
+      // Webflow plumbing groups (style hoists, empty spacers). See
+      // docs/issues/004.
+      emit: entry.emit ?? "render",
       implementationName: entry.proposedName,
-      filePath: `src/components/${entry.proposedName}.tsx`,
+      filePath: `${router.componentsDir}/${entry.proposedName}.tsx`,
     })),
   });
 

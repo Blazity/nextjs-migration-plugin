@@ -5,6 +5,7 @@ import { ProbeSchema } from "../schemas/probe.ts";
 import { RawDiscoveryEvidenceSchema, type RawDiscoveryEvidence } from "../schemas/raw-discovery.ts";
 import type { PageSpecManifest } from "../schemas/page-spec.ts";
 import { extractPage as defaultExtractPage } from "./extract-runner.ts";
+import { enrichGeneratedIndex } from "./generated-index-enricher.ts";
 import { runJsxGeneration as defaultRunJsxGeneration } from "./jsx-generator-runner.ts";
 import { writeDesignSystemFoundation } from "./design-system-foundation.ts";
 import { migrationPaths } from "./migration-paths.ts";
@@ -66,7 +67,7 @@ export async function ensureGuidedExtractionReady(
   );
   const entries: GuidedExtractionEntry[] = [];
 
-  for (const page of rawDiscovery.pages) {
+  for (const [pageIndex, page] of rawDiscovery.pages.entries()) {
     const slug = slugForPage(rawDiscovery, page.url);
     const manifestPath = join(pagesDir, slug, "manifest.json");
     const generatedDir = join(pagesDir, slug, "generated");
@@ -116,6 +117,20 @@ export async function ensureGuidedExtractionReady(
         outputDir: generatedDir,
         pluginRoot,
       });
+      // Upgrade `generated/index.json` stub entries to their corresponding
+      // `.generated.jsx` files when extract-styles' spec manifest gives us
+      // a confident match. See docs/issues/003.
+      try {
+        enrichGeneratedIndex({
+          generatedDir,
+          specsDir: join(pagesDir, slug, "spec"),
+          pageSections: page.sections,
+          pageIndex,
+        });
+      } catch {
+        // Enrichment is opportunistic; failure leaves the stub mapping in
+        // place so the implementer can still resolve sources.
+      }
       entries.push({
         url: page.url,
         slug,

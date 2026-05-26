@@ -5,6 +5,7 @@ import type { RawDiscoveryEvidence } from "../schemas/raw-discovery.ts";
 import { hashArtifact } from "./artifact-hash.ts";
 import { bootstrapMigration } from "./bootstrap.ts";
 import { runDiscoveryV2, type DiscoveryV2Result } from "./discovery-v2.ts";
+import { writeGeneratedIndex, type GeneratedIndex } from "./generated-index.ts";
 import { buildDraftInventory } from "./inventory-builder.ts";
 import { renderInventoryReviewHtml } from "./inventory-review-html.ts";
 import { migrationPaths } from "./migration-paths.ts";
@@ -78,15 +79,18 @@ function writeGeneratedSectionSources(targetDir: string, evidence: RawDiscoveryE
     const slug = slugByUrl.get(page.url) ?? urlToSlug(page.url);
     const generatedDir = join(targetDir, ".migration/pages", slug, "generated");
     mkdirSync(generatedDir, { recursive: true });
-    page.sections.forEach((section, index) => {
-      const sectionInstanceId = `p${pageIndex}-s${index}`;
-      const fileName = `${String(index + 1).padStart(2, "0")}-section.tsx`;
+    const index: GeneratedIndex = {};
+    page.sections.forEach((section, sectionIndex) => {
+      const sectionInstanceId = `p${pageIndex}-s${sectionIndex}`;
+      const fileName = `${String(sectionIndex + 1).padStart(2, "0")}-section.tsx`;
       writeFileSync(join(generatedDir, fileName), renderGeneratedSectionSource({
         sectionInstanceId,
         tagSkeleton: section.tagSkeleton,
         sampleText: section.sampleText,
       }));
+      index[sectionInstanceId] = fileName;
     });
+    writeGeneratedIndex(generatedDir, index);
   }
 }
 

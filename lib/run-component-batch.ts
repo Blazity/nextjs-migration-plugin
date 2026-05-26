@@ -83,7 +83,10 @@ export async function runComponentBatch(
       continue;
     }
 
-    if (entry.kind === "shell") {
+    // Shells and `emit: "skip"` plumbing groups skip pixel-diff entirely.
+    // emit:skip entries have no `.stories.tsx`, so the downstream baseline
+    // capture would 404 on the Storybook URL. See docs/issues/004.
+    if (entry.kind === "shell" || entry.emit === "skip") {
       components.push({
         componentGroupId: entry.componentGroupId,
         implementationName: entry.implementationName,

@@ -117,7 +117,27 @@ function escapeJsxText(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\{/g, "&#123;").replace(/\}/g, "&#125;")
 }
 
-function renderJsx(node: TreeNode, styles: StyleEntry[], indent: number = 0, usedStyles: Set<number> = new Set(), specsDir: string = SPECS_DIR): string {
+interface InlineSvgEntry {
+  localPath?: string
+  alt?: string
+  width?: number | string
+  height?: number | string
+  outerHTML?: string
+}
+
+interface SvgRenderContext {
+  entries: InlineSvgEntry[]
+  cursor: { i: number }
+}
+
+function renderJsx(
+  node: TreeNode,
+  styles: StyleEntry[],
+  indent: number = 0,
+  usedStyles: Set<number> = new Set(),
+  specsDir: string = SPECS_DIR,
+  svgContext: SvgRenderContext = { entries: [], cursor: { i: 0 } },
+): string {
   const pad = "  ".repeat(indent)
   const tag = node.tag
   const styleEntry = findStyles(styles, tag, node.className, node.text)
@@ -141,6 +161,44 @@ function renderJsx(node: TreeNode, styles: StyleEntry[], indent: number = 0, use
     return `${pad}<Image src="${localSrc}" alt="${alt}" width={${width}} height={${height}}${classes ? ` className="${classes}"` : ""} />\n`
   }
 
+  // Handle inline SVGs. extract-images records each inline `<svg>` in
+  // the section's `image-manifest.inlineSvgs[]` in DOM order. Most of
+  // these SVGs are logos/icons that use `fill="currentColor"` so the
+  // color inherits from the surrounding text. Rendering them with
+  // `<Image src=...>` strips that inheritance (the SVG becomes an opaque
+  // raster source that defaults to black). Inline the original
+  // `outerHTML` via `dangerouslySetInnerHTML` so currentColor still
+  // resolves against the parent text color, and so the SVG ships without
+  // a round-trip through the public/ directory. The `localPath` value is
+  // kept as a fallback for cases where outerHTML is missing.
+  // See docs/issues/009.
+  if (tag === "svg") {
+    const entry = svgContext.entries[svgContext.cursor.i++]
+    if (entry?.outerHTML) {
+      // SVG markup uses `width="100%" height="100%"`, so the rendered
+      // size is dictated by the wrapping span. If extract-styles didn't
+      // produce a className for this SVG, fall back to the manifest's
+      // pixel width/height — otherwise icons inflate to fill flex space
+      // (e.g. a 16×16 chevron renders at 174×174). `inline-block` keeps
+      // the span sized to its own box.
+      const sizeClass = classes
+        ? classes
+        : entry.width && entry.height
+          ? `inline-block w-[${entry.width}px] h-[${entry.height}px]`
+          : ""
+      const html = JSON.stringify(entry.outerHTML)
+      const classAttr = sizeClass ? ` className="${sizeClass}"` : ""
+      return `${pad}<span aria-hidden="true"${classAttr} dangerouslySetInnerHTML={{ __html: ${html} }} />\n`
+    }
+    if (entry?.localPath) {
+      const alt = entry.alt ? escapeJsxText(entry.alt) : ""
+      const width = entry.width ?? 24
+      const height = entry.height ?? 24
+      return `${pad}<Image src="/${entry.localPath}" alt="${alt}" width={${width}} height={${height}}${classes ? ` className="${classes}"` : ""} />\n`
+    }
+    return `${pad}<span aria-hidden="true"${classes ? ` className="${classes}"` : ""} />\n`
+  }
+
   // Handle links
   if (tag === "a") {
     const href = node.attrs.href || "#"
@@ -162,7 +220,7 @@ function renderJsx(node: TreeNode, styles: StyleEntry[], indent: number = 0, use
       jsx += `${pad}  ${escapeJsxText(node.text)}\n`
     }
     for (const child of node.children) {
-      jsx += renderJsx(child, styles, indent + 1, usedStyles, specsDir)
+      jsx += renderJsx(child, styles, indent + 1, usedStyles, specsDir, svgContext)
     }
     jsx += `${pad}</a>\n`
     return jsx
@@ -186,13 +244,37 @@ function renderJsx(node: TreeNode, styles: StyleEntry[], indent: number = 0, use
     return `${pad}<${jsxTag}${classes ? ` className="${classes}"` : ""}>${escapeJsxText(node.text)}</${jsxTag}>\n`
   }
 
-  // Container element
+  // Container element. When the parent is a heading whose children are
+  // Webflow's per-word/per-char animation wrappers, JSX sibling rendering
+  // swallows the inter-element whitespace and produces "Yourfavoriteforms"
+  // instead of "Your favorite forms". Detect that shape and inject a
+  // whitespace text node between siblings. See docs/issues/005.
   let jsx = `${pad}<${jsxTag}${classes ? ` className="${classes}"` : ""}>\n`
-  for (const child of node.children) {
-    jsx += renderJsx(child, styles, indent + 1, usedStyles, specsDir)
+  const separateWithWhitespace = isWordFragmentParent(jsxTag, node.children)
+  for (let i = 0; i < node.children.length; i++) {
+    const child = node.children[i]
+    jsx += renderJsx(child, styles, indent + 1, usedStyles, specsDir, svgContext)
+    if (separateWithWhitespace && i < node.children.length - 1) {
+      jsx += `${"  ".repeat(indent + 1)}{" "}\n`
+    }
   }
   jsx += `${pad}</${jsxTag}>\n`
   return jsx
+}
+
+const HEADING_TAGS = new Set(["h1", "h2", "h3", "h4", "h5", "h6"])
+const WORD_FRAGMENT_LEAF_TAGS = new Set(["div", "span"])
+
+function isWordFragmentParent(parentTag: string, children: TreeNode[]): boolean {
+  if (!HEADING_TAGS.has(parentTag)) return false
+  if (children.length < 2) return false
+  return children.every(child => {
+    if (!WORD_FRAGMENT_LEAF_TAGS.has(child.tag)) return false
+    if (child.children.length > 0) return false
+    if (!child.text || child.text.length === 0) return false
+    if (child.text.length > 60) return false
+    return true
+  })
 }
 
 export function mapToLocalImage(cdnUrl: string, alt: string, specsDir: string = SPECS_DIR): string {
@@ -201,19 +283,33 @@ export function mapToLocalImage(cdnUrl: string, alt: string, specsDir: string = 
     : existsSync(join(specsDir, "images.json"))
       ? join(specsDir, "images.json")
       : null
+  // Degrade gracefully when image extraction failed (e.g. extract-images
+  // SIGKILL'd by the subprocess timeout — see docs/issues/002). Without
+  // the manifest we can't map paths, but throwing here aborts the entire
+  // page's JSX generation; instead, keep the original CDN URL so the page
+  // still builds. Consumer can whitelist the CDN host in
+  // `next.config.remotePatterns`.
   if (!manifestPath) {
-    throw new Error(`Missing image manifest in ${specsDir}; cannot map ${cdnUrl}`)
+    console.warn(`[generate-jsx] Missing image manifest in ${specsDir} — falling back to CDN URL for ${cdnUrl}`)
+    return cdnUrl
   }
 
-  const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"))
+  let manifest: { sections?: Array<{ images?: Array<{ originalUrl?: string; alt?: string; localPath?: string }> }> }
+  try {
+    manifest = JSON.parse(readFileSync(manifestPath, "utf-8"))
+  } catch (err) {
+    console.warn(`[generate-jsx] Failed to parse ${manifestPath} (${(err as Error).message}) — falling back to CDN URL for ${cdnUrl}`)
+    return cdnUrl
+  }
   if (!Array.isArray(manifest.sections)) {
-    throw new Error(`Invalid image manifest in ${manifestPath}; expected sections[]`)
+    console.warn(`[generate-jsx] Invalid image manifest in ${manifestPath} (expected sections[]) — falling back to CDN URL for ${cdnUrl}`)
+    return cdnUrl
   }
 
   for (const section of manifest.sections) {
     for (const img of section.images ?? []) {
       if (img.originalUrl === cdnUrl || (alt && img.alt === alt)) {
-        return "/" + img.localPath
+        if (img.localPath) return "/" + img.localPath
       }
     }
   }
@@ -226,6 +322,30 @@ export function mapToLocalImage(cdnUrl: string, alt: string, specsDir: string = 
   return cdnUrl
 }
 
+function loadInlineSvgsByLabel(specsDir: string): Map<string, InlineSvgEntry[]> {
+  const manifestPath = existsSync(join(specsDir, "image-manifest.json"))
+    ? join(specsDir, "image-manifest.json")
+    : null
+  if (!manifestPath) return new Map()
+  let manifest: { sections?: Array<{ label?: string; inlineSvgs?: InlineSvgEntry[] }> }
+  try {
+    manifest = JSON.parse(readFileSync(manifestPath, "utf-8"))
+  } catch {
+    return new Map()
+  }
+  const map = new Map<string, InlineSvgEntry[]>()
+  for (const section of manifest.sections ?? []) {
+    if (!section.label) continue
+    if (!Array.isArray(section.inlineSvgs)) continue
+    // Strip the leading `NN-` so the lookup matches `<label>` from
+    // `<NN>-<label>.structure.md`.
+    const normalizedLabel = section.label.replace(/^\d+-/, "")
+    map.set(normalizedLabel, section.inlineSvgs)
+    map.set(section.label, section.inlineSvgs)
+  }
+  return map
+}
+
 // --- Main ---
 
 export function generateJsx(args: { specsDir?: string; outputDir?: string } = {}) {
@@ -235,6 +355,8 @@ export function generateJsx(args: { specsDir?: string; outputDir?: string } = {}
 
   const files = readdirSync(specsDir).filter(f => f.endsWith(".structure.md")).sort()
   console.log(`Generating JSX for ${files.length} sections from ${specsDir}\n`)
+
+  const inlineSvgsByLabel = loadInlineSvgsByLabel(specsDir)
 
   for (const structureFile of files) {
     const label = structureFile.replace(".structure.md", "")
@@ -254,7 +376,11 @@ export function generateJsx(args: { specsDir?: string; outputDir?: string } = {}
       console.log(`  [${label}] WARN — no styles file, generating structure only`)
     }
 
-    const jsx = renderJsx(tree, styles, 0, new Set(), specsDir)
+    const svgContext: SvgRenderContext = {
+      entries: inlineSvgsByLabel.get(label) ?? [],
+      cursor: { i: 0 },
+    }
+    const jsx = renderJsx(tree, styles, 0, new Set(), specsDir, svgContext)
 
     const outputFile = `${label}.generated.jsx`
     const output = `{/* Auto-generated from blazity.com — do not edit classes manually */}\n{/* Source: ${structureFile} + ${stylesFile} */}\n\n${jsx}`

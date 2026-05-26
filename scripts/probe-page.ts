@@ -4,6 +4,7 @@ import { join, dirname, resolve } from "path"
 import { fileURLToPath } from "url"
 import type { PlatformAdapter } from "./lib/adapter-loader.ts"
 import { detectCMP, dismissCookieBanner } from "./lib/cookie-consent.ts"
+import { installNameShim } from "./lib/playwright-eval-shim.ts"
 import { buildProbeRecommendation } from "./lib/probe-analysis.ts"
 
 const TARGET_URL = process.argv[2]
@@ -110,6 +111,12 @@ async function main() {
   const allAdapters = loadAllAdapters()
   const browser = await chromium.launch()
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  // tsx injects a `__name` esbuild helper into every `page.evaluate(...)`
+  // body it ships to the browser context. Without this shim the very first
+  // evaluate throws `ReferenceError: __name is not defined`, the probe
+  // crashes, and the worker records `matchedAdapters: []` for every URL.
+  // See docs/issues/001.
+  await installNameShim(context)
   const page = await context.newPage()
 
   // Layer 1: Capture HTTP response headers before render
@@ -121,7 +128,7 @@ async function main() {
     }
   })
 
-  await page.goto(TARGET_URL, { waitUntil: "domcontentloaded", timeout: 5000 })
+  await page.goto(TARGET_URL, { waitUntil: "domcontentloaded", timeout: 30000 })
   await page.waitForTimeout(2000)
 
   const detectedCMP = await detectCMP(page)

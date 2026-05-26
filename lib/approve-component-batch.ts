@@ -83,18 +83,25 @@ export async function approveComponentBatch(
       kind: "component",
       slugOrName: component.implementationName,
     });
+    // Components flagged `skipped-by-design` (shells + emit:skip plumbing)
+    // have no Storybook story to screenshot — capture an empty baseline so
+    // page-assembly still finds the manifest, but skip the navigation that
+    // would 404. See docs/issues/004.
+    const screenshots = component.verification === "skipped-by-design"
+      ? []
+      : await captureBaselineScreenshots({
+          paths,
+          component,
+          storybookBaseUrl: args.storybookBaseUrl ?? DEFAULT_STORYBOOK_BASE_URL,
+          browserQueue,
+          screenshotCapturer,
+        });
     const baseline = ApprovedBaselineSchema.parse({
       approvalRef: `component-batch:${report.artifactVersion}:${component.componentGroupId}`,
       kind: "component",
       capturedAt: approvedAt,
       regressionThreshold: 0.001,
-      screenshots: await captureBaselineScreenshots({
-        paths,
-        component,
-        storybookBaseUrl: args.storybookBaseUrl ?? DEFAULT_STORYBOOK_BASE_URL,
-        browserQueue,
-        screenshotCapturer,
-      }),
+      screenshots,
     });
     writeJson(baselinePath, baseline);
     baselines.push({

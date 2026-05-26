@@ -14,7 +14,10 @@ const storybookDevDependencies = {
   "@storybook/nextjs-vite": storybookVersion,
   vite: viteVersion,
 } as const;
-const legacyStorybookDependencyNames = ["@storybook/addon-essentials", "@storybook/nextjs"] as const;
+const legacyStorybookDependencyNames = [
+  "@storybook/addon-essentials",
+  "@storybook/nextjs",
+] as const;
 
 const mainTs = `import type { StorybookConfig } from "@storybook/nextjs-vite";
 
@@ -195,26 +198,45 @@ interface StorybookFileSyncResult {
 
 type StorybookDependencyMode = "upgrade-to-vite" | "preserve-custom-legacy";
 
-export function ensureStorybookScaffold(targetDir: string): StorybookScaffoldResult {
+export function ensureStorybookScaffold(
+  targetDir: string,
+): StorybookScaffoldResult {
   const storybookDir = join(targetDir, storybookDirName);
   mkdirSync(storybookDir, { recursive: true });
 
-  const mainResult = syncStorybookFile(join(storybookDir, mainFileName), mainTs, oldGeneratedMainTs);
-  const previewResult = syncStorybookFile(join(storybookDir, previewFileName), previewTs, oldGeneratedPreviewTs);
-  const pluginOwnedScaffold = mainResult.pluginOwned && previewResult.pluginOwned;
+  const mainResult = syncStorybookFile(
+    join(storybookDir, mainFileName),
+    mainTs,
+    oldGeneratedMainTs,
+  );
+  const previewResult = syncStorybookFile(
+    join(storybookDir, previewFileName),
+    previewTs,
+    oldGeneratedPreviewTs,
+  );
+  const pluginOwnedScaffold =
+    mainResult.pluginOwned && previewResult.pluginOwned;
   const filesChanged = mainResult.changed || previewResult.changed;
-  const packageJsonChanged = ensurePackageScripts(join(targetDir, "package.json"), {
-    dependencyMode:
-      !pluginOwnedScaffold && storybookFilesReferenceLegacyDependencies(storybookDir)
-        ? "preserve-custom-legacy"
-        : "upgrade-to-vite",
-    removeLegacyDependencies: pluginOwnedScaffold,
-  });
+  const packageJsonChanged = ensurePackageScripts(
+    join(targetDir, "package.json"),
+    {
+      dependencyMode:
+        !pluginOwnedScaffold &&
+        storybookFilesReferenceLegacyDependencies(storybookDir)
+          ? "preserve-custom-legacy"
+          : "upgrade-to-vite",
+      removeLegacyDependencies: pluginOwnedScaffold,
+    },
+  );
 
   return { filesChanged, packageJsonChanged };
 }
 
-function syncStorybookFile(path: string, contents: string, oldContents: string): StorybookFileSyncResult {
+function syncStorybookFile(
+  path: string,
+  contents: string,
+  oldContents: string,
+): StorybookFileSyncResult {
   if (!existsSync(path)) {
     writeFileSync(path, contents);
     return { changed: true, pluginOwned: true };
@@ -234,11 +256,16 @@ function syncStorybookFile(path: string, contents: string, oldContents: string):
 
 function ensurePackageScripts(
   packageJsonPath: string,
-  options: { dependencyMode: StorybookDependencyMode; removeLegacyDependencies: boolean },
+  options: {
+    dependencyMode: StorybookDependencyMode;
+    removeLegacyDependencies: boolean;
+  },
 ): boolean {
   const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
   const scripts = isRecord(packageJson.scripts) ? packageJson.scripts : {};
-  const devDependencies = isRecord(packageJson.devDependencies) ? packageJson.devDependencies : {};
+  const devDependencies = isRecord(packageJson.devDependencies)
+    ? packageJson.devDependencies
+    : {};
   let changed = false;
 
   if (!("storybook" in scripts) || scripts.storybook === oldStorybookScript) {
@@ -281,8 +308,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function storybookFilesReferenceLegacyDependencies(storybookDir: string): boolean {
-  return [mainFileName, previewFileName].some(fileName =>
+function storybookFilesReferenceLegacyDependencies(
+  storybookDir: string,
+): boolean {
+  return [mainFileName, previewFileName].some((fileName) =>
     storybookFileReferencesLegacyDependencies(join(storybookDir, fileName)),
   );
 }
@@ -290,5 +319,5 @@ function storybookFilesReferenceLegacyDependencies(storybookDir: string): boolea
 function storybookFileReferencesLegacyDependencies(path: string): boolean {
   if (!existsSync(path)) return false;
   const contents = readFileSync(path, "utf8");
-  return legacyStorybookDependencyNames.some(name => contents.includes(name));
+  return legacyStorybookDependencyNames.some((name) => contents.includes(name));
 }

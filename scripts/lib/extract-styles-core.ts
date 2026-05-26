@@ -386,7 +386,12 @@ export async function extractElement(
 
     return {
       tag: el.tagName.toLowerCase(),
-      className: (el.className as unknown as string)?.toString?.() || "",
+      // SVG elements expose `className` as a live `SVGAnimatedString`. Its
+      // default `.toString()` returns "[object SVGAnimatedString]", which
+      // corrupts structure.md (`svg.[object.SVGAnimatedString]`) and breaks
+      // the JSX generator. Read the `class` attribute directly so HTML and
+      // SVG nodes both produce the same plain string. See docs/issues/009.
+      className: el.getAttribute("class") ?? "",
       text: el.textContent?.trim().slice(0, 80) || "",
       role: el.getAttribute("role"),
       attrs,
@@ -487,6 +492,12 @@ export async function extractGlobalFoundation(
         color: cs.color,
         fontFamily: cs.fontFamily,
         backgroundColor: cs.backgroundColor,
+        // Many marketing sites set these to get the crisp rendering people
+        // expect from their headings on macOS. Without them the migrated
+        // page looks heavier than production. See docs/issues/007.
+        webkitFontSmoothing: (cs.getPropertyValue("-webkit-font-smoothing") || "").trim(),
+        mozOsxFontSmoothing: (cs.getPropertyValue("-moz-osx-font-smoothing") || "").trim(),
+        fontFeatureSettings: (cs.fontFeatureSettings || "").trim(),
       }
 
       const paddingGlobal = document.querySelector(paddingGlobalSel)
@@ -539,7 +550,61 @@ export async function extractGlobalFoundation(
         resets.pMarginBottom = pcs.marginBottom
       }
 
-      return { body, container, sectionPadding, spacers, resets }
+      // Heading typography per element. The DSF emitter forwards this into
+      // `--font-heading` plus per-level rules so headings stop inheriting
+      // body font on Webflow/Squarespace sites with a display face. See
+      // docs/issues/007.
+      const headings: Record<string, Record<string, string>> = {}
+      for (const tag of ["h1", "h2", "h3", "h4", "h5", "h6"]) {
+        const el = document.querySelector(tag)
+        if (!el) continue
+        const hcs = window.getComputedStyle(el)
+        headings[tag] = {
+          fontFamily: hcs.fontFamily,
+          fontSize: hcs.fontSize,
+          fontWeight: hcs.fontWeight,
+          lineHeight: hcs.lineHeight,
+          letterSpacing: hcs.letterSpacing,
+        }
+      }
+
+      // Harvest @font-face declarations from same-origin stylesheets so
+      // self-hosted fonts (Tobias, Söhne, Recoleta, …) actually load.
+      const fontFaces: Array<{
+        family: string
+        src: string
+        weight?: string
+        style?: string
+        display?: string
+        unicodeRange?: string
+      }> = []
+      const seenFontFace = new Set<string>()
+      for (const sheet of Array.from(document.styleSheets)) {
+        let rules: CSSRuleList
+        try {
+          rules = (sheet as CSSStyleSheet).cssRules
+        } catch {
+          continue
+        }
+        for (const rule of Array.from(rules)) {
+          if (rule.constructor.name !== "CSSFontFaceRule" && (rule as CSSRule).type !== 5) continue
+          const ff = rule as CSSFontFaceRule
+          const style = ff.style
+          const family = (style.getPropertyValue("font-family") || "").trim().replace(/^["']|["']$/g, "")
+          const src = (style.getPropertyValue("src") || "").trim()
+          if (!family || !src) continue
+          const weight = (style.getPropertyValue("font-weight") || "").trim() || undefined
+          const fontStyle = (style.getPropertyValue("font-style") || "").trim() || undefined
+          const display = (style.getPropertyValue("font-display") || "").trim() || undefined
+          const unicodeRange = (style.getPropertyValue("unicode-range") || "").trim() || undefined
+          const key = `${family}|${weight ?? ""}|${fontStyle ?? ""}|${unicodeRange ?? ""}`
+          if (seenFontFace.has(key)) continue
+          seenFontFace.add(key)
+          fontFaces.push({ family, src, weight, style: fontStyle, display, unicodeRange })
+        }
+      }
+
+      return { body, container, sectionPadding, spacers, resets, headings, fontFaces }
     },
     { paddingGlobalSel, containerLargeSel, sectionPaddingLargeSel, sectionPaddingMediumSel }
   )
@@ -593,7 +658,10 @@ export async function extractSectionsAtViewport(
     const sectionInfo = await handle.evaluate((node) => {
       const el = node as Element
       const rect = el.getBoundingClientRect()
-      const className = (el.className as unknown as string)?.toString?.() || ""
+      // See docs/issues/009 — SVG nodes need `getAttribute("class")` to
+      // produce a plain string. The cast keeps the same call site working
+      // for HTML elements where `className` is already a string.
+      const className = el.getAttribute("class") ?? ""
       const firstHeading = el.querySelector("h1, h2, h3")?.textContent?.trim().slice(0, 60) || ""
       const textPreview = el.textContent?.trim().slice(0, 100) || ""
       const hasVideo = el.querySelector("video") !== null

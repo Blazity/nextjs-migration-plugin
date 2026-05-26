@@ -11,7 +11,10 @@ export const ApprovedBaselineSchema = z.object({
   kind: z.enum(["component", "page"]),
   capturedAt: z.string().datetime(),
   regressionThreshold: z.number().gt(0).lte(0.05).default(0.001),
-  screenshots: z.array(ScreenshotSchema).min(1),
+  // Empty is allowed for components flagged `skipped-by-design` (shells +
+  // emit:skip plumbing) that have no Storybook story to screenshot. See
+  // docs/issues/004.
+  screenshots: z.array(ScreenshotSchema),
 }).strict();
 
 export type ApprovedBaseline = z.infer<typeof ApprovedBaselineSchema>;

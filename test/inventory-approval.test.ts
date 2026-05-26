@@ -121,11 +121,13 @@ describe("approveDraftInventory", () => {
       entries: [
         {
           ...draftInventory.entries[0],
+          emit: "render",
           implementationName: "Hero",
           filePath: "src/components/Hero.tsx",
         },
         {
           ...draftInventory.entries[1],
+          emit: "render",
           implementationName: "SiteHeader",
           filePath: "src/components/SiteHeader.tsx",
         },

@@ -34,12 +34,19 @@ export const NoteInventoryCorrectionSchema = z.object({
   note: z.string().min(1),
 }).strict();
 
+export const SetEmitInventoryCorrectionSchema = z.object({
+  type: z.literal("set-emit"),
+  componentGroupId: z.string().min(1),
+  emit: z.enum(["render", "skip"]),
+}).strict();
+
 export const InventoryCorrectionSchema = z.discriminatedUnion("type", [
   RenameInventoryCorrectionSchema,
   MergeInventoryCorrectionSchema,
   SplitInventoryCorrectionSchema,
   SetKindInventoryCorrectionSchema,
   NoteInventoryCorrectionSchema,
+  SetEmitInventoryCorrectionSchema,
 ]);
 
 export type RenameInventoryCorrection = z.infer<typeof RenameInventoryCorrectionSchema>;
@@ -47,4 +54,5 @@ export type MergeInventoryCorrection = z.infer<typeof MergeInventoryCorrectionSc
 export type SplitInventoryCorrection = z.infer<typeof SplitInventoryCorrectionSchema>;
 export type SetKindInventoryCorrection = z.infer<typeof SetKindInventoryCorrectionSchema>;
 export type NoteInventoryCorrection = z.infer<typeof NoteInventoryCorrectionSchema>;
+export type SetEmitInventoryCorrection = z.infer<typeof SetEmitInventoryCorrectionSchema>;
 export type InventoryCorrection = z.infer<typeof InventoryCorrectionSchema>;

@@ -2,7 +2,7 @@ export function sanitizeComponentName(raw: string, fallbackIndex = 0): string {
   const ascii = raw.normalize("NFKD").replace(/[̀-ͯ]/g, "");
   const parts = ascii.split(/[^A-Za-z0-9]+/).filter(Boolean);
   if (parts.length === 0) return `Component${fallbackIndex}`;
-  return parts.map(p => p[0].toUpperCase() + p.slice(1)).join("");
+  return parts.map((p) => p[0].toUpperCase() + p.slice(1)).join("");
 }
 
 export type ApprovedNameValidation =
@@ -43,7 +43,10 @@ export function escapeUnsafeLessThan(jsx: string): string {
 
 export function transformOrWrap(raw: string, name: string): string {
   if (/export\s+default\s+function\s+\w+/.test(raw)) {
-    return raw.replace(/export\s+default\s+function\s+\w+/, `export default function ${name}`);
+    return raw.replace(
+      /export\s+default\s+function\s+\w+/,
+      `export default function ${name}`,
+    );
   }
   const stripped = raw.replace(/^\s*(?:\{\/\*[\s\S]*?\*\/\}\s*)+/g, "").trim();
   const escaped = escapeUnsafeLessThan(stripped);
@@ -58,20 +61,23 @@ ${indentLines(escaped, 6)}
 `;
 }
 
-export function renderComponentModule(sources: Array<{
-  raw: string;
-  name: string;
-  exportKind: "default" | "named";
-}>): string {
+export function renderComponentModule(
+  sources: Array<{
+    raw: string;
+    name: string;
+    exportKind: "default" | "named";
+  }>,
+): string {
   const imports = new Set<string>();
   const functions: string[] = [];
   for (const source of sources) {
     const rendered = transformOrWrap(source.raw, source.name);
     const extracted = extractLeadingImports(rendered);
     for (const line of extracted.imports) imports.add(line);
-    const body = source.exportKind === "default"
-      ? extracted.body
-      : extracted.body.replace("export default function", "export function");
+    const body =
+      source.exportKind === "default"
+        ? extracted.body
+        : extracted.body.replace("export default function", "export function");
     functions.push(body.trimEnd());
   }
 
@@ -82,27 +88,65 @@ export function renderComponentModule(sources: Array<{
 export function renderComponentStories(args: {
   implementationName: string;
   sectionInstanceIds: string[];
+  /**
+   * Map of `sectionInstanceId → exportName` produced by the deduper. When
+   * absent, the renderer falls back to the legacy positional scheme
+   * (`Implementation`, `ImplementationVariant2`, …) — useful for callers
+   * that don't dedupe.
+   */
+  exportNameBySectionInstanceId?: Record<string, string>;
 }): string {
   const componentImport = `${args.implementationName}Component`;
-  const variantNames = args.sectionInstanceIds.slice(1)
-    .map((_, index) => `${args.implementationName}Variant${index + 2}`);
-  const namedImports = variantNames.length > 0
-    ? `, { ${variantNames.map(name => `${name} as ${name}Component`).join(", ")} }`
-    : "";
-  const stories = args.sectionInstanceIds.map((sectionInstanceId, index) => {
-    const storyName = index === 0
+
+  // Decide the export each section maps to. With dedup info we use it;
+  // otherwise mirror the old positional naming.
+  const map = args.exportNameBySectionInstanceId;
+  const exportForIndex = (index: number, sectionInstanceId: string): string => {
+    if (map && map[sectionInstanceId]) return map[sectionInstanceId];
+    return index === 0
       ? args.implementationName
       : `${args.implementationName}Variant${index + 1}`;
-    const storyComponent = index === 0
-      ? componentImport
-      : `${storyName}Component`;
-    return `// Section instance: ${sectionInstanceId}
-export const ${storyName}: Story = {
-  parameters: {
-    reference: {
-      sectionInstanceId: "${sectionInstanceId}",
-    },
-  },
+  };
+
+  // Distinct named exports beyond the default. Preserve insertion order so
+  // imports match the order exports appear in the component module.
+  const seenExports = new Set<string>([args.implementationName]);
+  const namedVariantExports: string[] = [];
+  args.sectionInstanceIds.forEach((sectionInstanceId, index) => {
+    const exportName = exportForIndex(index, sectionInstanceId);
+    if (seenExports.has(exportName)) return;
+    seenExports.add(exportName);
+    namedVariantExports.push(exportName);
+  });
+
+  const namedImports =
+    namedVariantExports.length > 0
+      ? `, { ${namedVariantExports.map((name) => `${name} as ${name}Component`).join(", ")} }`
+      : "";
+
+  // Deduped stories: each distinct export gets exactly one story; the
+  // story label is the export name; the comment lists every section
+  // instance that resolved to it.
+  type StoryBucket = { exportName: string; sectionInstanceIds: string[] };
+  const buckets = new Map<string, StoryBucket>();
+  args.sectionInstanceIds.forEach((sectionInstanceId, index) => {
+    const exportName = exportForIndex(index, sectionInstanceId);
+    const bucket = buckets.get(exportName) ?? {
+      exportName,
+      sectionInstanceIds: [],
+    };
+    bucket.sectionInstanceIds.push(sectionInstanceId);
+    buckets.set(exportName, bucket);
+  });
+
+  const stories = [...buckets.values()].map((bucket) => {
+    const storyComponent =
+      bucket.exportName === args.implementationName
+        ? componentImport
+        : `${bucket.exportName}Component`;
+    const instances = bucket.sectionInstanceIds.join(", ");
+    return `// Section instance${bucket.sectionInstanceIds.length > 1 ? "s" : ""}: ${instances}
+export const ${bucket.exportName}: Story = {
   render: () => <${storyComponent} />,
 };`;
   });
@@ -124,10 +168,16 @@ ${stories.join("\n\n")}
 
 function indentLines(s: string, spaces: number): string {
   const pad = " ".repeat(spaces);
-  return s.split("\n").map(line => (line.length > 0 ? pad + line : line)).join("\n");
+  return s
+    .split("\n")
+    .map((line) => (line.length > 0 ? pad + line : line))
+    .join("\n");
 }
 
-function extractLeadingImports(source: string): { imports: string[]; body: string } {
+function extractLeadingImports(source: string): {
+  imports: string[];
+  body: string;
+} {
   const imports: string[] = [];
   let body = source;
   while (body.startsWith("import ")) {
@@ -153,7 +203,9 @@ export interface ComponentFilePlan {
   memberCount: number;
 }
 
-export function planComponentFiles(args: { components: ComponentInput[] }): ComponentFilePlan[] {
+export function planComponentFiles(args: {
+  components: ComponentInput[];
+}): ComponentFilePlan[] {
   return args.components.map((c, i) => {
     const name = sanitizeComponentName(c.name, i);
     return {

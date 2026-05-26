@@ -123,7 +123,12 @@ describe("ensureStorybookScaffold", () => {
     ensureStorybookScaffold(dir);
 
     expect(readText(dir, ".storybook/main.ts")).toBe("export default { custom: true };\n");
-    expect(readText(dir, ".storybook/preview.ts")).toBe("export default {};\n");
+    // Custom preview.ts is preserved, but the globals.css import is
+    // spliced in so Storybook stories render with the migration's design
+    // tokens. See docs/issues/008.
+    expect(readText(dir, ".storybook/preview.ts")).toBe(
+      'import "../src/app/globals.css";\n\nexport default {};\n',
+    );
     expect(readPackageJson(dir)).toEqual({
       name: "target-app",
       private: true,

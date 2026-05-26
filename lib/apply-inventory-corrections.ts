@@ -71,6 +71,10 @@ function applyCorrection(entries: DraftInventoryEntry[], correction: InventoryCo
       findEntry(entries, correction.componentGroupId).notes = correction.note;
       return;
     }
+    case "set-emit": {
+      findEntry(entries, correction.componentGroupId).emit = correction.emit;
+      return;
+    }
   }
 }
 

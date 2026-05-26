@@ -45,13 +45,15 @@ describe("ApprovedBaselineSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects approved baselines without screenshots", () => {
+  it("accepts approved baselines with no screenshots (skipped-by-design components)", () => {
+    // emit:skip plumbing and shells have no Storybook story so the
+    // approval flow records an empty screenshot array. See docs/issues/004.
     const result = ApprovedBaselineSchema.safeParse({
       ...approvedBaseline,
       screenshots: [],
     });
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it("rejects baseline screenshots without usable paths or hashes", () => {
